@@ -29,7 +29,7 @@ async def on_message(message):
         desc = re.sub(r"'''", r"**", desc)
         desc = re.sub(r" \(.+?\)", r"", desc)
         desc = re.sub(r"<.+?>", r"", desc)
-        desc = re.sub(r"\[\[:Category:.+?\|(.+?)\]\]", r"\1", desc)
+        desc = re.sub(r"\[\[:Category:(.+?)\]\]", r"\1", desc)
         desc = re.sub(r"\[\[(.*?)(\|)?(?(2).*?)\]\]", r"\1", desc)
         desc = re.sub(r"{.+?}}", r"", desc)
         desc = re.sub(r"\\.", r"", desc)
