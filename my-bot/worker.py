@@ -24,6 +24,8 @@ async def on_message(message):
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
         desc = re.sub(r"'''", r"**", desc)
         desc = re.sub(r" \(.+?\)", r"", desc)
+        desc = re.sub(r"<.+?>", r"", desc)
+        desc = re.sub(r"\[\[:Category:(.+?)\]\]", r"\1", desc)
         desc = re.sub(r"\[\[(.*?)(\|)?(?(2).*?)\]\]", r"\1", desc)
         desc = re.sub(r"{.+?}}", r"", desc)
         desc = re.sub(r"\\.", r"", desc)
