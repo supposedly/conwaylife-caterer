@@ -22,16 +22,18 @@ async def on_message(message):
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + data[re.search(r'\[\[', data)+1:re.search(r'\]\]', data)-1]).text
         desc = data
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
+        
+        pgtitle = re.search(r'"title":"(.+?)",', desc).group(1)
+        
         desc = re.sub(r"'''", r"**", desc)
         desc = re.sub(r" \(.+?\)", r"", desc)
         desc = re.sub(r"<.+?>", r"", desc)
-        desc = re.sub(r"\[\[:Category:.+?\|(.+?)\]\]", r"\1", desc)
-        desc = re.sub(r"\[\[(.*?)(\|)?(?(2).*?)\]\]", r"\1", desc)
+        desc = re.sub(r"\[\[(.*?)(\|)?(?(2)(.*?))\]\]", lambda m: m.group(3) if m.group(3) else m.group(1), desc)
         desc = re.sub(r"{.+?}}", r"", desc)
         desc = re.sub(r"\\.", r"", desc)
         desc = re.sub(r"=.*", r"", desc)
         #await client.send_message(message.channel, "desc: " + desc)
-        embed = discord.Embed(title=query, description=desc, color=0x680000)
+        embed = discord.Embed(title=pgtitle, description=desc, color=0x680000)
         await client.send_message(message.channel, embed=embed)
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
