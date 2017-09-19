@@ -21,7 +21,7 @@ async def on_message(message):
         if '#REDIRECT' in data:
             query = re.search(r'\[\[(.+?)\]\]', data).group(1)
             data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
-            await client.send_message(message.channel, query)
+            await client.send_message(message.channel, '`' + query + '`')
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         desc = data
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
@@ -31,7 +31,7 @@ async def on_message(message):
         desc = re.sub(r"'''", r"**", desc)
         desc = re.sub(r" \(.+?\)", r"", desc)
         desc = re.sub(r"<.+?>", r"", desc)
-        desc = re.sub(r"\[\[.*?(\|)?(?(1)(.*?))\]\]", r"\2", desc)
+        desc = re.sub(r"\[\[(.*?)(\|)?(?(2)(.*?))\]\]", lambda m: m.group(3) if m.group(3) else m.group(1), desc)
         desc = re.sub(r"{.+?}}", r"", desc)
         desc = re.sub(r"\\.", r"", desc)
         desc = re.sub(r"=.*", r"", desc)
