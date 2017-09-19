@@ -14,8 +14,8 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.content.startswith("test"):
-        query = message.content[5:]
+    if message.content.startswith("!wiki"):
+        query = message.content[6:]
         #await client.send_message(message.channel, "copy that: " + query)
         data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         if '#REDIRECT' in data:
