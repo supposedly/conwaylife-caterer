@@ -19,7 +19,10 @@ async def on_message(message):
         #await client.send_message(message.channel, "copy that: " + query)
         data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         if '#REDIRECT' in data:
-            data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + data[re.search(r'\[\[', data)+1:re.search(r'\]\]', data)-1]).text
+            query = re.search(r'\[\[(.+?)\]\]', data).group(1)
+            data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
+            await client.send_message(message.channel, 'This redirects to `' + query + '`')
+            data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         desc = data
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
         
