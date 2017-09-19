@@ -23,8 +23,11 @@ async def on_message(message):
         desc = data
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
         desc = re.sub(r"'''", r"**", desc)
-        desc = re.sub(r"\(.+\) ", r"", desc)
+        desc = re.sub(r" \(.+?\)", r"", desc)
         desc = re.sub(r"\[\[(.*?)(\|)?(?(2).*?)\]\]", r"\1", desc)
+        desc = re.sub(r"{.+?}}", r"", desc)
+        desc = re.sub(r"\\.", r"", desc)
+        desc = re.sub(r"=.*", r"", desc)
         await client.send_message(message.channel, "desc: " + desc)
         embed = discord.Embed(title=query, description=desc, color=0x680000)
         await client.send_message(message.channel, embed=embed)
