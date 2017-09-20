@@ -50,7 +50,7 @@ async def on_message(message):
             #await client.send_message(message.channel, 'This redirects to `' + query + '`')
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
             
-        if "There is currently no text in this page." in data:
+        if "requested URL" in data:
             await client.send_message('Page "' + query + '" does not exist.')
         else:
             pgtitle = rtitle.search(data).group(1)
