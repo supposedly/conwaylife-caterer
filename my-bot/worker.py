@@ -42,7 +42,6 @@ async def on_message(message):
     
         query = message.content[6:]
         data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
-        await client.send_message(message.channel, data)
         
         if '#REDIRECT' in data:
             em.set_footer(text='(redirected from "' + query + '")')
@@ -50,7 +49,7 @@ async def on_message(message):
             data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
             
-        if "requested URL" in data:
+        if '"-1":{' in data:
             await client.send_message('Page "' + query + '" does not exist.')
         else:
             pgtitle = rtitle.search(data).group(1)
