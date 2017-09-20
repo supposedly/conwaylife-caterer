@@ -2,6 +2,7 @@ import discord
 import asyncio
 import re
 import requests
+from html import unescape
 
 def regex(txt):
     txt = re.sub(r"'''", r"**", txt)
@@ -31,14 +32,14 @@ async def on_message(message):
         data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         
         if '#REDIRECT' in data:
+            em.set_footer(text='redirected from `' + query + '`')
             query = re.search(r'\[\[(.+?)\]\]', data).group(1)
-            em.set_author(name='Redirect:')
             data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
             #await client.send_message(message.channel, 'This redirects to `' + query + '`')
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         
         pgtitle = re.search(r'"title":"(.+?)",', data).group(1)
-        desc = regex(data)
+        desc = unescape(regex(data))
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
         
         em.title = pgtitle
