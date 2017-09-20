@@ -37,7 +37,7 @@ async def on_message(message):
         pgtitle = re.search(r'"title":"(.+?)",', data).group(1)
         data = regex(data)
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
-        em.add_field(title=pgtitle, url="http://conwaylife.com/wiki/"+query.replace(" ", "_"), description=desc, color=0x680000)
+        em.add_field(title=pgtitle, url="http://conwaylife.com/wiki/"+query.replace(" ", "_"), description=data, color=0x680000)
         await client.send_message(message.channel, embed=em)
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
