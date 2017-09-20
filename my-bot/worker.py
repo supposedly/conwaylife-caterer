@@ -50,7 +50,7 @@ async def on_message(message):
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
             
         if '"-1":{' in data:
-            await client.send_message('Page "' + query + '" does not exist.')
+            await client.send_message(message.channel, 'Page "' + query + '" does not exist.')
         else:
             pgtitle = rtitle.search(data).group(1)
             desc = unescape(regex(data))
