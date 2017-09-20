@@ -4,14 +4,26 @@ import re
 import requests
 from html import unescape
 
+rbold = re.compile(r"'''")
+rparens = re.compile(r" \(.+?\)")
+rtags = re.compile(r"<.+?>")
+rlinks = re.compile(r"\[\[(.*?)(\|)?(?(2)(.*?))\]\]")
+rformatting = re.compile(r"{.+?}}")
+rctrlchars = re.compile(r"\\.")
+#rfirstheader = re.compile(r"=.*")
+rfirstpbreak = re.compile(r"\\n\\n.*")
+
+rtitle = re.compile(r'"title":"(.+?)",')
+
 def regex(txt):
-    txt = re.sub(r"'''", r"**", txt)
-    txt = re.sub(r" \(.+?\)", r"", txt)
-    txt = re.sub(r"<.+?>", r"", txt)
-    txt = re.sub(r"\[\[(.*?)(\|)?(?(2)(.*?))\]\]", lambda m: m.group(3) if m.group(3) else m.group(1), txt)
-    txt = re.sub(r"{.+?}}", r"", txt)
-    txt = re.sub(r"\\.", r"", txt)
-    txt = re.sub(r"=.*", r"", txt)
+    txt = rbold.sub('**', txt)
+    txt = rparens.sub('', txt)
+    txt = rtags.sub('', txt)
+    txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
+    txt = rformatting.sub('', txt)
+    txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
+    txt = rctrlchars.sub('', txt)
+#   txt = rfirstheader.sub('', txt)
     return txt
 
 client = discord.Client()
@@ -32,13 +44,13 @@ async def on_message(message):
         data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         
         if '#REDIRECT' in data:
-            em.set_footer(text='redirected from `' + query + '`')
+            em.set_footer(text='(redirected from "' + query + '")')
             query = re.search(r'\[\[(.+?)\]\]', data).group(1)
             data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
             #await client.send_message(message.channel, 'This redirects to `' + query + '`')
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         
-        pgtitle = re.search(r'"title":"(.+?)",', data).group(1)
+        pgtitle = rtitle.search(data).group(1)
         desc = unescape(regex(data))
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
         
