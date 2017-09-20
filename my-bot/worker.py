@@ -26,18 +26,26 @@ async def on_ready():
 async def on_message(message):
     em = discord.Embed()
     if message.content.startswith("!wiki"):
+    
         query = message.content[6:]
         data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
+        
         if '#REDIRECT' in data:
             query = re.search(r'\[\[(.+?)\]\]', data).group(1)
             em.set_author(name='Redirect:')
             data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
             #await client.send_message(message.channel, 'This redirects to `' + query + '`')
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
+        
         pgtitle = re.search(r'"title":"(.+?)",', data).group(1)
         data = regex(data)
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
-        em.add_field(title=pgtitle, url="http://conwaylife.com/wiki/"+query.replace(" ", "_"), description=data, color=0x680000)
+        
+        em.title = pgtitle
+        em.url = "http://conwaylife.com/wiki/"+query.replace(" ", "_")
+        em.description = data
+        em.color = 0x680000
+        
         await client.send_message(message.channel, embed=em)
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
