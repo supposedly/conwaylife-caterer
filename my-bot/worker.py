@@ -24,7 +24,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-em = discord.Embed()
+    em = discord.Embed()
     if message.content.startswith("!wiki"):
         query = message.content[6:]
         #await client.send_message(message.channel, "copy that: " + query)
