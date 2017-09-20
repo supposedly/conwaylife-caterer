@@ -16,12 +16,12 @@ rfirstpbreak = re.compile(r"\\n\\n.*")
 rtitle = re.compile(r'"title":"(.+?)",')
 
 def regex(txt):
+    txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
     txt = rbold.sub('**', txt)
     txt = rparens.sub('', txt)
     txt = rtags.sub('', txt)
     txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
     txt = rformatting.sub('', txt)
-    txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
     txt = rctrlchars.sub('', txt)
 #   txt = rfirstheader.sub('', txt)
     return txt
