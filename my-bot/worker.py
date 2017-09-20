@@ -11,7 +11,7 @@ def regex(desc):
     desc = re.sub(r"{.+?}}", r"", desc)
     desc = re.sub(r"\\.", r"", desc)
     desc = re.sub(r"=.*", r"", desc)
-return desc
+    return desc
 
 client = discord.Client()
 
