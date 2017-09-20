@@ -27,18 +27,16 @@ async def on_message(message):
     em = discord.Embed()
     if message.content.startswith("!wiki"):
         query = message.content[6:]
-        #await client.send_message(message.channel, "copy that: " + query)
         data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         if '#REDIRECT' in data:
             query = re.search(r'\[\[(.+?)\]\]', data).group(1)
             em.set_author(name='Redirect:')
             data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
-            await client.send_message(message.channel, 'This redirects to `' + query + '`')
+            #await client.send_message(message.channel, 'This redirects to `' + query + '`')
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         data = regex(data)
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
-        pgtitle = re.search(r'"title":"(.+?)",', desc).group(1)
-        #await client.send_message(message.channel, "desc: " + desc)
+        pgtitle = re.search(r'"title":"(.+?)",', data).group(1)
         em.add_field(title=pgtitle, url="http://conwaylife.com/wiki/"+query.replace(" ", "_"), description=desc, color=0x680000)
         await client.send_message(message.channel, embed=em)
 
