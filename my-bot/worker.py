@@ -49,16 +49,19 @@ async def on_message(message):
             data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
             #await client.send_message(message.channel, 'This redirects to `' + query + '`')
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
-        
-        pgtitle = rtitle.search(data).group(1)
-        desc = unescape(regex(data))
-        data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
-        
-        em.title = pgtitle
-        em.url = "http://conwaylife.com/wiki/"+query.replace(" ", "_")
-        em.description = desc
-        em.color = 0x680000
-        
-        await client.send_message(message.channel, embed=em)
+            
+        if "There is currently no text in this page." in data:
+            await client.send_message('Page "' + query + '" does not exist.')
+        else:
+            pgtitle = rtitle.search(data).group(1)
+            desc = unescape(regex(data))
+            data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
+            
+            em.title = pgtitle
+            em.url = "http://conwaylife.com/wiki/"+query.replace(" ", "_")
+            em.description = desc
+            em.color = 0x680000
+            
+            await client.send_message(message.channel, embed=em)
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
