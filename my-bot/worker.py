@@ -3,15 +3,15 @@ import asyncio
 import re
 import requests
 
-def regex(desc):
-    desc = re.sub(r"'''", r"**", desc)
-    desc = re.sub(r" \(.+?\)", r"", desc)
-    desc = re.sub(r"<.+?>", r"", desc)
-    desc = re.sub(r"\[\[(.*?)(\|)?(?(2)(.*?))\]\]", lambda m: m.group(3) if m.group(3) else m.group(1), desc)
-    desc = re.sub(r"{.+?}}", r"", desc)
-    desc = re.sub(r"\\.", r"", desc)
-    desc = re.sub(r"=.*", r"", desc)
-    return desc
+def regex(txt):
+    txt = re.sub(r"'''", r"**", txt)
+    txt = re.sub(r" \(.+?\)", r"", txt)
+    txt = re.sub(r"<.+?>", r"", txt)
+    txt = re.sub(r"\[\[(.*?)(\|)?(?(2)(.*?))\]\]", lambda m: m.group(3) if m.group(3) else m.group(1), txt)
+    txt = re.sub(r"{.+?}}", r"", txt)
+    txt = re.sub(r"\\.", r"", txt)
+    txt = re.sub(r"=.*", r"", txt)
+    return txt
 
 client = discord.Client()
 
@@ -38,12 +38,12 @@ async def on_message(message):
             data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles="+query).text
         
         pgtitle = re.search(r'"title":"(.+?)",', data).group(1)
-        data = regex(data)
+        desc = regex(data)
         data = requests.post(url='http://conwaylife.com/w/api.php', headers={'Connection':'close'})
         
         em.title = pgtitle
         em.url = "http://conwaylife.com/wiki/"+query.replace(" ", "_")
-        em.description = data
+        em.description = desc
         em.color = 0x680000
         
         await client.send_message(message.channel, embed=em)
