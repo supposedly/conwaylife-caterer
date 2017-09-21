@@ -53,6 +53,8 @@ async def on_message(message):
             if pgimg:
                 images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text
                 pgimg = rfileurl.search(images).group(1)
+                print(pgimg)
+                print(images)
                 em.set_image(pgimg)
             
             data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
