@@ -46,32 +46,32 @@ async def on_message(message):
         query = message.content[6:]
         
         with requests.Session() as rqst:
-            images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles=" + query).text
-            pgimg = rgif.search(images).group(0)
-            if not pgimg:
-                pgimg = min(rimage.findall(images), key = len)
-            if pgimg:
-                images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text
-                pgimg = rfileurl.search(images).group(1)
-                em.set_thumbnail(url=pgimg)
-            
             data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
-            if '#REDIRECT' in data:
+            
+            if '"-1":{' in data:
+                await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
+            elif '#REDIRECT' in data:
                 em.set_footer(text='(redirected from "' + query + '")')
                 query = rredirect.search(data).group(1)
                 data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
-        
-        if '"-1":{' in data:
-            await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
-        else:
-            pgtitle = rtitle.search(data).group(1)
-            desc = unescape(regex(data))
+            else:
+                images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles=" + query).text
+                pgimg = rgif.search(images).group(0)
+                if not pgimg:
+                    pgimg = min(rimage.findall(images), key = len)
+                if pgimg:
+                    images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text
+                    pgimg = rfileurl.search(images).group(1)
+                    em.set_thumbnail(url=pgimg)
+                    
+                pgtitle = rtitle.search(data).group(1)
+                desc = unescape(regex(data))
             
-            em.title = pgtitle
-            em.url = "http://conwaylife.com/wiki/" + query.replace(" ", "_")
-            em.description = desc
-            em.color = 0x680000
+                em.title = pgtitle
+                em.url = "http://conwaylife.com/wiki/" + query.replace(" ", "_")
+                em.description = desc
+                em.color = 0x680000
             
-            await client.send_message(message.channel, embed=em)
+                await client.send_message(message.channel, embed=em)
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
