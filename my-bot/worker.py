@@ -14,7 +14,7 @@ rctrlchars = re.compile(r"\\.")
 rfirstpbreak = re.compile(r"\\n\\n.*")
 rredirect = re.compile(r"\[\[(.+?)\]\]")
 rtitle = re.compile(r'"title":.+?"')
-rfinal = re.compile(r"^.*?[^ ](?=(\*\*)?[A-Z])")
+rfinal = re.compile(r"[(^.*?[^ ](?=(\*\*)?[A-Z]))\[\{\}\]]")
 
 rtitle = re.compile(r'"title":"(.+?)",')
 rgif = re.compile(r"File[^F]+?\.gif")
