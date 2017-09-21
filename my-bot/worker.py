@@ -21,11 +21,11 @@ rfileurl = re.compile(r'"url":"(.+?)"')
 
 def regex(txt):
     txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
+    txt = rformatting.sub('', txt)
     txt = rbold.sub('**', txt)
     txt = rparens.sub('', txt)
     txt = rtags.sub('', txt)
     txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
-    txt = rformatting.sub('', txt)
     txt = rctrlchars.sub('', txt)
 #   txt = rfirstheader.sub('', txt)
     return txt
@@ -51,7 +51,6 @@ async def on_message(message):
             if '"-1":{' in data:
                 await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
             else:
-            
                 if '#REDIRECT' in data:
                     em.set_footer(text='(redirected from "' + query + '")')
                     query = rredirect.search(data).group(1)
