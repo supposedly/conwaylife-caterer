@@ -20,8 +20,8 @@ rimage = re.compile(r"File[^F]+?\.png")
 rfileurl = re.compile(r'"url":"(.+?)"')
 
 def regex(txt):
-    txt = rformatting.sub('', txt)
     txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
+    txt = rformatting.sub('', txt)
     txt = rbold.sub('**', txt)
     txt = rparens.sub('', txt)
     txt = rtags.sub('', txt)
