@@ -53,7 +53,7 @@ async def on_message(message):
             if pgimg:
                 images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text
                 pgimg = rfileurl.search(images).group(1)
-                em.set_image(url=pgimg)
+                em.set_thumbnail(url=pgimg)
             
             data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
             if '#REDIRECT' in data:
