@@ -50,11 +50,13 @@ async def on_message(message):
             
             if '"-1":{' in data:
                 await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
-            elif '#REDIRECT' in data:
-                em.set_footer(text='(redirected from "' + query + '")')
-                query = rredirect.search(data).group(1)
-                data = requests.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
             else:
+            
+                if '#REDIRECT' in data:
+                    em.set_footer(text='(redirected from "' + query + '")')
+                    query = rredirect.search(data).group(1)
+                    data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
+                    
                 images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles=" + query).text
                 pgimg = rgif.search(images)
                 pgimg = (pgimg.group(0) if pgimg else min(rimage.findall(images), key = len))
