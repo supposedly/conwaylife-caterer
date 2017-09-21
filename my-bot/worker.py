@@ -59,7 +59,8 @@ async def on_message(message):
                     
                 images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles=" + query).text
                 pgimg = rgif.search(images)
-                pgimg = (pgimg.group(0) if pgimg else min(rimage.findall(images), key = len))
+                find = rimage.findall(images)
+                pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else False))
                 if pgimg:
                     images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text
                     pgimg = rfileurl.search(images).group(1)
