@@ -68,7 +68,7 @@ async def on_message(message):
                 pgimg = rgif.search(images)
                 find = rimage.findall(images)
                 pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else False))
-                if pgimg:
+                if pgimg and pgimg is not None:
                     images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text
                     pgimg = rfileurl.search(images).group(1)
                     em.set_thumbnail(url=pgimg)
@@ -84,3 +84,4 @@ async def on_message(message):
                 await client.send_message(message.channel, embed=em)
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
+
