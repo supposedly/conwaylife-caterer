@@ -6,7 +6,7 @@ from html import unescape
 
 rbold = re.compile(r"'''")
 rparens = re.compile(r" \(.+?\)")
-rtags = re.compile(r"<.+?>")
+rrefs = re.compile(r"<ref>.*?</ref>")
 rlinks = re.compile(r"\[\[(.*?)(\|)?(?(2)(.*?))\]\]")
 rformatting = re.compile(r"{.+?}}")
 rqualifiers = re.compile(r'"[a-zA-Z]*?":.*?".*?"')
@@ -27,7 +27,7 @@ def regex(txt):
     txt = rformatting.sub('', txt)
     txt = rbold.sub('**', txt)
     txt = rparens.sub('', txt)
-    txt = rtags.sub('', txt)
+    txt = rrefs.sub('', txt)
     txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
     txt = rctrlchars.sub('', txt)
     txt = rqualifiers.sub('', txt)
