@@ -39,7 +39,7 @@ def regex(txt):
         txt = '**' + txt
     return txt
 
-def regpage(data, query, rqst):
+def regpage(data, query, rqst, em):
     images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles=" + query).text
     pgimg = rgif.search(images)
     find = rimage.findall(images)
@@ -93,7 +93,7 @@ async def on_message(message):
                 if "(disambiguation)" in data:
                     disambig = 1
                 
-                regpage(data, query, rqst)            
+                regpage(data, query, rqst, em)            
                 await client.send_message(message.channel, embed=em)
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
