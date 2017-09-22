@@ -33,6 +33,9 @@ def regex(txt):
     txt = rqualifiers.sub('', txt)
     txt = rfinal.sub('', txt + ']')
 #   txt = rfirstheader.sub('', txt)
+
+    fixbold = txt.find(' ')
+    txt = ('**' if txt[fixbold-2:fixbold-1] = '**' else '') + txt
     return txt
 
 client = discord.Client()
