@@ -35,7 +35,7 @@ def regex(txt):
 #   txt = rfirstheader.sub('', txt)
 
     fixbold = txt.find('**')
-    if txt[fixbold+2] == ' ' or txt[fixbold+2] == ','
+    if txt[fixbold+2] == ' ' or txt[fixbold+2] == ',':
         txt = '**' + txt
     return txt
 
