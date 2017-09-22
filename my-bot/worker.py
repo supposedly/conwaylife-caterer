@@ -35,7 +35,7 @@ def regex(txt):
 #   txt = rfirstheader.sub('', txt)
 
     fixbold = txt.find('**')
-    txt = ('**' if txt[fixbold+2] == ' ' else '') + txt
+    txt = ('**' if txt[fixbold+2] == ' ' or ',' else '') + txt
     return txt
 
 client = discord.Client()
@@ -68,10 +68,12 @@ async def on_message(message):
                 pgimg = rgif.search(images)
                 find = rimage.findall(images)
                 pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else False))
-                if pgimg and pgimg is not None:
+                if pgimg:
                     images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text
-                    pgimg = rfileurl.search(images).group(1)
-                    em.set_thumbnail(url=pgimg)
+                    pgimg = rfileurl.search(images)
+                    if pgimg:
+                        pgimg = pgimg.group(1)
+                        em.set_thumbnail(url=pgimg)
                     
                 pgtitle = rtitle.search(data).group(1)
                 desc = unescape(regex(data))
