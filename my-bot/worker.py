@@ -50,16 +50,6 @@ def regex(txt):
         txt = '**' + txt
     return txt
 
-def disambigregex(txt):
-    txt = rformatting.sub('', txt)
-    txt = rrefs.sub('', txt)
-    txt = txt.replace('* ', '')
-    txt = rlinksb.sub(lambda m: '**' + (m.group(3) if m.group(3) else m.group(1)) + '**', txt)
-    txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
-    txt = rfinal.sub('', txt)
-    links = rdisamb.findall(txt)
-    return txt
-
 def regpage(data, query, rqst, em):
     images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles=" + query).text
     pgimg = rgif.search(images)
@@ -78,6 +68,19 @@ def regpage(data, query, rqst, em):
     em.url = "http://conwaylife.com/wiki/" + pgtitle.replace(" ", "_")
     em.description = desc
     em.color = 0x680000
+
+def disambigregex(txt):
+    txt = rformatting.sub('', txt)
+    txt = rrefs.sub('', txt)
+    txt = txt.replace('* ', '')
+    txt = rlinksb.sub(lambda m: '**' + (m.group(3) if m.group(3) else m.group(1)) + '**', txt)
+    print(txt)
+    txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
+    print(txt)
+    txt = rfinal.sub('', txt)
+    links = rdisamb.findall(txt)
+    print(links)
+    return txt
 
 def disambig(data):
     pgtitle = rtitle.search(data).group(1)
