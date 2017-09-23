@@ -27,9 +27,9 @@ rdisamb = re.compile(r"(?<=\*\*).+(?=\*\*)")
 rlinksb = re.compile(r"^\[\[(.*?)(\|)?(?(2)(.*?))\]\]", re.M)
 
 numbers_ft = [':one:', ':two:', ':three:', ':four:', ':five:', ':six:', ':seven:', ':eight:', ':nine:']
-numbers_fu = ['\x31\xE2\x83\xA3', '\x32\xE2\x83\xA3', '\x33\xE2\x83\xA3', '\x34\xE2\x83\xA3', '\x35\xE2\x83\xA3', '\x36\xE2\x83\xA3', '\x37\xE2\x83\xA3', '\x38\xE2\x83\xA3', '\x39\xE2\x83\xA3']
+numbers_fu = [u'\U003120E3', u'\U003220E3', u'\U003320E3', u'\U003420E3', u'\U003520E3', u'\U003620E3', u'\U003720E3', u'\U003820E3', u'\U003920E3']
 #numbers_rt = {':one:': 1, ':two:': 2, ':three:': 3, ':four:': 4, ':five:': 5, ':six:': 6, ':seven:': 7, ':eight:': 8, ':nine:': 9}
-numbers_ru = {'\x31\xE2\x83\xA3': 1, '\x32\xE2\x83\xA3': 2, '\x33\xE2\x83\xA3': 3, '\x34\xE2\x83\xA3': 4, '\x35\xE2\x83\xA3': 5, '\x36\xE2\x83\xA3': 6, '\x37\xE2\x83\xA3': 7, '\x38\xE2\x83\xA3': 8, '\x39\xE2\x83\xA3': 9}
+numbers_ru = {u'\U003120E3': 1, u'\U003120E3': 2, u'\U003320E3': 3, u'\U003420E3': 4, u'\U003520E3': 5, u'\U003620E3': 6, u'\U003720E3': 7, u'\U003820E3': 8, u'\U003920E3': 9}
 
 links = []
 
