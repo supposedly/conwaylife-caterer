@@ -112,11 +112,10 @@ async def on_message(message):
                 print("(disambiguation)" in data)
                 if "(disambiguation)" in data:
                     edit = True
-                    global msg
-                    msg = disambig(data)
+                    emb = disambig(data)
+                    msg = await client.send_message(message.channel, embed=emb)
                     for i in range(len(links)):
                         add_reaction(msg, numbers_ft[i])
-                    msg = await client.send_message(message.channel, embed = disambig(data))
                     react = await client.wait_for_reaction(numbers_fu, message=msg)
                     query = links[numbers_ru[react.reaction.emoji]]
                     data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
