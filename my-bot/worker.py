@@ -16,7 +16,7 @@ rctrlchars = re.compile(r"\\.")
 rfirstpbreak = re.compile(r"\\n\\n.*")
 rredirect = re.compile(r"\[\[(.+?)\]\]")
 #rtitle = re.compile(r'"title":.+?"')
-rfinal = re.compile(r"^.*?\S(?=(?:\*\*)?[A-Z])|[\[{}\]]")
+rfinal = re.compile(r'^.*?\S(?=(?:\*\*)?[A-Z])|[\[{}\]"]')
 
 rtitle = re.compile(r'"title":"(.+?)",')
 rgif = re.compile(r"File[^F]+?\.gif")
@@ -110,11 +110,11 @@ async def on_message(message):
             if '"-1":{' in data:
                 await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
             else:
-                print("(disambiguation)" in data)
                 if "(disambiguation)" in data:
                     edit = True
                     emb = disambig(data)
                     msg = await client.send_message(message.channel, embed=emb)
+                    print(links)
                     for i in range(len(links)):
                         add_reaction(msg, numbers_ft[i])
                     react = await client.wait_for_reaction(numbers_fu, message=msg)
