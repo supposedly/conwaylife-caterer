@@ -24,7 +24,7 @@ rimage = re.compile(r"File[^F]+?\.png")
 rfileurl = re.compile(r'"url":"(.+?)"')
 
 rdisamb = re.compile(r"(?<=\*\*).+(?=\*\*)")
-rlinksb = re.compile(r"^\[\[(.*?)(\|)?(?(2)(.*?))\]\]", re.M)
+rlinksb = re.compile(r"(?<=\n)\[\[(.*?)(\|)?(?(2)(.*?))\]\]", re.M)
 
 numbers_ft = [':one:', ':two:', ':three:', ':four:', ':five:', ':six:', ':seven:', ':eight:', ':nine:']
 numbers_fu = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
