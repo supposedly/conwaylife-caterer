@@ -27,9 +27,9 @@ rdisamb = re.compile(r"(?<=\*\*).+(?=\*\*)")
 rlinksb = re.compile(r"^\[\[(.*?)(\|)?(?(2)(.*?))\]\]", re.M)
 
 numbers_ft = [':one:', ':two:', ':three:', ':four:', ':five:', ':six:', ':seven:', ':eight:', ':nine:']
-numbers_fu = [u'\U003120E3', u'\U003220E3', u'\U003320E3', u'\U003420E3', u'\U003520E3', u'\U003620E3', u'\U003720E3', u'\U003820E3', u'\U003920E3']
+numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
 #numbers_rt = {':one:': 1, ':two:': 2, ':three:': 3, ':four:': 4, ':five:': 5, ':six:': 6, ':seven:': 7, ':eight:': 8, ':nine:': 9}
-numbers_ru = {u'\U003120E3': 1, u'\U003120E3': 2, u'\U003320E3': 3, u'\U003420E3': 4, u'\U003520E3': 5, u'\U003620E3': 6, u'\U003720E3': 7, u'\U003820E3': 8, u'\U003920E3': 9}
+numbers_ru = {u'\u0031\u20E3': 1, u'\u0031\u20E3': 2, u'\u0033\u20E3': 3, u'\u0034\u20E3': 4, u'\u0035\u20E3': 5, u'\u0036\u20E3': 6, u'\u0037\u20E3': 7, u'\u0038\u20E3': 8, u'\u0039\u20E3': 9}
 
 links = []
 
