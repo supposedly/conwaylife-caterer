@@ -124,8 +124,11 @@ async def on_message(message):
                     query = links[numbers_ru[react.reaction.emoji]]
                     data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
                 
-                regpage(data, query, rqst, em)            
-                eval('await client.' + ('edit_message(msg' if edit else 'send_message(message.channel') + ', embed=em)')
+                regpage(data, query, rqst, em)
+                if edit:
+                    await client.edit_message(msg, embed=em)
+                else:
+                    await client.send_message(message.channel, embed=em)
 
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
