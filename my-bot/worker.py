@@ -78,7 +78,7 @@ def regpage(data, query, rqst, em):
     em.description = desc
     em.color = 0x680000
 
-async def disambig(data):
+def disambig(data):
     pgtitle = rtitle.search(data).group(1)
     desc = disambigregex(data)
     return discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc, color=0x680000)
