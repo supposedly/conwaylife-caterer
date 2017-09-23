@@ -128,6 +128,7 @@ async def on_message(message):
                 regpage(data, query, rqst, em)
                 if edit:
                     await client.edit_message(msg, embed=em)
+                    await client.clear_reactions(msg)
                 else:
                     await client.send_message(message.channel, embed=em)
 
