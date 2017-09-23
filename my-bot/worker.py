@@ -3,6 +3,7 @@ import asyncio
 import re
 import requests
 from html import unescape
+from collections import namedtuple
 
 rbold = re.compile(r"'''")
 rparens = re.compile(r" \(.+?\)")
@@ -22,6 +23,13 @@ rgif = re.compile(r"File[^F]+?\.gif")
 rimage = re.compile(r"File[^F]+?\.png")
 rfileurl = re.compile(r'"url":"(.+?)"')
 
+rdisamb = re.compile(r"(?<=\*\*).+(?=\*\*)")
+
+numbers_ft = [':one:', ':two:', ':three:', ':four:', ':five:', ':six:', ':seven:', ':eight:', ':nine:']
+numbers_fu = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
+#numbers_rt = {':one:': 1, ':two:': 2, ':three:': 3, ':four:': 4, ':five:': 5, ':six:': 6, ':seven:': 7, ':eight:': 8, ':nine:': 9}
+numbers_ru = {'1️⃣': 1, '2️⃣': 2, '3️⃣': 3, '4️⃣': 4, '5️⃣': 5, '6️⃣': 6, '7️⃣': 7, '8️⃣': 8, '9️⃣': 9}
+
 def regex(txt):
     txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
     txt = rformatting.sub('', txt)
@@ -39,6 +47,17 @@ def regex(txt):
         txt = '**' + txt
     return txt
 
+def disambigregex(txt):
+    txt = rformatting.sub('', txt)
+    txt = rrefs.sub('', txt)
+    txt = txt.replace('* ', '')
+    txt = rlinksb.sub(lambda m: '**' + (m.group(3) if m.group(3) else m.group(1)) + '**', txt)
+    txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
+    txt = rfinal.sub('', txt)
+    global links
+    links = rdisamb.findall(txt)
+    return txt
+
 def regpage(data, query, rqst, em):
     images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles=" + query).text
     pgimg = rgif.search(images)
@@ -54,15 +73,15 @@ def regpage(data, query, rqst, em):
     desc = unescape(regex(data))
 
     em.title = pgtitle
-    em.url = "http://conwaylife.com/wiki/" + query.replace(" ", "_")
+    em.url = "http://conwaylife.com/wiki/" + pgtitle.replace(" ", "_")
     em.description = desc
     em.color = 0x680000
 
-def disambiguation():
-    return
-    
-def reactions():
-    return
+def disambig(data):
+    pgtitle = rtitle.search(data).group(1)
+    desc = disambigregex(data)
+    emb = discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc, color=0x680000)
+    return await client.send_message(message.channel, embed=emb)
 
 client = discord.Client()
 
@@ -77,7 +96,7 @@ async def on_ready():
 async def on_message(message):
     if message.content.startswith("!wiki"):
         em = discord.Embed()
-        disambig = 0
+        edit = False
         query = message.content[6:]
         with requests.Session() as rqst:
             data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
@@ -91,9 +110,17 @@ async def on_message(message):
                 await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
             else:
                 if "(disambiguation)" in data:
-                    disambig = 1
+                    edit = True
+                    global msg
+                    msg = disambig(data)
+                    for i in range(len(links)):
+                        add_reaction(msg, numbers_ft[i])
+                    react = await client.wait_for_reaction(numbers_fu, message=msg)
+                    query = links[numbers_ru[react.reaction.emoji]]
+                    data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
                 
                 regpage(data, query, rqst, em)            
-                await client.send_message(message.channel, embed=em)
+                eval('await client.' + ('edit_message(msg' if edit else 'send_message(message.channel') + ', embed=em)')
+
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
