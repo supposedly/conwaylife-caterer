@@ -74,18 +74,15 @@ def disambigregex(txt):
     txt = rrefs.sub('', txt)
     txt = txt.replace('* ', '')
     txt = rlinksb.sub(lambda m: '**' + (m.group(3) if m.group(3) else m.group(1)) + '**', txt)
-    print(txt)
     txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
-    print(txt)
     txt = rfinal.sub('', txt)
     links = rdisamb.findall(txt)
-    print(links)
-    return txt
+    return (txt, links)
 
 def disambig(data):
     pgtitle = rtitle.search(data).group(1)
-    desc = disambigregex(data)
-    return discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc, color=0x680000)
+    desc_links = disambigregex(data)
+    return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0x680000), desc_links[1])
 
 client = discord.Client()
 
@@ -117,6 +114,8 @@ async def on_message(message):
                     edit = True
                     data = data.replace(r'\n', '\n')
                     emb = disambig(data)
+                    links = emb[1]
+                    emb = emb[0]
                     msg = await client.send_message(message.channel, embed=emb)
                     print(links)
                     for i in range(len(links)):
