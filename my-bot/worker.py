@@ -110,6 +110,7 @@ async def on_message(message):
             if '"-1":{' in data:
                 await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
             else:
+                print("(disambiguation)" in data)
                 if "(disambiguation)" in data:
                     edit = True
                     global msg
