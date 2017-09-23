@@ -77,12 +77,10 @@ def regpage(data, query, rqst, em):
     em.description = desc
     em.color = 0x680000
 
-def disambig(data):
+async def disambig(data):
     pgtitle = rtitle.search(data).group(1)
     desc = disambigregex(data)
-    emb = discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc, color=0x680000)
-    rtn = await client.send_message(message.channel, embed=emb)
-    return rtn
+    return discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc, color=0x680000)
 
 client = discord.Client()
 
@@ -117,6 +115,7 @@ async def on_message(message):
                     msg = disambig(data)
                     for i in range(len(links)):
                         add_reaction(msg, numbers_ft[i])
+                    msg = await client.send_message(message.channel, embed = disambig(data))
                     react = await client.wait_for_reaction(numbers_fu, message=msg)
                     query = links[numbers_ru[react.reaction.emoji]]
                     data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
