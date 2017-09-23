@@ -81,7 +81,8 @@ def disambig(data):
     pgtitle = rtitle.search(data).group(1)
     desc = disambigregex(data)
     emb = discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc, color=0x680000)
-    return await client.send_message(message.channel, embed=emb)
+    rtn = await client.send_message(message.channel, embed=emb)
+    return rtn
 
 client = discord.Client()
 
