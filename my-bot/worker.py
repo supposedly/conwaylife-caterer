@@ -30,6 +30,8 @@ numbers_fu = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', 
 #numbers_rt = {':one:': 1, ':two:': 2, ':three:': 3, ':four:': 4, ':five:': 5, ':six:': 6, ':seven:': 7, ':eight:': 8, ':nine:': 9}
 numbers_ru = {'1️⃣': 1, '2️⃣': 2, '3️⃣': 3, '4️⃣': 4, '5️⃣': 5, '6️⃣': 6, '7️⃣': 7, '8️⃣': 8, '9️⃣': 9}
 
+links = []
+
 def regex(txt):
     txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
     txt = rformatting.sub('', txt)
@@ -54,7 +56,6 @@ def disambigregex(txt):
     txt = rlinksb.sub(lambda m: '**' + (m.group(3) if m.group(3) else m.group(1)) + '**', txt)
     txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
     txt = rfinal.sub('', txt)
-    global links
     links = rdisamb.findall(txt)
     return txt
 
