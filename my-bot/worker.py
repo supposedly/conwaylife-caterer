@@ -119,8 +119,11 @@ async def on_message(message):
                     msg = await client.send_message(message.channel, embed=emb)
                     for i in range(len(links)):
                         await client.add_reaction(msg, numbers_fu[i])
+                    pass
                     react = await client.wait_for_reaction(numbers_fu, message=msg)
                     query = links[numbers_ru[react.reaction.emoji]]
+                    if '#' in query:
+                        query = query[:query.find('#')-1]
                     data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
                 
                 regpage(data, query, rqst, em)
