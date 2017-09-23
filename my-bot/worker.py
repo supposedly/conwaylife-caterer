@@ -29,7 +29,7 @@ rlinksb = re.compile(r"^\[\[(.*?)(\|)?(?(2)(.*?))\]\]", re.M)
 numbers_ft = [':one:', ':two:', ':three:', ':four:', ':five:', ':six:', ':seven:', ':eight:', ':nine:']
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
 #numbers_rt = {':one:': 1, ':two:': 2, ':three:': 3, ':four:': 4, ':five:': 5, ':six:': 6, ':seven:': 7, ':eight:': 8, ':nine:': 9}
-numbers_ru = {u'\u0031\u20E3': 1, u'\u0032\u20E3': 2, u'\u0033\u20E3': 3, u'\u0034\u20E3': 4, u'\u0035\u20E3': 5, u'\u0036\u20E3': 6, u'\u0037\u20E3': 7, u'\u0038\u20E3': 8, u'\u0039\u20E3': 9}
+numbers_ru = {u'\u0031\u20E3': 0, u'\u0032\u20E3': 1, u'\u0033\u20E3': 2, u'\u0034\u20E3': 3, u'\u0035\u20E3': 4, u'\u0036\u20E3': 5, u'\u0037\u20E3': 6, u'\u0038\u20E3': 7, u'\u0039\u20E3': 8}
 
 links = []
 
