@@ -118,7 +118,7 @@ async def on_message(message):
                     links = emb[1]
                     emb = emb[0]
                     msg = await client.send_message(message.channel, embed=emb)
-                    for i in range(len(links) - 1):
+                    for i in range(len(links)):
                         await client.add_reaction(msg, numbers_fu[i])
                     react = await client.wait_for_reaction(numbers_fu, message=msg, user=message.author)
                     query = links[numbers_fu.index(react.reaction.emoji)]
