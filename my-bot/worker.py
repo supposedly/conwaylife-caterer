@@ -35,7 +35,7 @@ numbers_ru = {u'\u0031\u20E3': 0, u'\u0032\u20E3': 1, u'\u0033\u20E3': 2, u'\u00
 links = []
 
 def regex(txt):
-    txt = ritalics.sub('', txt, one)
+    txt = ritalics.sub('', txt, 1)
     txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
     txt = rformatting.sub('', txt)
     txt = rbold.sub('**', txt)
