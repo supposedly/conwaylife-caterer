@@ -48,9 +48,11 @@ def regex(txt):
 #   txt = rfirstheader.sub('', txt)
 
     fixbold = txt.find('**')
-    print(txt)
-    if txt[fixbold+2] == ' ' or txt[fixbold+2] == ',':
-        txt = '**' + txt
+    try:
+        if txt[fixbold+2] == ' ' or txt[fixbold+2] == ',':
+            txt = '**' + txt
+    except IndexError:
+        pass
     return txt
 
 def regpage(data, query, rqst, em):
