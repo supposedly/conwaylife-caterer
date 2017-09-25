@@ -100,7 +100,7 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.content == "!wiki methusynthesae" or message.content = "!wiki Methusynthesae":
+    if message.content == "!wiki methusynthesae" or message.content == "!wiki Methusynthesae":
         gus = "Methusynthesae, (singular Methusynthesis) that are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they are patterns, and don't form other patterns."
         em = discord.Embed(title="Methusynthesae", description=gus, color=0x680000, url='http://conwaylife.com/forums/viewtopic.php?f=2&t=1600')
         await client.send_message(message.channel, embed=em)
