@@ -100,43 +100,47 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.content == "!wiki methusynthesae" or message.content == "!wiki Methusynthesae":
-        gus = "Methusynthesae (singular Methusynthesis) are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they are patterns, and don't form other patterns."
-        em = discord.Embed(title="Methusynthesae", description=gus, color=0x680000, url='http://conwaylife.com/forums/viewtopic.php?f=2&t=1600')
-        await client.send_message(message.channel, embed=em)
-    elif message.content.startswith("!wiki"):
+    if message.content.startswith("!wiki"):
+        em = discord.Embed()
         edit = False
         query = message.content[6:]
-        with requests.Session() as rqst:
-            data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
-            
-            if '#REDIRECT' in data:
-                em.set_footer(text='(redirected from "' + query + '")')
-                query = rredirect.search(data).group(1)
+        if query == "methusynthesae" or query == "Methusynthesae":
+            gus = "Methusynthesae (singular Methusynthesis) are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they are patterns, and don't form other patterns."
+            em = discord.Embed(title="Methusynthesae", description=gus, color=0x680000, url='http://conwaylife.com/forums/viewtopic.php?f=2&t=1600')
+            em.send_thumbnail(url='https://i.imgur.com/CQefDXF.png')
+            await client.send_message(message.channel, embed=em)
+        else:
+            with requests.Session() as rqst:
                 data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
                 
-            if '"-1":{' in data:
-                await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
-            else:
-                if "(disambiguation)" in data:
-                    edit = True
-                    data = data.replace(r'\n', '\n')
-                    emb = disambig(data)
-                    links = emb[1]
-                    emb = emb[0]
-                    msg = await client.send_message(message.channel, embed=emb)
-                    for i in range(len(links)):
-                        await client.add_reaction(msg, numbers_fu[i])
-                    react = await client.wait_for_reaction(numbers_fu, message=msg, user=message.author)
-                    query = links[numbers_fu.index(react.reaction.emoji)]
+                if '#REDIRECT' in data:
+                    em.set_footer(text='(redirected from "' + query + '")')
+                    query = rredirect.search(data).group(1)
                     data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
-                
-                regpage(data, query, rqst, em)
-                if edit:
-                    await client.edit_message(msg, embed=em)
-                    await client.clear_reactions(msg)
+                    
+                if '"-1":{' in data:
+                    await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
-                    await client.send_message(message.channel, embed=em)
+                    if "(disambiguation)" in data:
+                        edit = True
+                        data = data.replace(r'\n', '\n')
+                        emb = disambig(data)
+                        links = emb[1]
+                        emb = emb[0]
+                        msg = await client.send_message(message.channel, embed=emb)
+                        for i in range(len(links)):
+                            await client.add_reaction(msg, numbers_fu[i])
+                        react = await client.wait_for_reaction(numbers_fu, message=msg, user=message.author)
+                        query = links[numbers_fu.index(react.reaction.emoji)]
+                        data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
+                    
+                    regpage(data, query, rqst, em)
+                    if edit:
+                        await client.edit_message(msg, embed=em)
+                        await client.clear_reactions(msg)
+                    else:
+                        await client.send_message(message.channel, embed=em)
 
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
+
