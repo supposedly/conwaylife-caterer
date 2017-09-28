@@ -129,8 +129,8 @@ async def on_message(message):
                     from mediawiki_parser.text import make_parser
                     parser = make_parser()
 
-                    data = preprocessor.parse(source)
-                    output = parser.parse(data.leaves())
+                    output = preprocessor.parse(data)
+                    output = parser.parse(output.leaves())
                     await client.send_message(message.channel, output)
                     if "(disambiguation)" in data:
                         edit = True
