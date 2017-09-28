@@ -34,7 +34,7 @@ numbers_ru = {u'\u0031\u20E3': 0, u'\u0032\u20E3': 1, u'\u0033\u20E3': 2, u'\u00
 
 links = []
 
-def regex(txt):
+def parse(txt):
     txt = ritalics.sub('', txt, 1)
     txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
     txt = rformatting.sub('', txt)
@@ -67,14 +67,14 @@ def regpage(data, query, rqst, em):
         em.set_thumbnail(url=pgimg)
 
     pgtitle = rtitle.search(data).group(1)
-    desc = unescape(regex(data))
+    desc = unescape(parse(data))
 
     em.title = pgtitle
     em.url = "http://conwaylife.com/wiki/" + pgtitle.replace(" ", "_")
     em.description = desc
     em.color = 0x680000
 
-def disambigregex(txt):
+def parsedisambig(txt):
     txt = rformatting.sub('', txt)
     txt = rrefs.sub('', txt)
     txt = txt.replace('* ', '')
@@ -86,7 +86,7 @@ def disambigregex(txt):
 
 def disambig(data):
     pgtitle = rtitle.search(data).group(1)
-    desc_links = disambigregex(data)
+    desc_links = parsedisambig(data)
     return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0x680000), desc_links[1])
 
 client = discord.Client()
@@ -121,6 +121,17 @@ async def on_message(message):
                 if '"-1":{' in data:
                     await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
+                    templates = {}
+
+                    from mediawiki_parser.preprocessor import make_parser
+                    preprocessor = make_parser(templates)
+
+                    from mediawiki_parser.text import make_parser
+                    parser = make_parser()
+
+                    data = preprocessor.parse(source)
+                    output = parser.parse(data.leaves())
+                    await client.send_message(message.channel, output)
                     if "(disambiguation)" in data:
                         edit = True
                         data = data.replace(r'\n', '\n')
