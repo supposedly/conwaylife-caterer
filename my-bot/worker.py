@@ -121,16 +121,6 @@ async def on_message(message):
                 if '"-1":{' in data:
                     await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
-                    templates = {}
-
-                    from mediawiki_parser.preprocessor import make_parser
-                    preprocessor = make_parser(templates)
-
-                    from mediawiki_parser.preprocessor import make_parser
-                    preprocessor = make_parser(templates)
-
-                    output = preprocessor.parse(data)
-                    await client.send_message(message.channel, output[:1000])
                     if "(disambiguation)" in data:
                         edit = True
                         data = data.replace(r'\n', '\n')
