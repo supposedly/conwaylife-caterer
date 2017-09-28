@@ -131,7 +131,7 @@ async def on_message(message):
 
                     output = preprocessor.parse(data)
                     output = parser.parse(output.leaves())
-                    await client.send_message(message.channel, output)
+                    await client.send_message(message.channel, output[:1000])
                     if "(disambiguation)" in data:
                         edit = True
                         data = data.replace(r'\n', '\n')
