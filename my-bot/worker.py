@@ -1,28 +1,21 @@
 import discord
+import json
 import asyncio
 import re
 import requests
 from html import unescape
 from collections import namedtuple
+from json import load
 
-rbold = re.compile(r"'''")
-ritalics = re.compile(r"''.+?''(\\n).+?")
-rparens = re.compile(r" \(.+?\)")
-rrefs = re.compile(r"<ref>.*?</ref>")
-rlinks = re.compile(r"\[\[(.*?)(\|)?(?(2)(.*?))\]\]")
-rformatting = re.compile(r"{.+?}}")
-rqualifiers = re.compile(r'"[a-zA-Z]*?":.*?".*?"')
-rctrlchars = re.compile(r"\\.")
-#rfirstheader = re.compile(r"=.*")
-rfirstpbreak = re.compile(r"\\n\\n.*")
-rredirect = re.compile(r"\[\[(.+?)\]\]")
-#rtitle = re.compile(r'"title":.+?"')
-rfinal = re.compile(r'^.*?\S(?=(?:\*\*)?[A-Z])|[\[{}\]"]')
+rbold = re.compile(r"<b>|</b>") # this takes WAYWAYWAYWAYWAY too many steps, use data.replace('<b>', '**').replace('</b>', '**') instead
+rparens = re.compile(r" [\([].+?[\)\]]") # brackets too
+rtags = re.compile(r"<.+?>")
+rctrlchars = re.compile(r"\\.") # needs to be changed maybe
+rfirstpbreak = re.compile(r"<p>.+?</p>") # too slow, use strn.split('<p>', 1)[1].split('</p>')[0] instead
+rredirect = re.compile(r">(.+?)</a>")
 
-rtitle = re.compile(r'"title":"(.+?)",')
 rgif = re.compile(r"File[^F]+?\.gif")
 rimage = re.compile(r"File[^F]+?\.png")
-rfileurl = re.compile(r'"url":"(.+?)"')
 
 rdisamb = re.compile(r"(?<=\*\*).+(?=\*\*)")
 rlinksb = re.compile(r"^\[\[(.*?)(\|)?(?(2)(.*?))\]\]", re.M)
@@ -35,27 +28,14 @@ numbers_ru = {u'\u0031\u20E3': 0, u'\u0032\u20E3': 1, u'\u0033\u20E3': 2, u'\u00
 links = []
 
 def parse(txt):
-    txt = ritalics.sub('', txt, 1)
-    txt = rfirstpbreak.sub('', txt) # exchange with rfirstheader.sub() below for entire first section to be preserved
-    txt = rformatting.sub('', txt)
-    txt = rbold.sub('**', txt)
+    txt = txt.replace('<b>', '**').replace('</b>', '**')
+    txt = txt.split('<p>', 1)[1].split('</p>')[0]
     txt = rparens.sub('', txt)
-    txt = rrefs.sub('', txt)
-    txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
+    txt = rtags.sub('', txt)
     txt = rctrlchars.sub('', txt)
-    txt = rqualifiers.sub('', txt)
-    txt = rfinal.sub('', txt + ']')
-#   txt = rfirstheader.sub('', txt)
-
-    fixbold = txt.find('**')
-    try:
-        if txt[fixbold+2] == ' ' or txt[fixbold+2] == ',':
-            txt = '**' + txt
-    except IndexError:
-        pass
     return txt
 
-def regpage(data, query, rqst, em):
+def regpage(jdata, data, query, rqst, em):
     images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles=" + query).text
     pgimg = rgif.search(images)
     find = rimage.findall(images)
@@ -66,8 +46,8 @@ def regpage(data, query, rqst, em):
         pgimg = pgimg.group(1)
         em.set_thumbnail(url=pgimg)
 
-    pgtitle = rtitle.search(data).group(1)
-    desc = unescape(parse(data))
+    pgtitle = jdata["parse"]["title"]
+    desc = unescape(parse(jdata["parse"]["text"]["*"]))
 
     em.title = pgtitle
     em.url = "http://conwaylife.com/wiki/" + pgtitle.replace(" ", "_")
@@ -111,16 +91,17 @@ async def on_message(message):
             await client.send_message(message.channel, embed=em)
         else:
             with requests.Session() as rqst:
-                data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
+                data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
                 
                 if '#REDIRECT' in data:
                     em.set_footer(text='(redirected from "' + query + '")')
                     query = rredirect.search(data).group(1)
-                    data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
+                    data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
                     
-                if '"-1":{' in data:
+                if 'missingtitle' in data:
                     await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
+                    jdata = json.load(data)
                     if "(disambiguation)" in data:
                         edit = True
                         data = data.replace(r'\n', '\n')
@@ -134,7 +115,7 @@ async def on_message(message):
                         query = links[numbers_fu.index(react.reaction.emoji)]
                         data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
                     
-                    regpage(data, query, rqst, em)
+                    regpage(jdata, data, query, rqst, em)
                     if edit:
                         await client.edit_message(msg, embed=em)
                         await client.clear_reactions(msg)
