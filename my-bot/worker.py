@@ -42,7 +42,7 @@ def regpage(jdata, data, query, rqst, em):
     pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else ''))
     images = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text)
     print(images["query"]["pages"])
-    pgimg = list(list(images["query"]["pages"].values())[0]["imageinfo"].values())[0]["url"]
+    pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
     if pgimg:
         pgimg = pgimg.group(1)
         em.set_thumbnail(url=pgimg)
