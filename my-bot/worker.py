@@ -40,8 +40,8 @@ def regpage(jdata, data, query, rqst, em):
     pgimg = rgif.search(images)
     find = rimage.findall(images)
     pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else ''))
-    images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text
-    pgimg = rfileurl.search(images)
+    images = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text)
+    pgimg = images["query"]["pages"][0]["imageinfo"][0]["url"]
     if pgimg:
         pgimg = pgimg.group(1)
         em.set_thumbnail(url=pgimg)
