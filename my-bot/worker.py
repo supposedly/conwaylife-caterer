@@ -7,8 +7,10 @@ from html import unescape
 from collections import namedtuple
 from json import load
 
-rparens = re.compile(r" [\([].+?[\)\]]") # brackets too
+rparens = re.compile(r" \(.+?\)")
+rbracks = re.compile(r" \[.+?\]")
 rtags = re.compile(r"<.+?>")
+rredherring = re.compile(r"<p>.{0,10}</p>") # to prevent `<p><br />\n</p> as in the Simkin Glider Gun page
 rctrlchars = re.compile(r"\\.") # needs to be changed maybe
 rredirect = re.compile(r">(.+?)</a>")
 
@@ -26,14 +28,12 @@ numbers_ru = {u'\u0031\u20E3': 0, u'\u0032\u20E3': 1, u'\u0033\u20E3': 2, u'\u00
 links = []
 
 def parse(txt):
-    txt = txt.replace('<b>', '**').replace('</b>', '**')
-    txt = txt.split('<p>', 1)[1].split('</p>')[0]
-    txt = rtags.sub('', txt)
-    txt = rctrlchars.sub('', txt)
-    txt = rparens.sub('', txt)
+    txt = rbracks.sub('', rparens.sub('', rctrlchars.sub('', rtags.sub('', rredherring.sub('', txt).replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0]))))
+    print(txt)
+    # probably a bad idea to combine them like that but whatever lol
     return txt
 
-def regpage(jdata, data, query, rqst, em):
+def regpage(data, query, rqst, em):
     images = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles=" + query).text
     pgimg = rgif.search(images)
     find = rimage.findall(images)
@@ -45,8 +45,8 @@ def regpage(jdata, data, query, rqst, em):
     except (KeyError, TypeError):
         pass
 
-    pgtitle = jdata["parse"]["title"]
-    desc = unescape(parse(jdata["parse"]["text"]["*"]))
+    pgtitle = data["parse"]["title"]
+    desc = unescape(parse(data["parse"]["text"]["*"]))
 
     em.title = pgtitle
     em.url = "http://conwaylife.com/wiki/" + pgtitle.replace(" ", "_")
@@ -91,9 +91,8 @@ async def on_message(message):
         else:
             with requests.Session() as rqst:
                 data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
-                jdata = json.loads(data)
                 
-                if '#REDIRECT' in data:
+                if '>REDIRECT ' in data:
                     em.set_footer(text='(redirected from "' + query + '")')
                     query = rredirect.search(data).group(1)
                     data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
@@ -101,9 +100,10 @@ async def on_message(message):
                 if 'missingtitle' in data:
                     await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
-                    if "(disambiguation)" in jdata["parse"]["title"]:
+                    data = json.loads(data)
+                    if "(disambiguation)" in data["parse"]["title"]:
                         edit = True
-                        emb = disambig(jdata["parse"]["text"]["*"])
+                        emb = disambig(data["parse"]["text"]["*"])
                         links = emb[1]
                         emb = emb[0]
                         msg = await client.send_message(message.channel, embed=emb)
@@ -111,9 +111,9 @@ async def on_message(message):
                             await client.add_reaction(msg, numbers_fu[i])
                         react = await client.wait_for_reaction(numbers_fu, message=msg, user=message.author)
                         query = links[numbers_fu.index(react.reaction.emoji)]
-                        data = rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text
+                        data = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=" + query).text)
                     
-                    regpage(jdata, data, query, rqst, em)
+                    regpage(data, query, rqst, em)
                     if edit:
                         await client.edit_message(msg, embed=em)
                         await client.clear_reactions(msg)
