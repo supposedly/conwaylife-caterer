@@ -7,11 +7,9 @@ from html import unescape
 from collections import namedtuple
 from json import load
 
-rbold = re.compile(r"<b>|</b>") # this takes WAYWAYWAYWAYWAY too many steps, use data.replace('<b>', '**').replace('</b>', '**') instead
 rparens = re.compile(r" [\([].+?[\)\]]") # brackets too
 rtags = re.compile(r"<.+?>")
 rctrlchars = re.compile(r"\\.") # needs to be changed maybe
-rfirstpbreak = re.compile(r"<p>.+?</p>") # too slow, use strn.split('<p>', 1)[1].split('</p>')[0] instead
 rredirect = re.compile(r">(.+?)</a>")
 
 rgif = re.compile(r"File[^F]+?\.gif")
@@ -30,9 +28,9 @@ links = []
 def parse(txt):
     txt = txt.replace('<b>', '**').replace('</b>', '**')
     txt = txt.split('<p>', 1)[1].split('</p>')[0]
-    txt = rparens.sub('', txt)
     txt = rtags.sub('', txt)
     txt = rctrlchars.sub('', txt)
+    txt = rparens.sub('', txt)
     return txt
 
 def regpage(jdata, data, query, rqst, em):
@@ -44,7 +42,7 @@ def regpage(jdata, data, query, rqst, em):
     try:
         pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
         em.set_thumbnail(url=pgimg)
-    except KeyError:
+    except (KeyError, TypeError):
         pass
 
     pgtitle = jdata["parse"]["title"]
