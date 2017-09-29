@@ -101,7 +101,7 @@ async def on_message(message):
                 if 'missingtitle' in data:
                     await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
-                    jdata = json.load(data)
+                    jdata = json.loads(data)
                     if "(disambiguation)" in data:
                         edit = True
                         data = data.replace(r'\n', '\n')
