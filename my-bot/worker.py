@@ -41,11 +41,11 @@ def regpage(jdata, data, query, rqst, em):
     find = rimage.findall(images)
     pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else ''))
     images = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles=" + pgimg).text)
-    print(images["query"]["pages"])
-    pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
-    if pgimg:
-        pgimg = pgimg.group(1)
+    try:
+        pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
         em.set_thumbnail(url=pgimg)
+    except KeyError:
+        pass
 
     pgtitle = jdata["parse"]["title"]
     desc = unescape(parse(jdata["parse"]["text"]["*"]))
