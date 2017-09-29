@@ -92,6 +92,7 @@ async def on_message(message):
         else:
             with requests.Session() as rqst:
                 data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
+                jdata = json.loads(data)
                 
                 if '#REDIRECT' in data:
                     em.set_footer(text='(redirected from "' + query + '")')
@@ -101,11 +102,9 @@ async def on_message(message):
                 if 'missingtitle' in data:
                     await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
-                    jdata = json.loads(data)
-                    if "(disambiguation)" in data:
+                    if "(disambiguation)" in jdata["parse"]["title"]:
                         edit = True
-                        data = data.replace(r'\n', '\n')
-                        emb = disambig(data)
+                        emb = disambig(jdata["parse"]["text"]["*"])
                         links = emb[1]
                         emb = emb[0]
                         msg = await client.send_message(message.channel, embed=emb)
