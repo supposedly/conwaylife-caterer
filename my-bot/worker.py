@@ -47,7 +47,6 @@ def regpage(data, query, rqst, em):
     except (KeyError, TypeError):
         pass
 
-    print(data)
     pgtitle = data["parse"]["title"]
     desc = unescape(parse(data["parse"]["text"]["*"]))
 
@@ -57,7 +56,7 @@ def regpage(data, query, rqst, em):
     em.color = 0x680000
 
 def parsedisambig(txt):
-    txt = txt.replace('<b>', '**').replace('</b>', '**')
+    txt = txt.replace('<b>', '').replace('</b>', '') # think this should stay this way so the title doesn't clash visually with the options, but '' --> '**' if you ever wanna change it in the future
     
     txt = rlinks.sub(lambda m: '**' + m.group(1) + '**', txt)
     txt = rlinksb.sub(lambda m: m.group(1), txt)
