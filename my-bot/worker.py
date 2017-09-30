@@ -69,7 +69,7 @@ def parsedisambig(txt):
 
 def disambig(data):
     pgtitle = data["parse"]["title"]
-    desc_links = parsedisambig(data)
+    desc_links = parsedisambig(data["parse"]["text"]["*"])
     return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0x680000), desc_links[1])
 
 client = discord.Client()
@@ -110,7 +110,7 @@ async def on_message(message):
                     data = json.loads(data)
                     if "(disambiguation)" in data["parse"]["title"]:
                         edit = True
-                        emb = disambig(data["parse"]["text"]["*"])
+                        emb = disambig(data)
                         links = emb[1]
                         emb = emb[0]
                         msg = await client.send_message(message.channel, embed=emb)
