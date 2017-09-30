@@ -96,7 +96,7 @@ async def on_message(message):
             em.title = "Methusynthesae"
             em.description = gus
             em.color = 0x680000
-            em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600')
+            em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='https://i.imgur.com/CQefDXF.png')
             await client.send_message(message.channel, embed=em)
         else:
