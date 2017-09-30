@@ -108,7 +108,6 @@ async def on_message(message):
                     await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
                     data = json.loads(data)
-                    print(data)
                     if "(disambiguation)" in data["parse"]["title"]:
                         edit = True
                         emb = disambig(data["parse"]["text"]["*"])
