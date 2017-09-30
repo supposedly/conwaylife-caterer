@@ -8,7 +8,7 @@ from collections import namedtuple
 from json import load
 
 rparens = re.compile(r" \(.+?\)")
-rbracks = re.compile(r" \[.+?\]")
+rbracks = re.compile(r"\[.+?\]")
 rtags = re.compile(r"<.+?>")
 rredherring = re.compile(r"<p>.{0,10}</p>") # to prevent `<p><br />\n</p> as in the Simkin Glider Gun page
 rctrlchars = re.compile(r"\\.") # needs to be changed maybe
@@ -17,8 +17,11 @@ rredirect = re.compile(r">(.+?)</a>")
 rgif = re.compile(r"File[^F]+?\.gif")
 rimage = re.compile(r"File[^F]+?\.png")
 
-rdisamb = re.compile(r"(?<=\*\*).+(?=\*\*)")
-rlinksb = re.compile(r"^\[\[(.*?)(\|)?(?(2)(.*?))\]\]", re.M)
+rlinks = re.compile(r"<li> ?<a href.+?>(.+?)</a>")
+rlinksb = re.compile(r"<a href.+?>(.+?)</a>")
+rdisamb = re.compile(r"\n\*\*(.+?)\*\*")
+
+rnewlines = re.compile(r"\n+")
 
 numbers_ft = [':one:', ':two:', ':three:', ':four:', ':five:', ':six:', ':seven:', ':eight:', ':nine:']
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
@@ -54,17 +57,19 @@ def regpage(data, query, rqst, em):
     em.color = 0x680000
 
 def parsedisambig(txt):
-    txt = rformatting.sub('', txt)
-    txt = rrefs.sub('', txt)
-    txt = txt.replace('* ', '')
-    txt = rlinksb.sub(lambda m: '**' + (m.group(3) if m.group(3) else m.group(1)) + '**', txt)
-    txt = rlinks.sub(lambda m: m.group(3) if m.group(3) else m.group(1), txt)
-    txt = rfinal.sub('', txt)
+    txt = txt.replace('<b>', '**').replace('</b>', '**')
+    
+    txt = rlinks.sub(lambda m: '**' + m.group(1) + '**', txt)
+    txt = rlinksb.sub(lambda m: m.group(1), txt)
+    txt = rtags.sub('', txt)
+    
     links = rdisamb.findall(txt)
+    
+    txt = rnewlines.sub('\n', txt)
     return (txt, links)
 
 def disambig(data):
-    pgtitle = rtitle.search(data).group(1)
+    pgtitle = data["parse"]["title"]
     desc_links = parsedisambig(data)
     return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0x680000), desc_links[1])
 
@@ -83,7 +88,10 @@ async def on_message(message):
         em = discord.Embed()
         edit = False
         query = message.content[6:]
-        if query == "methusynthesae" or query == "Methusynthesae":
+        if query.lower() == "methusynthesis":
+            em.set_footer(text='(redirected from "' + query + '")')
+            query = "methusynthesae"
+        if query.lower() == "methusynthesae":
             gus = "Methusynthesae (singular Methusynthesis) are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they are patterns, and don't form other patterns."
             em = discord.Embed(title="Methusynthesae", description=gus, color=0x680000, url='http://conwaylife.com/forums/viewtopic.php?f=2&t=1600')
             em.set_thumbnail(url='https://i.imgur.com/CQefDXF.png')
