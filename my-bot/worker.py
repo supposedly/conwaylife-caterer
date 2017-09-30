@@ -10,9 +10,9 @@ from json import load
 rparens = re.compile(r" \(.+?\)")
 rbracks = re.compile(r"\[.+?\]")
 rtags = re.compile(r"<.+?>")
-rredherring = re.compile(r"<p>.{0,10}</p>") # to prevent `<p><br />\n</p> as in the Simkin Glider Gun page
+rredherring = re.compile(r"<p>.{0,10}</p>") # to prevent `<p><br />\n</p> as in the Simkin Glider Gun page, stupid hack
 rctrlchars = re.compile(r"\\.") # needs to be changed maybe
-rredirect = re.compile(r">(.+?)</a>")
+rredirect = re.compile(r'">(.+?)</a>')
 
 rgif = re.compile(r"File[^F]+?\.gif")
 rimage = re.compile(r"File[^F]+?\.png")
