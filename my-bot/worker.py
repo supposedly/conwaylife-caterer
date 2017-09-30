@@ -9,7 +9,7 @@ from json import load
 
 rparens = re.compile(r" \(.+?\)")
 rbracks = re.compile(r"\[.+?\]")
-rtags = re.compile(r"<.+?>")
+rtags = re.compile(r"<.+?>", re.S)
 rredherring = re.compile(r"<p>.{0,10}</p>") # to prevent `<p><br />\n</p> as in the Simkin Glider Gun page, stupid hack
 rctrlchars = re.compile(r"\\.") # needs to be changed maybe
 rredirect = re.compile(r'">(.+?)</a>')
@@ -47,6 +47,7 @@ def regpage(data, query, rqst, em):
     except (KeyError, TypeError):
         pass
 
+    print(data)
     pgtitle = data["parse"]["title"]
     desc = unescape(parse(data["parse"]["text"]["*"]))
 
@@ -92,7 +93,10 @@ async def on_message(message):
             query = "methusynthesae"
         if query.lower() == "methusynthesae":
             gus = "Methusynthesae (singular Methusynthesis) are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they are patterns, and don't form other patterns."
-            em = discord.Embed(title="Methusynthesae", description=gus, color=0x680000, url='http://conwaylife.com/forums/viewtopic.php?f=2&t=1600')
+            em.title = "Methusynthesae"
+            em.description = gus
+            em.color = 0x680000
+            em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600')
             em.set_thumbnail(url='https://i.imgur.com/CQefDXF.png')
             await client.send_message(message.channel, embed=em)
         else:
