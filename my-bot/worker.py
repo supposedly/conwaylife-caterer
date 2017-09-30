@@ -32,7 +32,6 @@ links = []
 
 def parse(txt):
     txt = rbracks.sub('', rparens.sub('', rctrlchars.sub('', rtags.sub('', rredherring.sub('', txt).replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0]))))
-    print(txt)
     # probably a bad idea to combine them like that but whatever lol
     return txt
 
@@ -109,6 +108,7 @@ async def on_message(message):
                     await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
                     data = json.loads(data)
+                    print(data)
                     if "(disambiguation)" in data["parse"]["title"]:
                         edit = True
                         emb = disambig(data["parse"]["text"]["*"])
