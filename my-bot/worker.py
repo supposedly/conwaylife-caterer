@@ -87,11 +87,11 @@ async def on_message(message):
         em = discord.Embed()
         edit = False
         query = message.content[6:]
-        if query.lower() == "methusynthesis":
+        if query[:1].lower() + query[1:] == "methusynthesis":
             em.set_footer(text='(redirected from "' + query + '")')
             query = "methusynthesae"
-        if query.lower() == "methusynthesae":
-            gus = "Methusynthesae (singular Methusynthesis) are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they are patterns, and don't form other patterns."
+        if query[:1].lower() + query[1:] == "methusynthesae":
+            gus = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they are patterns, and don't form other patterns."
             em.title = "Methusynthesae"
             em.description = gus
             em.color = 0x680000
@@ -121,6 +121,7 @@ async def on_message(message):
                             await client.add_reaction(msg, numbers_fu[i])
                         react = await client.wait_for_reaction(numbers_fu, message=msg, user=message.author)
                         query = links[numbers_fu.index(react.reaction.emoji)]
+                        print(query)
                         data = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text)
                     
                     regpage(data, query, rqst, em)
