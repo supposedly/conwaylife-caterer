@@ -18,7 +18,7 @@ async def on_ready():
 rparens = re.compile(r" \(.+?\)")
 rbracks = re.compile(r"\[.+?\]")
 rtags = re.compile(r"<.+?>", re.S)
-rredherring = re.compile(r"<p>.{0,10}</p>") #to prevent `<p><br />\n</p> as in the Simkin Glider Gun page, stupid hack
+rredherring = re.compile(r"<p>.{0,10}</p>", re.S) #to prevent `<p><br />\n</p> as in the Simkin Glider Gun page, stupid hack
 rctrlchars = re.compile(r"\\.") #needs to be changed maybe
 rredirect = re.compile(r'">(.+?)</a>')
 
@@ -36,26 +36,12 @@ numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3'
 links = []
 
 def parse(txt):
-    print(txt)
-    print('------')
     txt = rredherring.sub('', txt)
-    print(txt)
-    print('------')
     txt = txt.replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0]
-    print(txt)
-    print('------')
     txt = rtags.sub('', txt)
-    print(txt)
-    print('------')
     txt = rctrlchars.sub('', txt)
-    print(txt)
-    print('------')
     txt = rparens.sub('', txt)
-    print(txt)
-    print('------')
     txt = rbracks.sub('', txt)
-    print(txt)
-    print('------')
     return txt
 
 def regpage(data, query, rqst, em):
@@ -82,6 +68,7 @@ def parsedisambig(txt):
     txt = txt.replace('<b>', '').replace('</b>', '')
     # think ^ should stay this way so the title doesn't clash visually with the options, but ('' --> '**') if you ever wanna change it in the future
     links = rdisamb.findall(txt)
+    print(links)
     txt = rlinks.sub(lambda m: '**' + m.group(1) + '**', txt)
     txt = rlinksb.sub(lambda m: m.group(1), txt)
     
