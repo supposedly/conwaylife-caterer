@@ -7,6 +7,14 @@ from html import unescape
 from collections import namedtuple
 from json import load
 
+client = discord.Client()
+@client.event
+async def on_ready():
+    print('Logged in as')
+    print(client.user.name)
+    print(client.user.id)
+    print('------')
+
 rparens = re.compile(r" \(.+?\)")
 rbracks = re.compile(r"\[.+?\]")
 rtags = re.compile(r"<.+?>", re.S)
@@ -29,13 +37,25 @@ links = []
 
 def parse(txt):
     print(txt)
+    print('------')
     txt = rredherring.sub('', txt)
+    print(txt)
+    print('------')
     txt = txt.replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0]
+    print(txt)
+    print('------')
     txt = rtags.sub('', txt)
+    print(txt)
+    print('------')
     txt = rctrlchars.sub('', txt)
+    print(txt)
+    print('------')
     txt = rparens.sub('', txt)
+    print(txt)
+    print('------')
     txt = rbracks.sub('', txt)
     print(txt)
+    print('------')
     return txt
 
 def regpage(data, query, rqst, em):
@@ -74,15 +94,6 @@ def disambig(data):
     pgtitle = data["parse"]["title"]
     desc_links = parsedisambig(data["parse"]["text"]["*"])
     return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0x680000), desc_links[1])
-
-client = discord.Client()
-
-@client.event
-async def on_ready():
-    print('Logged in as')
-    print(client.user.name)
-    print(client.user.id)
-    print('------')
 
 @client.event
 async def on_message(message):
