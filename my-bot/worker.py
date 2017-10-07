@@ -61,7 +61,6 @@ def regpage(data, query, rqst, em):
     em.title = pgtitle
     em.url = "http://conwaylife.com/wiki/" + pgtitle.replace(" ", "_")
     em.description = desc
-    em.color = 0x680000
 
 def parsedisambig(txt):
     txt = txt.replace('<b>', '').replace('</b>', '')
@@ -83,17 +82,19 @@ def disambig(data):
 @client.event
 async def on_message(message):
     if message.content.startswith("!wiki" if message.server.id == '357922255553953794' else "!cwiki"):
+    
         em = discord.Embed()
+        em.color = 0x680000
+        
         edit = False
         query = message.content[6:]
-        if query[:1].lower() + query[1:] == "methusynthesis":
+        if query[:1].lower() + query[1:] == 'methusynthesis':
             em.set_footer(text='(redirected from "' + query + '")')
             query = "methusynthesae"
-        if query[:1].lower() + query[1:] == "methusynthesae":
+        if query[:1].lower() + query[1:] == 'methusynthesae':
             gus = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they are patterns, and don't form other patterns."
-            em.title = "Methusynthesae"
+            em.title = 'Methusynthesae'
             em.description = gus
-            em.color = 0x680000
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='https://i.imgur.com/CQefDXF.png')
             await client.send_message(message.channel, embed=em)
@@ -107,7 +108,8 @@ async def on_message(message):
                     data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
                     
                 if 'missingtitle' in data:
-                    await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
+                    em.description = 'Page `' + query + '` does not exist.'
+                    await client.send_message(message.channel, embed=em)
                 else:
                     data = json.loads(data)
                     if "(disambiguation)" in data["parse"]["title"]:
