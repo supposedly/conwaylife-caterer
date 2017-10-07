@@ -82,7 +82,6 @@ def disambig(data):
 
 @client.event
 async def on_message(message):
-    print(message.server.id)
     if message.content.startswith("!wiki" if message.server.id = '357922255553953794' else "!cwiki"):
         em = discord.Embed()
         edit = False
