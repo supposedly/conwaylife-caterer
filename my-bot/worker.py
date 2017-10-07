@@ -28,12 +28,14 @@ numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3'
 links = []
 
 def parse(txt):
+    print(txt)
     txt = rredherring.sub('', txt)
     txt = txt.replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0]
     txt = rtags.sub('', txt)
     txt = rctrlchars.sub('', txt)
     txt = rparens.sub('', txt)
     txt = rbracks.sub('', txt)
+    print(txt)
     return txt
 
 def regpage(data, query, rqst, em):
@@ -57,8 +59,8 @@ def regpage(data, query, rqst, em):
     em.color = 0x680000
 
 def parsedisambig(txt):
-    txt = txt.replace('<b>', '').replace('</b>', '') #think this should stay this way so the title doesn't clash visually with the options, but ('' --> '**') if you ever wanna change it in the future
-    
+    txt = txt.replace('<b>', '').replace('</b>', '')
+    # think ^ should stay this way so the title doesn't clash visually with the options, but ('' --> '**') if you ever wanna change it in the future
     links = rdisamb.findall(txt)
     txt = rlinks.sub(lambda m: '**' + m.group(1) + '**', txt)
     txt = rlinksb.sub(lambda m: m.group(1), txt)
@@ -122,7 +124,6 @@ async def on_message(message):
                             await client.add_reaction(msg, numbers_fu[i])
                         react = await client.wait_for_reaction(numbers_fu, message=msg, user=message.author)
                         query = links[numbers_fu.index(react.reaction.emoji)]
-                        print(query)
                         data = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text)
                     
                     regpage(data, query, rqst, em)
