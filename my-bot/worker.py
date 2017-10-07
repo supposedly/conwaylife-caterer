@@ -29,6 +29,7 @@ links = []
 
 def parse(txt):
     txt = rredherring.sub('', txt)
+    print(txt)
     txt = rbracks.sub('', rparens.sub('', rctrlchars.sub('', rtags.sub('', txt).replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0])))
     # probably a bad idea to combine them like that but whatever lol
     return txt
