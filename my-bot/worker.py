@@ -29,9 +29,11 @@ links = []
 
 def parse(txt):
     txt = rredherring.sub('', txt)
-    print(txt)
-    txt = rbracks.sub('', rparens.sub('', rctrlchars.sub('', rtags.sub('', txt).replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0])))
-    # probably a bad idea to combine them like that but whatever lol
+    txt = txt.replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0]
+    txt = rtags.sub('', txt)
+    txt = rctrlchars.sub('', txt)
+    txt = rparens.sub('', txt)
+    txt = rbracks.sub('', txt)
     return txt
 
 def regpage(data, query, rqst, em):
