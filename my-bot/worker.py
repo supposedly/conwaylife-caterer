@@ -80,6 +80,7 @@ def parsedisambig(txt):
 def disambig(data):
     pgtitle = data["parse"]["title"]
     desc_links = parsedisambig(data["parse"]["text"]["*"])
+    print(desc_links)
     return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0x680000), desc_links[1])
 
 @client.event
