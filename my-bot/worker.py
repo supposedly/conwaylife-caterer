@@ -10,8 +10,8 @@ from json import load
 rparens = re.compile(r" \(.+?\)")
 rbracks = re.compile(r"\[.+?\]")
 rtags = re.compile(r"<.+?>", re.S)
-rredherring = re.compile(r"<p>.{0,10}</p>") # to prevent `<p><br />\n</p> as in the Simkin Glider Gun page, stupid hack
-rctrlchars = re.compile(r"\\.") # needs to be changed maybe
+rredherring = re.compile(r"<p>.{0,10}</p>") #to prevent `<p><br />\n</p> as in the Simkin Glider Gun page, stupid hack
+rctrlchars = re.compile(r"\\.") #needs to be changed maybe
 rredirect = re.compile(r'">(.+?)</a>')
 
 rgif = re.compile(r"File[^F]+?\.gif")
@@ -19,7 +19,7 @@ rimage = re.compile(r"File[^F]+?\.png")
 
 rlinks = re.compile(r"<li> ?<a href.+?>(.+?)</a>")
 rlinksb = re.compile(r"<a href.+?>(.+?)</a>")
-rdisamb = re.compile(r"\n\*\*(.+?)\*\*")
+rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
 
 rnewlines = re.compile(r"\n+")
 
@@ -28,7 +28,8 @@ numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3'
 links = []
 
 def parse(txt):
-    txt = rbracks.sub('', rparens.sub('', rctrlchars.sub('', rtags.sub('', rredherring.sub('', txt).replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0]))))
+    txt = rredherring.sub('', txt)
+    txt = rbracks.sub('', rparens.sub('', rctrlchars.sub('', rtags.sub('', txt).replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0])))
     # probably a bad idea to combine them like that but whatever lol
     return txt
 
@@ -53,13 +54,13 @@ def regpage(data, query, rqst, em):
     em.color = 0x680000
 
 def parsedisambig(txt):
-    txt = txt.replace('<b>', '').replace('</b>', '') # think this should stay this way so the title doesn't clash visually with the options, but '' --> '**' if you ever wanna change it in the future
-    
-    txt = rlinks.sub(lambda m: '**' + m.group(1) + '**', txt)
-    txt = rlinksb.sub(lambda m: m.group(1), txt)
-    txt = rtags.sub('', txt)
+    txt = txt.replace('<b>', '').replace('</b>', '') #think this should stay this way so the title doesn't clash visually with the options, but ('' --> '**') if you ever wanna change it in the future
     
     links = rdisamb.findall(txt)
+    txt = rlinks.sub(lambda m: '**' + m.group(1) + '**', txt)
+    txt = rlinksb.sub(lambda m: m.group(1), txt)
+    
+    txt = rtags.sub('', txt)
     
     txt = rnewlines.sub('\n', txt)
     return (txt, links)
