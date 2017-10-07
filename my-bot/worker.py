@@ -8,6 +8,7 @@ from collections import namedtuple
 from json import load
 
 client = discord.Client()
+
 @client.event
 async def on_ready():
     print('Logged in as')
@@ -32,8 +33,6 @@ rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
 rnewlines = re.compile(r"\n+")
 
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
-
-links = []
 
 def parse(txt):
     txt = rredherring.sub('', txt)
@@ -68,7 +67,6 @@ def parsedisambig(txt):
     txt = txt.replace('<b>', '').replace('</b>', '')
     # think ^ should stay this way so the title doesn't clash visually with the options, but ('' --> '**') if you ever wanna change it in the future
     links = rdisamb.findall(txt)
-    print(links)
     txt = rlinks.sub(lambda m: '**' + m.group(1) + '**', txt)
     txt = rlinksb.sub(lambda m: m.group(1), txt)
     
@@ -80,11 +78,11 @@ def parsedisambig(txt):
 def disambig(data):
     pgtitle = data["parse"]["title"]
     desc_links = parsedisambig(data["parse"]["text"]["*"])
-    print(desc_links)
     return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0x680000), desc_links[1])
 
 @client.event
 async def on_message(message):
+    print(message.server.name)
     if message.content.startswith("!wiki"):
         em = discord.Embed()
         edit = False
