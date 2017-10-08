@@ -8,6 +8,7 @@ from collections import namedtuple
 from json import load
 
 client = discord.Client()
+oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288))
 
 @client.event
 async def on_ready():
@@ -83,10 +84,8 @@ def disambig(data):
 async def on_message(message):
 
     if message.content.startswith("!invite" if message.server.id == '357922255553953794' else "ca.invite"):
-        em = discord.Embed(desc='Use', color=0x000000)
+        em = discord.Embed(desc='Use [this link](' + oauth + ') to add me to your server!', color=0x000000)
         em.set_author(name=r'sample text!', icon_url=client.user.avatar_url)
-        em.add_field(url=discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288)), value='this link', inline=True)
-        em.add_field(value='to add me to your server!', inline=True)
         await client.send_message(message.channel, embed=em)
     
     if message.content.startswith("!wiki" if message.server.id == '357922255553953794' else "ca.wiki"):
