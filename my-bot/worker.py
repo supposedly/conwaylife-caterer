@@ -111,7 +111,7 @@ async def on_message(message):
         query = message.content[1+message.content.find(' '):]
         if query.replace(' ', '') and query != message.content:
             try:
-                em.description = '```nginx\n' + prefix + ' ' + query + ' ' + cmdargs(query) '\n——————\n' + cmdhelp(query) + '```'
+                em.description = '```nginx\n' + prefix + ' ' + query + ' ' + cmdargs(query) + '\n——————\n' + cmdhelp(query) + '```'
             except:
                 pass
         
