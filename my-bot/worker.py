@@ -77,10 +77,14 @@ def parsedisambig(txt):
 def disambig(data):
     pgtitle = data["parse"]["title"]
     desc_links = parsedisambig(data["parse"]["text"]["*"])
-    return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0xffffff), desc_links[1])
+    return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0x000040), desc_links[1])
 
 @client.event
 async def on_message(message):
+
+    if message.content.startswith("!invite" if message.server.id == '357922255553953794' else "ca.invite"):
+        print(discord.Embed(url=utils.oauth.url(client.user.id, permissions=52288), title='Use this link to invite me to your server!', color=0xffffff)
+        
     if message.content.startswith("!wiki" if message.server.id == '357922255553953794' else "ca.wiki"):
     
         em = discord.Embed()
