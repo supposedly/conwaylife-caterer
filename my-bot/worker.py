@@ -109,7 +109,7 @@ async def on_message(message):
         '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
 
         query = message.content[1+message.content.find(' '):]
-        if query.replace(' ', '') and query != message.content
+        if query.replace(' ', '') and query != message.content:
             try:
                 em.description = '```nginx\n' + prefix + ' ' query + ' ' + cmdargs(query) '\n——————\n' + cmdhelp(query) + '```'
             except:
