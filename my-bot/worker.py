@@ -13,6 +13,7 @@ client = discord.Client()
 async def on_ready():
     global oauth
     oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=379968))
+#   https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=379968
     print('Logged in as')
     print(client.user.name)
     print(client.user.id)
@@ -35,6 +36,12 @@ rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
 rnewlines = re.compile(r"\n+")
 
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
+cmdargs = {"help" : '*COMMAND', "wiki" : 'QUERY', "invite" : '*RULE *PAT *STEP GEN'}
+cmdhelp = {\
+"help" : 'Display specific usage infо for COMMAND. If nо argument or invalid argument given, defaults to displaying a generic help/info message for all commands.', \
+"wiki" : 'Search http://conwaylife.com/wiki/ for QUERY and display a small, nicely-formatted blurb including image, title, and rеdirеct handling. If OBJECT is disambiguated, display its disambig page and allowed to choose your desired result. (TBA: support for linking to a specific section)', \
+"sim" : 'Currently under construction.\nSimulates PAT, a one-line RLE or .lif file, under RULE with speed STEP until reaching or exceeding generation GEN.\nDefaults to B3/S23 (or specified rule) if RULE ommitted and to 𝟷 if STEP ommitted.\nIf PAT ommitted, defaults to laѕt-sent Golly-compatible pattern (which can be a multiliner in a triple-grave code block)', \
+}
 
 def parse(txt):
     txt = rredherring.sub('', txt)
@@ -83,19 +90,47 @@ def disambig(data):
 
 @client.event
 async def on_message(message):
+    in_lounge = message.server.id == '357922255553953794'
+    prefix = "!" if in_lounge else "ca."
+    
+    if message.author.bot:
+        return
 
-    if message.content.startswith("!invite" if message.server.id == '357922255553953794' else "ca.invite"):
-        em = discord.Embed(title = 'yes', description='Use [this link](https//discordapp.com/oauth2/authorizeclient_id359067638216785920scopebotpermissions379968) to add me to your server!', color=0x000000)
-        em.set_author(name=r'sample text!', icon_url=client.user.avatar_url)
+    if message.content.startswith(prefix + "help"):
+        em = discord.Embed()
+        
+        em.description = '''**```ini
+        [A cellular automata bot for Conwaylife.​com]```**```makefile
+        Commands:
+        {0}help   | Display this message
+        {0}wiki   | Search http://conwaylife.com/wiki/ and display a small, nicely-formatted blurb from the page
+        {0}sim    | Simulate a given CA pattern (under construction)
+        {0}invite | Produce an invite link for this bot``````FORTRAN
+        '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
+
+        query = message.content[1+message.content.find(' '):]
+        if query.replace(' ', '') and query != message.content
+            try:
+                em.description = '```nginx\n' + prefix + ' ' query + ' ' + cmdargs(query) '\n——————\n' + cmdhelp(query) + '```'
+            except:
+                pass
+        
+        await client.send_message(message.channel, embed=em)
+        
+
+    if message.content.startswith(prefix + "invite"):
+        em = discord.Embed(description='Use [this link](' + oauth + ') to add me to your server!', color=0x000000)
+        em.set_author(name='Add me!', icon_url=client.user.avatar_url)
         await client.send_message(message.channel, embed=em)
     
-    if message.content.startswith("!wiki" if message.server.id == '357922255553953794' else "ca.wiki"):
+    if message.content.startswith(prefix + "wiki"):
+        query = message.content[1+message.content.find(' '):]
     
         em = discord.Embed()
         em.color = 0x000000
         
         edit = False
-        query = message.content[6:]
+        
         if query[:1].lower() + query[1:] == 'methusynthesis':
             em.set_footer(text='(redirected from "' + query + '")')
             query = "methusynthesae"
