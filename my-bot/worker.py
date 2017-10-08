@@ -170,8 +170,8 @@ Commands:
                     
                     regpage(data, query, rqst, em)
                     if edit:
-                        await client.edit_message(msg, embed=em)
-                        await client.clear_reactions(msg)
+                        await msg.edit(embed=em)
+                        await msg.clear_reactions()
                     else:
                         await message.channel.send(embed=em)
 
