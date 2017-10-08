@@ -77,14 +77,14 @@ def parsedisambig(txt):
 def disambig(data):
     pgtitle = data["parse"]["title"]
     desc_links = parsedisambig(data["parse"]["text"]["*"])
-    return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0x680000), desc_links[1])
+    return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0xffffff), desc_links[1])
 
 @client.event
 async def on_message(message):
     if message.content.startswith("!wiki" if message.server.id == '357922255553953794' else "ca.wiki"):
     
         em = discord.Embed()
-        em.color = 0x680000
+        em.color = 0xffffff
         
         edit = False
         query = message.content[6:]
@@ -108,8 +108,7 @@ async def on_message(message):
                     data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
                     
                 if 'missingtitle' in data:
-                    em.description = 'Page `' + query + '` does not exist.'
-                    await client.send_message(message.channel, embed=em)
+                    await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
                 else:
                     data = json.loads(data)
                     if "(disambiguation)" in data["parse"]["title"]:
