@@ -1,5 +1,4 @@
 import discord
-print('Discord: ' + discord.__version__)
 import json
 import asyncio
 import re
@@ -15,6 +14,7 @@ async def on_ready():
     global oauth
     oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=379968))
 #   https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=379968
+    print('Discord: ' + discord.__version__)
     print('Logged in as')
     print(client.user.name)
     print(client.user.id)
@@ -90,7 +90,7 @@ def disambig(data):
 
 @client.event
 async def on_message(message):
-    in_lounge = message.server.id == '357922255553953794'
+    in_lounge = message.guild.id == '357922255553953794'
     prefix = "!" if in_lounge else "ca."
     
     if message.author.bot:
@@ -115,13 +115,13 @@ Commands:
             except KeyError:
                 pass
         
-        await client.send_message(message.channel, embed=em)
+        await message.channel.send(embed=em)
         
 
     if message.content.startswith(prefix + "invite"):
         em = discord.Embed(description='Use [this link](' + oauth + ') to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=client.user.avatar_url)
-        await client.send_message(message.channel, embed=em)
+        await message.channel.send(embed=em)
     
     if message.content.startswith(prefix + "wiki"):
         query = message.content[1+message.content.find(' '):]
@@ -140,7 +140,7 @@ Commands:
             em.description = gus
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='https://i.imgur.com/CQefDXF.png')
-            await client.send_message(message.channel, embed=em)
+            await message.channel.send(embed=em)
         else:
             with requests.Session() as rqst:
                 data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
@@ -151,7 +151,7 @@ Commands:
                     data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
                     
                 if 'missingtitle' in data:
-                    await client.send_message(message.channel, 'Page `' + query + '` does not exist.')
+                    await message.channel.send('Page `' + query + '` does not exist.')
                 else:
                     data = json.loads(data)
                     if "(disambiguation)" in data["parse"]["title"]:
@@ -159,7 +159,7 @@ Commands:
                         emb = disambig(data)
                         links = emb[1]
                         emb = emb[0]
-                        msg = await client.send_message(message.channel, embed=emb)
+                        msg = await message.channel.send(embed=emb)
                         for i in range(len(links)):
                             await client.add_reaction(msg, numbers_fu[i])
                         react = await client.wait_for_reaction(emoji=numbers_fu, message=msg, user=message.author)
@@ -171,7 +171,7 @@ Commands:
                         await client.edit_message(msg, embed=em)
                         await client.clear_reactions(msg)
                     else:
-                        await client.send_message(message.channel, embed=em)
+                        await message.channel.send(embed=em)
 
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
