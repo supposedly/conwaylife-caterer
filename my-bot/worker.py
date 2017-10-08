@@ -84,7 +84,7 @@ async def on_message(message):
 
     if message.content.startswith("!invite" if message.server.id == '357922255553953794' else "ca.invite"):
         em = discord.Embed(color=0x000000)
-        em.set_author(name=r'\', icon_url=client.user.avatar_url)
+        em.set_author(name=r'\\', icon_url=client.user.avatar_url)
         em.add_field(url=discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288)), title='Use this link to invite me to your server!')
         await client.send_message(message.channel, embed=em)
     
