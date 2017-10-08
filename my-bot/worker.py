@@ -1,5 +1,5 @@
 import discord
-print('Discord:' discord.__version__)
+print('Discord:' + discord.__version__)
 import json
 import asyncio
 import re
