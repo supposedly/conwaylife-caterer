@@ -84,7 +84,7 @@ async def on_message(message):
 
     if message.content.startswith("!invite" if message.server.id == '357922255553953794' else "ca.invite"):
         em = discord.Embed(url=discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288)), title='Use this link to invite me to your server!', color=0x680000)
-        em.set_author(name='', icon_url='https://cdn.discordapp.com/'+client.user.id+'/'+client.user.avatar+'.png')
+        em.set_author(name=' ', icon_url=client.user.avatar_url)
         await client.send_message(message.channel, embed=em)
     
     if message.content.startswith("!wiki" if message.server.id == '357922255553953794' else "ca.wiki"):
@@ -125,7 +125,7 @@ async def on_message(message):
                         msg = await client.send_message(message.channel, embed=emb)
                         for i in range(len(links)):
                             await client.add_reaction(msg, numbers_fu[i])
-                        react = await client.wait_for_reaction(numbers_fu, message=msg, user=message.author)
+                        react = await client.wait_for_reaction(emoji=numbers_fu, message=msg, user=message.author)
                         query = links[numbers_fu.index(react.reaction.emoji)]
                         data = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text)
                     
