@@ -83,8 +83,9 @@ def disambig(data):
 async def on_message(message):
 
     if message.content.startswith("!invite" if message.server.id == '357922255553953794' else "ca.invite"):
-        print(discord.Embed(url=discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288)), title='Use this link to invite me to your server!', color=0xffffff))
-        
+        em = discord.Embed(url=discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288)), title='Use this link to invite me to your server!', color=0xffffff)
+        await client.send_message(message.channel, embed=em)
+    
     if message.content.startswith("!wiki" if message.server.id == '357922255553953794' else "ca.wiki"):
     
         em = discord.Embed()
