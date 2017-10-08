@@ -118,7 +118,7 @@ Commands:
         
 
     if message.content.startswith(prefix + "invite"):
-        em = discord.Embed(description='Use [this link](' + oauth + ') to add me to your server!', color=0x010101)
+        em = discord.Embed(description='Use [this link](' + oauth + ') to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=client.user.avatar_url)
         await client.send_message(message.channel, embed=em)
     
@@ -126,7 +126,7 @@ Commands:
         query = message.content[1+message.content.find(' '):]
     
         em = discord.Embed()
-        em.color = 0x010101
+        em.color = 0x000000
         
         edit = False
         
