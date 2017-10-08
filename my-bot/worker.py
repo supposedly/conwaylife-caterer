@@ -99,7 +99,7 @@ async def on_message(message):
         em = discord.Embed()
         
         em.description = '''**```ini
-    [A cellular automata bot for Conwaylife.​com]```**```makefile
+       [A cellular automata bot for Conwaylife.​com]```**```makefile
 Commands:
 {0}help   | Display this message
 {0}wiki   | Look for an object on http://conwaylife.com/wiki/
