@@ -163,7 +163,7 @@ Commands:
                         for i in range(len(links)):
                             await msg.add_reaction(numbers_fu[i])
                         def check(reaction, user):
-                            lambda m: (user == message.author and str(reaction.emoji) in numbers_fu)
+                            return user == message.author and str(reaction.emoji) in numbers_fu
                         react, user = await client.wait_for('reaction_add', timeout=60.0, check=check)
                         query = links[numbers_fu.index(react.reaction.emoji)]
                         data = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text)
