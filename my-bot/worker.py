@@ -90,7 +90,7 @@ def disambig(data):
 
 @client.event
 async def on_message(message):
-    in_lounge = message.guild.id == '357922255553953794'
+    in_lounge = message.guild.id == 357922255553953794
     prefix = "!" if in_lounge else "ca."
     
     if message.author.bot:
@@ -161,8 +161,8 @@ Commands:
                         emb = emb[0]
                         msg = await message.channel.send(embed=emb)
                         for i in range(len(links)):
-                            await client.add_reaction(msg, numbers_fu[i])
-                        react = await client.wait_for_reaction(emoji=numbers_fu, message=msg, user=message.author)
+                            await msg.add_reaction(numbers_fu[i])
+                        react = await client.wait_for('reaction_add', timeout=60.0, check=lambda m: (user == message.author and str(reaction.emoji) in numbers_fu))
                         query = links[numbers_fu.index(react.reaction.emoji)]
                         data = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text)
                     
