@@ -7,7 +7,7 @@ from html import unescape
 from collections import namedtuple
 from json import load
 import logging
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.CRITICAL)
 
 client = discord.Client()
 
