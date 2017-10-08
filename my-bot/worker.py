@@ -12,7 +12,7 @@ client = discord.Client()
 @client.event
 async def on_ready():
     global oauth
-    oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288))
+    oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=379968))
     print('Logged in as')
     print(client.user.name)
     print(client.user.id)
@@ -85,8 +85,8 @@ def disambig(data):
 async def on_message(message):
 
     if message.content.startswith("!invite" if message.server.id == '357922255553953794' else "ca.invite"):
-        em = discord.Embed(title = 'yes', desc='Use [this link](:oauth) to add me to your server!', color=0x000000)
-        em.set_author(name=r'sample text!', icon_url=client.user.avatar_url)
+        em = discord.Embed(url=oauth, title='Use this link to invite me to your server!', color=0x000000)
+        em.set_thumbnail(url=client.user.avatar_url)
         await client.send_message(message.channel, embed=em)
     
     if message.content.startswith("!wiki" if message.server.id == '357922255553953794' else "ca.wiki"):
