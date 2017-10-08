@@ -39,7 +39,7 @@ numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3'
 cmdargs = {"help": '*COMMAND', "wiki": 'QUERY', "sim": '*RULE *PAT *STEP GEN', "invite": ''}
 cmdhelp = {"help": 'Display specific usage infо for COMMAND. If nо argument or invalid argument given, defaults to displaying a generic help/info message for all commands.',
 "wiki": 'Search http://conwaylife.com/wiki/ for QUERY and display a small, nicely-formatted blurb including image, title, and rеdirеct handling. If OBJECT is disambiguated, display its disambig page and allowed to choose your desired result. (TBA: support for linking to a specific section)',
-"sim": 'Currently under construction.\nSimulates PAT, a one-line RLE or .lif file, under RULE with speed STEP until reaching or exceeding generation GEN.\nDefaults to B3/S23 (or above-specified rule) if RULE ommitted and to 1 if STEP ommitted.\nIf PAT ommitted, defaults to laѕt-sent Golly-compatible pattern (which can be a multiliner in a triple-grave code block)',
+"sim": 'Currently under construction.\nSimulates PAT, a one-line RLE or .lif file, under RULE with speed STEP until reaching or exceeding generation GEN and uploads ouptput to GFYCat.\nDefaults to B3/S23 (or above-specified rule) if RULE ommitted and to 1 if STEP ommitted.\nIf PAT ommitted, defaults to laѕt-sent Golly-compatible pattern (which can be a multiliner in a triple-grave code block)',
 "invite": 'Produces an oauth2 invite link for this bot.'}
 
 def parse(txt):
@@ -103,7 +103,7 @@ async def on_message(message):
 Commands:
 {0}help   | Display this message
 {0}wiki   | Look for an object on http://conwaylife.com/wiki/
-{0}sim    | Simulate a given CA pattern
+{0}sim    | Simulate a given CA pattern with GFY
 {0}invite | Produce an invite link for this bot``````FORTRAN
          '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
 
