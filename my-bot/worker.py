@@ -85,7 +85,7 @@ def disambig(data):
 async def on_message(message):
 
     if message.content.startswith("!invite" if message.server.id == '357922255553953794' else "ca.invite"):
-        em = discord.Embed(title = 'yes', desc='Use [this link](' + discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288)) + ') to add me to your server!', color=0x000000)
+        em = discord.Embed(title = 'yes', desc='Use [this link](:oauth) to add me to your server!', color=0x000000)
         em.set_author(name=r'sample text!', icon_url=client.user.avatar_url)
         await client.send_message(message.channel, embed=em)
     
