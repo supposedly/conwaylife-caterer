@@ -99,7 +99,7 @@ async def on_message(message):
         em = discord.Embed()
         
         em.description = '''**```ini
-[A cellular automata bot for Conwaylife.​com]```**```makefile
+    [A cellular automata bot for Conwaylife.​com]```**```makefile
 Commands:
 {0}help   | Display this message
 {0}wiki   | Look for an object on http://conwaylife.com/wiki/
@@ -107,10 +107,10 @@ Commands:
 {0}invite | Produce an invite link for this bot``````FORTRAN
 '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
 
-        query = message.content[1+message.content.find(' '):]
-        if query.replace(' ', '') and query != message.content:
+        query = message.content[1+message.content.find(' '):].replace(' ', '')
+        if query and query != message.content:
             try:
-                em.description = '```nginx\n' + prefix + ' ' + query + ' ' + cmdargs[query] + '\n——————\n' + cmdhelp[query] + '```'
+                em.description = '```nginx\n' + prefix + query + ' ' + cmdargs[query] + '\n——————\n' + cmdhelp[query] + '```'
             except KeyError:
                 pass
         
