@@ -8,10 +8,11 @@ from collections import namedtuple
 from json import load
 
 client = discord.Client()
-oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288))
 
 @client.event
 async def on_ready():
+    global oauth
+    oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=52288))
     print('Logged in as')
     print(client.user.name)
     print(client.user.id)
