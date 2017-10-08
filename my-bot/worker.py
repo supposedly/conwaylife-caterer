@@ -103,8 +103,8 @@ async def on_message(message):
         [A cellular automata bot for Conwaylife.​com]```**```makefile
         Commands:
         {0}help   | Display this message
-        {0}wiki   | Search http://conwaylife.com/wiki/ and display a small, nicely-formatted blurb from the page
-        {0}sim    | Simulate a given CA pattern (under construction)
+        {0}wiki   | Search info on Conwaylife wiki
+        {0}sim    | Simulate a given CA pattern
         {0}invite | Produce an invite link for this bot``````FORTRAN
         '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
 
@@ -112,7 +112,7 @@ async def on_message(message):
         if query.replace(' ', '') and query != message.content:
             try:
                 em.description = '```nginx\n' + prefix + ' ' + query + ' ' + cmdargs(query) + '\n——————\n' + cmdhelp(query) + '```'
-            except:
+            except KeyError:
                 pass
         
         await client.send_message(message.channel, embed=em)
