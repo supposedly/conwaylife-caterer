@@ -36,12 +36,12 @@ rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
 rnewlines = re.compile(r"\n+")
 
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
-cmdargs = {"help" : '*COMMAND', "wiki" : 'QUERY', "invite" : '*RULE *PAT *STEP GEN'}
+cmdargs = {"help" : '*COMMAND', "wiki" : 'QUERY', "sim" : '*RULE *PAT *STEP GEN', "invite" : ''}
 cmdhelp = {\
 "help" : 'Display specific usage infо for COMMAND. If nо argument or invalid argument given, defaults to displaying a generic help/info message for all commands.', \
 "wiki" : 'Search http://conwaylife.com/wiki/ for QUERY and display a small, nicely-formatted blurb including image, title, and rеdirеct handling. If OBJECT is disambiguated, display its disambig page and allowed to choose your desired result. (TBA: support for linking to a specific section)', \
-"sim" : 'Currently under construction.\nSimulates PAT, a one-line RLE or .lif file, under RULE with speed STEP until reaching or exceeding generation GEN.\nDefaults to B3/S23 (or specified rule) if RULE ommitted and to 𝟷 if STEP ommitted.\nIf PAT ommitted, defaults to laѕt-sent Golly-compatible pattern (which can be a multiliner in a triple-grave code block)', \
-}
+"sim" : 'Currently under construction.\nSimulates PAT, a one-line RLE or .lif file, under RULE with speed STEP until reaching or exceeding generation GEN.\nDefaults to B3/S23 (or above-specified rule) if RULE ommitted and to 𝟷 if STEP ommitted.\nIf PAT ommitted, defaults to laѕt-sent Golly-compatible pattern (which can be a multiliner in a triple-grave code block)', \
+"invite" : 'Produces an oauth2 invite link for this bot.'}
 
 def parse(txt):
     txt = rredherring.sub('', txt)
