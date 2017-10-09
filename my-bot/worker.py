@@ -97,7 +97,7 @@ async def on_message(message):
     if message.author.bot:
         return
     
-    await client.trigger_typing()
+    await channel.trigger_typing()
     
     if message.content.startswith(prefix + "help"):
         em = discord.Embed()
