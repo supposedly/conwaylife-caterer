@@ -13,8 +13,8 @@ client = discord.Client()
 @client.event
 async def on_ready():
     global oauth
-    oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=379968))
-#   https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=379968
+    oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=388160))
+#   https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
     print('Discord: ' + discord.__version__)
     print('Logged in as')
     print(client.user.name)
@@ -92,7 +92,7 @@ def disambig(data):
 @client.event
 async def on_message(message):
     in_lounge = message.guild.id == 357922255553953794
-    prefix = "!" if in_lounge else "ca."
+    prefix = '!' if in_lounge else 'ca.'
     
     if message.author.bot:
         return
@@ -107,7 +107,7 @@ Commands:
 {0}wiki   | Look for a page on http://conwaylife.com/wiki/
 {0}sim    | Simulate a given CA pattern with output to gfycat
 {0}invite | Produce an invite link for this bot``````FORTRAN
-         '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
+       '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
 
         query = message.content[1+message.content.find(' '):].replace(' ', '')
         if query and query != message.content:
