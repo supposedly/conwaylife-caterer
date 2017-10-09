@@ -97,7 +97,7 @@ async def on_message(message):
     if message.author.bot:
         return
     
-    await trigger_typing()
+    await client.trigger_typing()
     
     if message.content.startswith(prefix + "help"):
         em = discord.Embed()
@@ -171,7 +171,6 @@ Commands:
                             react, user = await client.wait_for('reaction_add', timeout=120.0, check=check)
                         except asyncio.TimeoutError:
                             await msg.clear_reactions()
-                            
                             return
                         query = links[numbers_fu.index(react.emoji)]
                         data = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text)
