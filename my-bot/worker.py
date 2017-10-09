@@ -127,9 +127,10 @@ Commands:
         await message.channel.send(embed=em)
     
     if message.content.startswith(prefix + "wiki"):
-        await message.add_reaction('\uD83D\uDC4B')
-        await message.channel.trigger_typing()
         query = message.content[1+message.content.find(' '):]
+        if query[:1].lower() + query[1:] == "caterer":
+            await message.add_reaction(u'\uD83D\uDC4B')
+        await message.channel.trigger_typing()
     
         em = discord.Embed()
         em.color = 0x000000
