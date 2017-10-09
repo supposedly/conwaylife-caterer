@@ -107,7 +107,7 @@ Commands:
 {0}wiki   | Look for a page on http://conwaylife.com/wiki/
 {0}sim    | Simulate a given CA pattern with output to gfycat
 {0}invite | Produce an invite link for this bot``````FORTRAN
-       '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
+        '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
 
         query = message.content[1+message.content.find(' '):].replace(' ', '')
         if query and query != message.content:
