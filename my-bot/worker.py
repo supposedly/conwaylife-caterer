@@ -97,9 +97,8 @@ async def on_message(message):
     if message.author.bot:
         return
     
-    await message.channel.trigger_typing()
-    
     if message.content.startswith(prefix + "help"):
+        await message.channel.trigger_typing()
         em = discord.Embed()
         
         em.description = '''**```ini
@@ -122,11 +121,13 @@ Commands:
         
 
     if message.content.startswith(prefix + "invite"):
+        await message.channel.trigger_typing()
         em = discord.Embed(description='Use [this link](' + oauth + ') to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=client.user.avatar_url)
         await message.channel.send(embed=em)
     
     if message.content.startswith(prefix + "wiki"):
+        await message.channel.trigger_typing()
         query = message.content[1+message.content.find(' '):]
     
         em = discord.Embed()
