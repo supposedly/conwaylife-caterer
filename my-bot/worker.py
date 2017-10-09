@@ -96,7 +96,9 @@ async def on_message(message):
     
     if message.author.bot:
         return
-
+    
+    await trigger_typing()
+    
     if message.content.startswith(prefix + "help"):
         em = discord.Embed()
         
@@ -165,7 +167,12 @@ Commands:
                             await msg.add_reaction(numbers_fu[i])
                         def check(reaction, user):
                             return user == message.author and str(reaction.emoji) in numbers_fu
-                        react, user = await client.wait_for('reaction_add', timeout=60.0, check=check)
+                        try:
+                            react, user = await client.wait_for('reaction_add', timeout=120.0, check=check)
+                        except asyncio.TimeoutError:
+                            await msg.clear_reactions()
+                            
+                            return
                         query = links[numbers_fu.index(react.emoji)]
                         data = json.loads(rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text)
                     
