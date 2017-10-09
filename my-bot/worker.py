@@ -127,6 +127,7 @@ Commands:
         await message.channel.send(embed=em)
     
     if message.content.startswith(prefix + "wiki"):
+        await message.add_reaction('\uD83D\uDC4B')
         await message.channel.trigger_typing()
         query = message.content[1+message.content.find(' '):]
     
@@ -167,9 +168,9 @@ Commands:
                         for i in range(len(links)):
                             await msg.add_reaction(numbers_fu[i])
                         def check(reaction, user):
-                            return user == message.author and str(reaction.emoji) in numbers_fu
+                            return user == message.author and reaction.emoji in numbers_fu[:len(links)]
                         try:
-                            react, user = await client.wait_for('reaction_add', timeout=120.0, check=check)
+                            react, user = await client.wait_for('reaction_add', timeout=30.0, check=check)
                         except asyncio.TimeoutError:
                             await msg.clear_reactions()
                             return
