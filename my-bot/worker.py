@@ -129,7 +129,7 @@ Commands:
     if message.content.startswith(prefix + "wiki"):
         query = message.content[1+message.content.find(' '):]
         if query[:1].lower() + query[1:] == "caterer":
-            await message.add_reaction(u'\u0001\uF44B')
+            await message.add_reaction('👋')
         await message.channel.trigger_typing()
     
         em = discord.Embed()
