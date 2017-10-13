@@ -107,6 +107,8 @@ Commands:
 {0}sim    | Simulate a given CA pattern with output to gfycat
 {0}invite | Post an invite link for this bot``````FORTRAN
         '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
+        
+        ex='embed=discord.Embed(description=desc)'
 
         query = message.content[1+message.content.find(' '):].replace(' ', '')
         if query and query != message.content:
@@ -114,7 +116,7 @@ Commands:
                 desc = f'```nginx\n{prefix}{query} {cmdargs[query]}\n——————\n{cmdhelp[query]}```'
                 ex = 'desc'
             except KeyError:
-                ex='embed=discord.Embed(description=desc)'
+                pass
         
         await message.channel.send(eval(ex))
         
