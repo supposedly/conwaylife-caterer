@@ -118,7 +118,7 @@ Commands:
             except KeyError:
                 pass
         
-        eval(ex)
+        exec(ex)
         
 
     if message.content.startswith(prefix + "invite"):
