@@ -118,7 +118,7 @@ Commands:
             except KeyError:
                 pass
         
-        await message.channel.send((embed=em) if ex else (desc))
+        await (message.channel.send(desc) if ex else message.channel.send(embed=em))
         
 
     if message.content.startswith(prefix + "invite"):
