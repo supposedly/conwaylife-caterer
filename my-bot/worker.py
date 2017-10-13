@@ -157,9 +157,9 @@ Commands:
                     data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
                     
                 if 'missingtitle' in data:
-                    await message.channel.send('Page `' + query.replace('`', '') + '` does not exist.')
+                    await message.channel.send('Page `' + query + '` does not exist.') #no sanitization yeet
                 if 'invalidtitle' in data:
-                    await message.channel.send('`' + query.replace('`', '') + '`: invalid title')
+                    await message.channel.send('Invalid title: `' + query + '`')
                 else:
                     data = json.loads(data)
                     if "(disambiguation)" in data["parse"]["title"]:
