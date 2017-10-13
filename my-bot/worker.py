@@ -104,16 +104,16 @@ async def on_message(message):
         em.description = '''**```ini
        [A cellular automata bot for Conwaylife.​com]```**```makefile
 Commands:
-{0}help   | Display this message
-{0}wiki   | Look for a page on http://conwaylife.com/wiki/
-{0}sim    | Simulate a given CA pattern with output to gfycat
-{0}invite | Post an invite link for this bot``````FORTRAN
-        '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
+{}help   | Display this message
+{}wiki   | Look for a page on http://conwaylife.com/wiki/
+{}sim    | Simulate a given CA pattern with output to gfycat
+{}invite | Post an invite link for this bot``````FORTRAN
+        '{}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
 
         query = message.content[1+message.content.find(' '):].replace(' ', '')
         if query and query != message.content:
             try:
-                em.description = '```nginx\n' + prefix + query + ' ' + cmdargs[query] + '\n——————\n' + cmdhelp[query] + '```'
+                em.description = f'```nginx\n{prefix}{query} {cmdargs[query]} \n——————\n {cmdhelp[query]}```'
             except KeyError:
                 pass
         
