@@ -97,9 +97,8 @@ async def on_message(message):
     if message.author.bot:
         return
     
-    await message.channel.trigger_typing()
-    
     if message.content.startswith(prefix + "help"):
+        await message.channel.trigger_typing()
         em = discord.Embed()
         
         em.description = '''**```ini
@@ -122,12 +121,16 @@ Commands:
         
 
     if message.content.startswith(prefix + "invite"):
+        await message.channel.trigger_typing()
         em = discord.Embed(description='Use [this link](' + oauth + ') to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=client.user.avatar_url)
         await message.channel.send(embed=em)
     
     if message.content.startswith(prefix + "wiki"):
         query = message.content[1+message.content.find(' '):]
+        if query[:1].lower() + query[1:] == "caterer":
+            await message.add_reaction('👋')
+        await message.channel.trigger_typing()
     
         em = discord.Embed()
         em.color = 0x000000
@@ -168,9 +171,9 @@ Commands:
                         for i in range(len(links)):
                             await msg.add_reaction(numbers_fu[i])
                         def check(reaction, user):
-                            return user == message.author and str(reaction.emoji) in numbers_fu
+                            return user == message.author and reaction.emoji in numbers_fu[:len(links)]
                         try:
-                            react, user = await client.wait_for('reaction_add', timeout=120.0, check=check)
+                            react, user = await client.wait_for('reaction_add', timeout=30.0, check=check)
                         except asyncio.TimeoutError:
                             await msg.clear_reactions()
                             return
