@@ -108,17 +108,17 @@ Commands:
 {0}invite | Post an invite link for this bot``````FORTRAN
         '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
         em=discord.Embed(description=desc)
-        ex='await message.channel.send(embed=em)'
+        ex=False
 
         query = message.content[1+message.content.find(' '):].replace(' ', '')
         if query and query != message.content:
             try:
                 desc = f'```nginx\n{prefix}{query} {cmdargs[query]}\n——————\n{cmdhelp[query]}```'
-                ex = 'await message.channel.send(desc)'
+                ex = True
             except KeyError:
                 pass
         
-        exec(ex)
+        await message.channel.send((embed=em) if ex else (desc))
         
 
     if message.content.startswith(prefix + "invite"):
