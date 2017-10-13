@@ -99,9 +99,7 @@ async def on_message(message):
     
     if message.content.startswith(prefix + "help"):
         await message.channel.trigger_typing()
-        em = discord.Embed()
-        
-        em.description = '''**```ini
+        desc = '''**```ini
        [A cellular automata bot for Conwaylife.​com]```**```makefile
 Commands:
 {0}help   | Display this message
@@ -113,11 +111,11 @@ Commands:
         query = message.content[1+message.content.find(' '):].replace(' ', '')
         if query and query != message.content:
             try:
-                em.description = f'```nginx\n{prefix}{query} {cmdargs[query]} \n——————\n {cmdhelp[query]}```'
+                desc = f'```nginx\n{prefix}{query} {cmdargs[query]}\n——————\n{cmdhelp[query]}```'
             except KeyError:
                 pass
         
-        await message.channel.send(embed=em)
+        await message.channel.send(desc)
         
 
     if message.content.startswith(prefix + "invite"):
