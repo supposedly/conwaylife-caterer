@@ -112,10 +112,11 @@ Commands:
         if query and query != message.content:
             try:
                 desc = f'```nginx\n{prefix}{query} {cmdargs[query]}\n——————\n{cmdhelp[query]}```'
+                ex = 'desc'
             except KeyError:
-                pass
+                ex='embed=discord.Embed(description=desc)'
         
-        await message.channel.send(desc)
+        await message.channel.send(eval(ex))
         
 
     if message.content.startswith(prefix + "invite"):
