@@ -14,11 +14,11 @@ APP_VERSION = 3.0
 
 # these directory paths are relative to the location of this makefile:
 EXEDIR = ..
-DOCSDIR = ../docs
-BASEDIR = ../gollybase
-CMDDIR = ../cmdline
-LUADIR = ../lua
-OTHERGUIS = ../gui-android ../gui-common ../gui-ios ../gui-web
+DOCSDIR = ./golly-3.0-src/docs
+BASEDIR = ./golly-3.0-src/gollybase
+CMDDIR = ./golly-3.0-src/cmdline
+LUADIR = ./golly-3.0-src/lua
+OTHERGUIS = ./golly-3.0-src/gui-android ./golly-3.0-src/gui-common ./golly-3.0-src/gui-ios ./golly-3.0-src/gui-web
 
 # for building binary and source distributions:
 RELEASENAME = $(EXEDIR)/golly-$(APP_VERSION)
