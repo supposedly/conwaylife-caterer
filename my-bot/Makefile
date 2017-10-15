@@ -9,6 +9,7 @@
 # make
 # sudo make install
 # sudo ldconfig
+# ok
 
 APP_VERSION = 3.0
 
