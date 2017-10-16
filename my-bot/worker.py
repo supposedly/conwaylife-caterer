@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands #TODO: refactor code to support this
+from discord.ext import commands
 import json
 import asyncio
 import re
@@ -8,7 +8,7 @@ from html import unescape
 from collections import namedtuple
 from json import load
 
-def get_prefix(bot, message)
+def get_prefix(bot, message):
     in_lounge = message.guild.id == 357922255553953794
     return commands.when_mentioned_or('!' if in_lounge else 'ca.')(bot, message)
 
