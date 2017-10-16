@@ -10,7 +10,7 @@ from json import load
 
 def get_prefix(bot, message):
     in_lounge = message.guild.id == 357922255553953794
-    return commands.when_mentioned_or('!' if in_lounge else 'ca.')(bot, message)
+    return ('!' if in_lounge else 'ca.')(bot, message)
 
 bot = commands.Bot(command_prefix=get_prefix, description="A 'caterer' bot for the cellular automata community's Discord server")
 
