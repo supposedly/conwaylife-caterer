@@ -179,5 +179,4 @@ async def wiki(ctx, *, query: str):
                         await ctx.send(embed=em)
 
 
-client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
-
+bot.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
