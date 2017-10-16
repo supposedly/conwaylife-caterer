@@ -95,11 +95,13 @@ def disambig(data):
 
 
 @bot.command()
-async def hhelp(ctx, command: str):
+async def hhelp(ctx, *command: str):
+    
     async with ctx.channel.typing():
-        if command:
+        try:
+            command = command[0]
             await ctx.send(f'```nginx\n{bot.command_prefix()}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
-        else:
+        except IndexError as e:
             desc = '''**```ini
        [A cellular automata bot for Conwaylife.​com]```**```makefile
 Commands:
