@@ -8,12 +8,16 @@ from html import unescape
 from collections import namedtuple
 from json import load
 
-client = discord.Client()
+def get_prefix(bot, message)
+    in_lounge = message.guild.id == 357922255553953794
+    return commands.when_mentioned_or('!' if in_lounge else 'ca.')(bot, message)
 
-@client.event
+bot = commands.Bot(command_prefix=get_prefix, description="A 'caterer' bot for the cellular automata community's Discord server")
+
+@bot.event
 async def on_ready():
     global oauth
-    oauth = discord.utils.oauth_url(client.user.id, permissions=discord.Permissions(permissions=388160))
+    oauth = discord.utils.oauth_url(bot.user.id, permissions=discord.Permissions(permissions=388160))
 #   https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
     print('Discord: ' + discord.__version__)
     print('Logged in as')
@@ -89,50 +93,36 @@ def disambig(data):
     desc_links = parsedisambig(data["parse"]["text"]["*"])
     return (discord.Embed(title=pgtitle, url='http://conwaylife.com/wiki/' + pgtitle.replace(' ', '_'), description=desc_links[0], color=0xffffff), desc_links[1])
 
-@client.event
-async def on_message(message):
-    in_lounge = message.guild.id == 357922255553953794
-    prefix = '!' if in_lounge else 'ca.'
-    
-    if message.author.bot:
-        return
-    
-    if message.content.startswith(prefix + "help"):
-        await message.channel.trigger_typing()
-        desc = '''**```ini
+
+@bot.command()
+async def hhelp(ctx, command: str):
+    async with ctx.channel.typing():
+        if command:
+            await ctx.send(f'```nginx\n{bot.command_prefix}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
+        else:
+            desc = '''**```ini
        [A cellular automata bot for Conwaylife.​com]```**```makefile
 Commands:
 {0}help   | Display this message
 {0}wiki   | Look for a page on http://conwaylife.com/wiki/
 {0}sim    | Simulate a given CA pattern with output to gfycat
 {0}invite | Post an invite link for this bot``````FORTRAN
-        '{0}help COMMAND' for command-specific info```'''.format('!' if in_lounge else 'ca.')
-        em=discord.Embed(description=desc)
-        ex=False
-
-        query = message.content[1+message.content.find(' '):].replace(' ', '')
-        if query and query != message.content:
-            try:
-                desc = f'```nginx\n{prefix}{query} {cmdargs[query]}\n——————\n{cmdhelp[query]}```'
-                ex = True
-            except KeyError:
-                pass
-        
-        await (message.channel.send(desc) if ex else message.channel.send(embed=em))
-        
-
-    if message.content.startswith(prefix + "invite"):
-        await message.channel.trigger_typing()
-        em = discord.Embed(description='Use [this link](' + oauth + ') to add me to your server!', color=0x000000)
-        em.set_author(name='Add me!', icon_url=client.user.avatar_url)
-        await message.channel.send(embed=em)
+        '{0}help COMMAND' for command-specific info```'''.format(bot.command_prefix)
+            em = discord.Embed(description=desc)
+            await ctx.send(embed=em)
     
-    if message.content.startswith(prefix + "wiki"):
-        query = message.content[1+message.content.find(' '):]
-        if query[:1].lower() + query[1:] == "caterer":
-            await message.add_reaction('👋')
-        await message.channel.trigger_typing()
-    
+
+@bot.command(description='Produce an invite link for this bot')
+async def invite(ctx):
+    em = discord.Embed(description='Use [this link](' + oauth + ') to add me to your server!', color=0x000000)
+    em.set_author(name='Add me!', icon_url=client.user.avatar_url)
+    await ctx.send(embed=em)
+
+@bot.command(description='Look for a page on http://conwaylife.com/wiki/')
+async def wiki(ctx, *, query:str)
+    if query[:1].lower() + query[1:] == "caterer":
+        await ctx.message.add_reaction('👋')
+    async with ctx.channel.typing():
         em = discord.Embed()
         em.color = 0x000000
         
@@ -147,7 +137,7 @@ Commands:
             em.description = gus
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='https://i.imgur.com/CQefDXF.png')
-            await message.channel.send(embed=em)
+            await ctx.send(embed=em)
         else:
             with requests.Session() as rqst:
                 data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
@@ -158,9 +148,9 @@ Commands:
                     data = rqst.get("http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=" + query).text
                     
                 if 'missingtitle' in data:
-                    await message.channel.send('Page `' + query + '` does not exist.') #no sanitization yeet
+                    await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
                 if 'invalidtitle' in data:
-                    await message.channel.send('Invalid title: `' + query + '`')
+                    await ctx.send('Invalid title: `' + query + '`')
                 else:
                     data = json.loads(data)
                     if "(disambiguation)" in data["parse"]["title"]:
@@ -168,7 +158,7 @@ Commands:
                         emb = disambig(data)
                         links = emb[1]
                         emb = emb[0]
-                        msg = await message.channel.send(embed=emb)
+                        msg = await ctx.send(embed=emb)
                         for i in range(len(links)):
                             await msg.add_reaction(numbers_fu[i])
                         def check(reaction, user):
@@ -186,7 +176,7 @@ Commands:
                         await msg.edit(embed=em)
                         await msg.clear_reactions()
                     else:
-                        await message.channel.send(embed=em)
+                        await ctx.send(embed=em)
 
 
 client.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
