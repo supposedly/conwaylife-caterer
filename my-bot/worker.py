@@ -98,7 +98,7 @@ def disambig(data):
 async def hhelp(ctx, command: str):
     async with ctx.channel.typing():
         if command:
-            await ctx.send(f'```nginx\n{bot.command_prefix}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
+            await ctx.send(f'```nginx\n{bot.command_prefix()}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
         else:
             desc = '''**```ini
        [A cellular automata bot for Conwaylife.​com]```**```makefile
@@ -107,7 +107,7 @@ Commands:
 {0}wiki   | Look for a page on http://conwaylife.com/wiki/
 {0}sim    | Simulate a given CA pattern with output to gfycat
 {0}invite | Post an invite link for this bot``````FORTRAN
-        '{0}help COMMAND' for command-specific info```'''.format(bot.command_prefix)
+        '{0}help COMMAND' for command-specific info```'''.format(bot.command_prefix())
             em = discord.Embed(description=desc)
             await ctx.send(embed=em)
     
@@ -115,7 +115,7 @@ Commands:
 @bot.command(description='Produce an invite link for this bot')
 async def invite(ctx):
     em = discord.Embed(description='Use [this link](' + oauth + ') to add me to your server!', color=0x000000)
-    em.set_author(name='Add me!', icon_url=client.user.avatar_url)
+    em.set_author(name='Add me!', icon_url=bot.user.avatar_url)
     await ctx.send(embed=em)
 
 @bot.command(description='Look for a page on http://conwaylife.com/wiki/')
@@ -164,7 +164,7 @@ async def wiki(ctx, *, query: str):
                         def check(reaction, user):
                             return user == message.author and reaction.emoji in numbers_fu[:len(links)]
                         try:
-                            react, user = await client.wait_for('reaction_add', timeout=30.0, check=check)
+                            react, user = await bot.wait_for('reaction_add', timeout=30.0, check=check)
                         except asyncio.TimeoutError:
                             await msg.clear_reactions()
                             return
