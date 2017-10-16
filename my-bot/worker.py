@@ -119,7 +119,7 @@ async def invite(ctx):
     await ctx.send(embed=em)
 
 @bot.command(description='Look for a page on http://conwaylife.com/wiki/')
-async def wiki(ctx, *, query:str)
+async def wiki(ctx, *, query: str):
     if query[:1].lower() + query[1:] == "caterer":
         await ctx.message.add_reaction('👋')
     async with ctx.channel.typing():
