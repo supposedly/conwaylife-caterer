@@ -8,9 +8,9 @@ from html import unescape
 from collections import namedtuple
 from json import load
 
-def get_prefix(bot, message):
+def get_prefix(message):
     in_lounge = message.guild.id == 357922255553953794
-    return ('!' if in_lounge else 'ca.')(bot, message)
+    return '!' if in_lounge else 'ca.'
 
 bot = commands.Bot(command_prefix=get_prefix, description="A 'caterer' bot for the cellular automata community's Discord server")
 
@@ -100,7 +100,7 @@ async def hhelp(ctx, *command: str):
     async with ctx.channel.typing():
         try:
             command = command[0]
-            await ctx.send(f'```nginx\n{bot.command_prefix(bot, ctx.message)}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
+            await ctx.send(f'```nginx\n{bot.command_prefix(ctx.message)}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
         except IndexError as e:
             desc = '''**```ini
        [A cellular automata bot for Conwaylife.​com]```**```makefile
@@ -109,7 +109,7 @@ Commands:
 {0}wiki   | Look for a page on http://conwaylife.com/wiki/
 {0}sim    | Simulate a given CA pattern with output to gfycat
 {0}invite | Post an invite link for this bot``````FORTRAN
-        '{0}help COMMAND' for command-specific info```'''.format(bot.command_prefix(bot, ctx.message))
+        '{0}help COMMAND' for command-specific info```'''.format(bot.command_prefix(ctx.message))
             em = discord.Embed(description=desc)
             await ctx.send(embed=em)
     
