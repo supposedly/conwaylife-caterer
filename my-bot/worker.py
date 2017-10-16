@@ -100,7 +100,7 @@ async def hhelp(ctx, *command: str):
     async with ctx.channel.typing():
         try:
             command = command[0]
-            await ctx.send(f'```nginx\n{bot.command_prefix()}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
+            await ctx.send(f'```nginx\n{bot.command_prefix(bot, ctx.message)}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
         except IndexError as e:
             desc = '''**```ini
        [A cellular automata bot for Conwaylife.​com]```**```makefile
@@ -109,7 +109,7 @@ Commands:
 {0}wiki   | Look for a page on http://conwaylife.com/wiki/
 {0}sim    | Simulate a given CA pattern with output to gfycat
 {0}invite | Post an invite link for this bot``````FORTRAN
-        '{0}help COMMAND' for command-specific info```'''.format(bot.command_prefix())
+        '{0}help COMMAND' for command-specific info```'''.format(bot.command_prefix(bot, ctx.message))
             em = discord.Embed(description=desc)
             await ctx.send(embed=em)
     
