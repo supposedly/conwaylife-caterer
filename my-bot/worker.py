@@ -13,7 +13,7 @@ def get_prefix(bot, message):
     return '!' if in_lounge else 'ca.'
 
 bot = commands.Bot(command_prefix=get_prefix, description="A 'caterer' bot for the cellular automata community's Discord server")
-bot.remove_command(help)
+bot.remove_command('help')
 
 @bot.event
 async def on_ready():
