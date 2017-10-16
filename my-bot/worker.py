@@ -21,8 +21,8 @@ async def on_ready():
 #   https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
     print('Discord: ' + discord.__version__)
     print('Logged in as')
-    print(client.user.name)
-    print(client.user.id)
+    print(bot.user.name)
+    print(bot.user.id)
     print('------')
 
 rparens = re.compile(r" \(.+?\)")
