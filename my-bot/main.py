@@ -14,16 +14,16 @@ def get_prefix(bot, message):
 bot = commands.Bot(command_prefix=get_prefix, description="A 'caterer' bot for the cellular automata community's Discord server")
 bot.remove_command('help')
 
-cogs = ['.cogs.utility', '.cogs.wiki', '.cogs.ca']
+cogs = ['cogs.utility', 'cogs.wiki', 'cogs.ca']
 
 @bot.event
 async def on_ready():
     if __name__ == '__main__':
         for cog in cogs:
-            try:
-                bot.load_extension(cog)
-            except Exception as e:
-                print(f"Loading of command '{cog}' failed.")
+            #try:
+            bot.load_extension(cog)
+            #except Exception as e:
+                #print(f"Loading of command '{cog}' failed.")
     print(f'Discord: {discord.__version__}')
     print('Logged in as')
     print(bot.user.name)
