@@ -14,7 +14,7 @@ def get_prefix(bot, message):
 bot = commands.Bot(command_prefix=get_prefix, description="A 'caterer' bot for the cellular automata community's Discord server")
 bot.remove_command('help')
 
-cogs = ['cogs.utility', 'cogs.wiki', 'cogs.ca']
+cogs = ['.cogs.utility', '.cogs.wiki', '.cogs.ca']
 
 @bot.event
 async def on_ready():
