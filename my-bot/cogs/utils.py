@@ -4,9 +4,10 @@ import asyncio
 
 cmdhelp = {"help": 'Displays specific usage infо for COMMAND.\nIf nо argument or invalid argument given, defaults to displaying generic help/info message.',
 "wiki": 'Searches http://conwaylife.com/wiki/ for QUERY and displays a small, nicely-formatted blurb including image, title, and rеdirеct handling.\nIf QUERY is disambiguated, displays its disambig page with reaction UI to choose result.\n(TODO: support for linking to a specific section)',
+"dyk": 'Provides a random Did-You-Know fact about CA from the wiki.',
 "sim": 'Currently under construction.\nSimulates PAT, a one-line rle or .lif file, under RULE with speed STEP until reaching or exceeding generation GEN and uploads ouptput to gfycat.\nDefaults to B3/S23 (or pre-specified rule) if RULE ommitted and to 1 if STEP ommitted.\nIf PAT ommitted, defaults to laѕt-sent Golly-compatible pattern (which can be a multiliner in a triple-grave code block and can include a RULE)',
 "invite": 'Produces an oauth2 invite link for this bot with necessary permissions.'}
-cmdargs = {"help": '*COMMAND', "wiki": 'QUERY', "sim": '*RULE *PAT *STEP GEN', "invite": ''}
+cmdargs = {"help": 'COMMAND*', "wiki": 'QUERY', "dyk": '', "sim": 'RULE* PAT* STEP* GEN', "invite": ''}
 
 class utils:
     def __init__(self, bot):
@@ -28,11 +29,12 @@ class utils:
             command = command[0]
             await ctx.send(f'```nginx\n{self.bot.command_prefix(self.bot, ctx.message)}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
         except (KeyError, IndexError) as e:
-            desc = '''**```ini
-       [A cellular automata bot for Conwaylife.​com]```**```makefile
+            desc = '''**[```ini
+       [A cellular automata bot for Conwaylife.​com]```](http://conwaylife.com/forums)**```makefile
 Commands:
 {0}help   | Display this message
 {0}wiki   | Look for a page on http://conwaylife.com/wiki/
+{0}dyk    | Provide a random Did-You-Know from wiki
 {0}sim    | Simulate a given CA pattern with output to gfycat
 {0}invite | Post an invite link for this bot``````FORTRAN
         '{0}help COMMAND' for command-specific info```'''.format(self.bot.command_prefix(self.bot, ctx.message))

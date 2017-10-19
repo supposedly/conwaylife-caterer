@@ -16,8 +16,8 @@ rredirect = re.compile(r'">(.+?)</a>')
 rgif = re.compile(r"File[^F]+?\.gif")
 rimage = re.compile(r"File[^F]+?\.png")
 
-rlinks = re.compile(r"<li> ?<a href.+?>(.+?)</a>")
-rlinksb = re.compile(r"<a href.+?>(.+?)</a>")
+rlinks = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
+rlinksb = re.compile(r'<a href="(.+?)".+?>(.+?)</a>')
 rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
 
 rnewlines = re.compile(r"\n+")
@@ -27,6 +27,7 @@ numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3'
 def parse(txt):
     txt = rredherring.sub('', txt)
     txt = txt.replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0]
+    txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
     txt = rtags.sub('', txt)
     txt = rctrlchars.sub('', txt)
     txt = rparens.sub('', txt)
@@ -56,8 +57,8 @@ def parsedisambig(txt):
     txt = txt.replace('<b>', '').replace('</b>', '')
     # think ^ should stay this way so the title doesn't clash visually with the options, but ('' --> '**') if you ever wanna change it in the future
     links = rdisamb.findall(txt)
-    txt = rlinks.sub(lambda m: '**' + m.group(1) + '**', txt)
-    txt = rlinksb.sub(lambda m: m.group(1), txt)
+    txt = rlinks.sub(lambda m: f'**[{m.group(2)}](http://conwaylife.com{m.group(1)})**', txt)
+    txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
     
     txt = rtags.sub('', txt)
     
@@ -72,6 +73,8 @@ def disambig(data):
 class wiki:
     def __init__(self, bot):
         self.bot = bot
+    
+    #@commands.command(name='dyk', aliases=['DYK'])
 
     @commands.command(name='wiki')
     async def wiki(self, ctx, *, query: str):
