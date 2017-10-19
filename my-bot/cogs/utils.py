@@ -22,7 +22,8 @@ class utils:
         await ctx.send(embed=em)
     
     @commands.command(name='help', aliases=['info'])
-    async def help(self, ctx, *, command: str):
+    async def help(self, ctx, *command: str):
+        command = command[0]
         ctx.channel.trigger_typing()
         try:
             await ctx.send(f'```nginx\n{self.bot.command_prefix(self.bot, ctx.message)}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
