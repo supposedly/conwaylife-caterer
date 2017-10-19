@@ -23,7 +23,7 @@ async def on_ready():
             try:
                 bot.load_extension(cog)
             except Exception as e:
-                print(e)
+                print(f'Error loading extension {cog}: {e}')
     print(f'Discord: {discord.__version__}')
     print('Logged in as')
     print(bot.user.name)
