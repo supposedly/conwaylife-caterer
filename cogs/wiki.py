@@ -57,7 +57,7 @@ def parsedisambig(txt):
     txt = txt.replace('<b>', '').replace('</b>', '')
     # think ^ should stay this way so the title doesn't clash visually with the options, but ('' --> '**') if you ever wanna change it in the future
     links = rdisamb.findall(txt)
-    txt = rlinks.sub(lambda m: f'**{m.group(2)}**', txt) # change to '**[{m.group(2)}](http://conwaylife.com{m.group(1)})**' for link altho it looks really ugly
+    txt = rlinks.sub(lambda m: f'**{m.group(2)}**', txt) # change to '**[{m.group(2)}](http://conwaylife.com{m.group(1)})**' for hyperlink although it looks really ugly
     txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
     
     txt = rtags.sub('', txt)
