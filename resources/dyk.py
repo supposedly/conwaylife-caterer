@@ -1,4 +1,5 @@
-dyk_list = ["...that the largest interesting pattern constructed, the [[caterpillar]], contains over 11 million [[cell]]s?",
+#encoding: utf-8
+facts = ["...that the largest interesting pattern constructed, the [[caterpillar]], contains over 11 million [[cell]]s?",
 "...that the [[Gosper glider gun]] was the first pattern to be discovered that exhibits infinite growth?",
 "...that the [[block-laying switch engine]] and the [[glider-producing switch engine]] (and [http://conwaylife.com/forums/viewtopic.php?f=2&t=1452&p=25314#p25283 various combinations of two switch engines]) are the only infinitely-growing patterns that are known to have ever occurred naturally from an asymmetric random starting configuration?",
 "...that [[oscillator]]s are known that oscillate at all [[period]]s other than 19, 23, 34, 38 and 41?",

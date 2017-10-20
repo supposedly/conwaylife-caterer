@@ -1,11 +1,6 @@
 import discord
 from discord.ext import commands
-import json
-import asyncio
-import re
-import requests
-from html import unescape
-from collections import namedtuple
+from resources import secret #secret.py in /resources with gfycat and discord tokens
 
 def get_prefix(bot, message):
     in_lounge = message.guild.id == 357922255553953794
@@ -30,4 +25,4 @@ async def on_ready():
     print(bot.user.id)
     print('------')
 
-bot.run('MzU5MDY3NjM4MjE2Nzg1OTIw.DKBnUw.MJm4R_Zz6hCI3TPLT05wsdn6Mgs')
+bot.run(secret.discord_token)
