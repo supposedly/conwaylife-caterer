@@ -49,7 +49,7 @@ def regpage(data, query, rqst, em):
     pgtitle = data["parse"]["title"]
     desc = unescape(parse(data["parse"]["text"]["*"]))
 
-    em.title = pgtitle
+    em.title = f'**{pgtitle}**'
     em.url = f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}'
     em.description = desc
 
@@ -68,9 +68,9 @@ def parsedisambig(txt):
 def disambig(data):
     pgtitle = data["parse"]["title"]
     desc_links = parsedisambig(data["parse"]["text"]["*"])
-    return (discord.Embed(title=pgtitle, url=f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}', description=desc_links[0], color=0xffffff), desc_links[1])
+    return (discord.Embed(title=f'**{pgtitle}**', url=f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}', description=desc_links[0], color=0xffffff), desc_links[1])
 
-class wiki:
+class Wiki:
     def __init__(self, bot):
         self.bot = bot
     
@@ -90,8 +90,8 @@ class wiki:
             em.set_footer(text=f'(redirected from "{query}")')
             query = 'methusynthesae'
         if query[:1].lower() + query[1:] == 'methusynthesae':
-            gus = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they are patterns, and don't form other patterns."
-            em.title = 'Methusynthesae'
+            gus = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they *are* patterns, and **don't** form other patterns."
+            em.title = '**Methusynthesae**'
             em.description = gus
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='https://i.imgur.com/CQefDXF.png')
@@ -135,5 +135,4 @@ class wiki:
                         await ctx.send(embed=em)
 
 def setup(bot):
-    bot.add_cog(wiki(bot))
-    
+    bot.add_cog(Wiki(bot))
