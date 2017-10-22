@@ -17,7 +17,7 @@ rgif = re.compile(r"File[^F]+?\.gif")
 rimage = re.compile(r"File[^F]+?\.png")
 
 rlinks = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
-rlinksb = re.compile(r'<a href="(.+?)".+?>(.+?)</a>')
+rlinksb = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
 rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
 
 rnewlines = re.compile(r"\n+")
@@ -49,7 +49,7 @@ def regpage(data, query, rqst, em):
     pgtitle = data["parse"]["title"]
     desc = unescape(parse(data["parse"]["text"]["*"]))
 
-    em.title = f'**{pgtitle}**'
+    em.title = f'{pgtitle}'
     em.url = f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}'
     em.description = desc
 

@@ -2,8 +2,8 @@ import discord
 from discord.ext import commands
 import re
 
-rstandard = re.compile('^(B)?[\dcekainyqjrtwz-]*/(?(1)S[\dcekainyqjrtwz\-]*|[\dcekainyqjrtwz\-]*/?[\dcekainyqjrtwz\-]*)$') #jesus christ (matches B/S and if no B then either 2-state single-slash or generations)
-rpattern = re.compile('')
+rrulestring = re.compile('^(B)?[\dcekainyqjrtwz-]*/(?(1)S[\dcekainyqjrtwz\-]*|[\dcekainyqjrtwz\-]*/?[\dcekainyqjrtwz\-]*)$') #jesus christ i am sorry (matches B/S and if no B then either 2-state single-slash rulestring or generations rulestring)
+rpattern = re.compile('') #matches one-line RLE
 
 class CA:
     def __init__(self, bot)
