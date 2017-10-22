@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from resources import secret #secret.py in /resources with gfycat and discord tokens
+import os
 
 def get_prefix(bot, message):
     in_lounge = message.guild.id == 357922255553953794
@@ -25,4 +25,4 @@ async def on_ready():
     print(bot.user.id)
     print('------')
 
-bot.run(secret.discord_token)
+bot.run(os.getenv('DISCORD_TOKEN'))
