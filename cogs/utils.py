@@ -30,7 +30,7 @@ class utils:
             await ctx.send(f'```nginx\n{self.bot.command_prefix(self.bot, ctx.message)}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
         except (KeyError, IndexError) as e:
             desc = '''**```ini
-       [A cellular automata bot for Conwaylife.​com]```]**```makefile
+       [A cellular automata bot for Conwaylife.​com]```**```makefile
 Commands:
 {0}help   | Display this message
 {0}wiki   | Look for a page on http://conwaylife.com/wiki/

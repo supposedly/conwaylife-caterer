@@ -10,7 +10,8 @@ class CA:
         self.bot = bot
     
     @commands.command(name='sim')
-    def sim(self, ctx, *args) #args: *RULE *PAT *STEP GEN
+    async def sim(self, ctx, *args): #args: *RULE *PAT *STEP GEN
+        return
 
 def setup(bot):
     bot.add_cog(CA(bot))
