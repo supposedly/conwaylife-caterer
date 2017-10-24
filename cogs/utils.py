@@ -2,6 +2,10 @@ import discord
 from discord.ext import commands
 import asyncio
 
+# to expose to the eval command
+import datetime
+from collections import Counter
+
 cmdhelp = {"help": 'Displays specific usage infо for COMMAND.\nIf nо argument or invalid argument given, defaults to displaying generic help/info message.',
 "wiki": 'Searches http://conwaylife.com/wiki/ for QUERY and displays a small, nicely-formatted blurb including image, title, and rеdirеct handling.\nIf QUERY is disambiguated, displays its disambig page with reaction UI to choose result.\n(TODO: support for linking to a specific section)',
 "dyk": 'Provides a random Did-You-Know fact about CA from the wiki.',
@@ -9,9 +13,11 @@ cmdhelp = {"help": 'Displays specific usage infо for COMMAND.\nIf nо argument 
 "invite": 'Produces an oauth2 invite link for this bot with necessary permissions.'}
 cmdargs = {"help": 'COMMAND*', "wiki": 'QUERY', "dyk": '', "sim": 'RULE* PAT* STEP* GEN', "invite": ''}
 
-class utils:
+class Utils:
     def __init__(self, bot):
         self.bot = bot
+        self._last_result = None    # for !repl
+        self.sessions = set()       # for !repl
         global oauth
         oauth = discord.utils.oauth_url(bot.user.id, permissions=discord.Permissions(permissions=388160))
 #       https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
@@ -40,10 +46,24 @@ Commands:
         '{0}help COMMAND' for command-specific info```'''.format(self.bot.command_prefix(self.bot, ctx.message))
             em = discord.Embed(description=desc)
             await ctx.send(embed=em)
+            
+    def cleanup_code(self, content):
+        """Automatically removes code blocks from the code."""
+        # remove ```py\n```
+        if content.startswith('```') and content.endswith('```'):
+            return '\n'.join(content.split('\n')[1:-1])
+
+        # remove `foo`
+        return content.strip('` \n')
+
+    def get_syntax_error(self, e):
+        if e.text is None:
+            return f'```py\n{e.__class__.__name__}: {e}\n```'
+        return f'```py\n{e.text}{"^":>{e.offset}}\n{e.__class__.__name__}: {e}```'
     
     @commands.command(hidden=True, name='eval') # from Rapptz
     @commands.is_owner()
-    async def eval(self, ctx, *, body: str):
+    async def _eval(self, ctx, *, body: str):
         """Evaluates a code"""
 
         env = {
@@ -180,4 +200,4 @@ Commands:
                 await ctx.send(f'Unexpected error: `{e}`')
 
 def setup(bot):
-    bot.add_cog(utils(bot))
+    bot.add_cog(Utils(bot))
