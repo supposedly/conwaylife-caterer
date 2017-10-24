@@ -248,4 +248,4 @@ class Admin:
             await ctx.send(fmt)
 
 def setup(bot):
-bot.add_cog(Admin(bot))
+    bot.add_cog(Admin(bot))
