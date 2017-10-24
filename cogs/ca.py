@@ -29,7 +29,7 @@ exclm = re.compile(r'([0-3]*)\$') # exclm.sub(lambda m:'!' if m.group(1) == '' e
 
 
 class CA:
-    def __init__(self, bot)
+    def __init__(self, bot):
         self.bot = bot
         #TODO: Log channel messages at startup then continue to log with on_message() to avoid slowness when !sim is called
             

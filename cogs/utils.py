@@ -177,7 +177,7 @@ Commands:
             except discord.Forbidden:
                 pass
             except discord.HTTPException as e:
-await ctx.send(f'Unexpected error: `{e}`')
+                await ctx.send(f'Unexpected error: `{e}`')
 
 def setup(bot):
     bot.add_cog(utils(bot))
