@@ -37,11 +37,13 @@ def parse(txt):
     return txt
 
 async def regpage(data, query, rqst, em):
-    images = await rqst.text(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}')
+    async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as resp:
+        images = await resp.text()
     pgimg = rgif.search(images)
     find = rimage.findall(images)
     pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else ''))
-    images = await rqst.json(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={pgimg}')
+    async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={pgimg}') as resp:
+        images = await resp.json()
     try:
         pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
         em.set_thumbnail(url=pgimg)
