@@ -10,7 +10,7 @@ rrulestring = re.compile(r'^(B)?[0-8cekainyqjrtwz-]*/(?(1)S?[0-8cekainyqjrtwz\-]
 rpattern = re.compile(r'^[\dobo$]*[obo$][\dobo$]*!?$|^[.*!]+$')
 
 # matches multiline XRLE
-rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+, ?rule ?= ?(.+)$)?\n(^[\dobo$]*[obo$][\dobo$]*!?)$', re.M)
+rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+, ?rule ?= ?(.+)$)?\n(^[\dobo$]*[obo$][\dobo$\n]*!?)$', re.M)
 
 # matches .lif
 rlif = re.compile(r'(?:^[.*!]+$)+')
@@ -61,7 +61,7 @@ class CA:
             async for msg in ctx.channel.history(limit=50): #TODO from above: Log channel messages at startup then continue to log with on_message() to avoid slowness when !sim is called
                 rmatch = rxrle.match(msg.content.lstrip('`').rstrip('`'))
                 if rmatch:
-                    parse["pat"] = rmatch.group(2)
+                    parse["pat"] = rmatch.group(2).replace('\n', '')
                     try:
                         parse["rule"] = rmatch.group(1)
                     except Exception as e:
