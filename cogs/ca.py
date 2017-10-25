@@ -59,7 +59,7 @@ class CA:
             return
         if parse["pat"] is None:
             async for msg in ctx.channel.history(limit=50): #TODO from above: Log channel messages at startup then continue to log with on_message() to avoid slowness when !sim is called
-                rmatch = rxrle.match(msg.content)
+                rmatch = rxrle.match(msg.content.lstrip('`').rstrip('`'))
                 if rmatch:
                     parse["pat"] = rmatch.group(2)
                     try:
