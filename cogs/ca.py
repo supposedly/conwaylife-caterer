@@ -56,6 +56,7 @@ class CA:
                 parse["rule"] = item
         if parse["gen"] is None:
             await ctx.send('`Error: No GEN specified.`')
+            return
         if parse["pat"] is None:
             async for msg in ctx.channel.history(limit=50): #TODO from above: Log channel messages at startup then continue to log with on_message() to avoid slowness when !sim is called
                 rmatch = rxrle.match(msg.content)
