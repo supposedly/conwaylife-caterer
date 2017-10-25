@@ -112,7 +112,6 @@ class Wiki:
         else:
             async with aiohttp.ClientSession() as rqst:
                 async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as data:
-                    data = await data.text()
                     if '>REDIRECT ' in data:
                         em.set_footer(text='(redirected from "' + query + '")')
                         query = rredirect.search(data).group(1)
