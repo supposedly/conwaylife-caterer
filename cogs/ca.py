@@ -78,7 +78,7 @@ class CA:
         with open(f'{ctx.message.id}_in.rle', 'w') as patfile:
             patfile.write(parse["pat"])
         
-        os.system('{0.dirname(__file__)}/resources/bgolly -m {1["gen"]} -i {1["step"]} -q -q -r {1["rule"]} -o {2.message.id}_out.rle {2.message.id}_in.rle'.format(os.path, parse, ctx)
+        os.system('{0.dirname(__file__)}/resources/bgolly -m {1["gen"]} -i {1["step"]} -q -q -r {1["rule"]} -o {2.message.id}_out.rle {2.message.id}_in.rle'.format(os.path, parse, ctx))
         # From here:
         # readlines on bgolly's output file and divide resulting list into two - one with each individual RLE and one with corresponding (width, height)
         # for pattern in rle_list: turn into .lif file with final regexes above
