@@ -77,8 +77,8 @@ class CA:
         
         with open(f'{ctx.message.id}_in.rle', 'w') as patfile:
             patfile.write(parse["pat"])
-            filedir = os.path.dirname(os.path.abspath(patfile))
         
+        filedir = os.path.dirname(os.path.abspath(f'{ctx.message.id}_in.rle'))
         os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {0}/{2}_out.rle {3}/{2}_in.rle && cat {0}/{2}_out.rle && cat {3}/{2}_in.rle'.format(os.path.dirname(os.path.abspath(__file__)), parse, ctx.message.id, filedir))
         # From here:
         # readlines on bgolly's output file and divide resulting list into two - one with each individual RLE and one with corresponding (width, height)
