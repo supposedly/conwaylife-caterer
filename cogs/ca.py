@@ -23,7 +23,7 @@ rruns = re.compile(r'([0-9]+)([ob])') # rruns.sub(lambda m:''.join(['.' if m.gro
 rsingletons = re.compile(r'(?<![0-9])[ob]') # singletons.sub(lambda m:'.' if m.group() == 'b' else '*', rle)
 
 # exclamation points
-exclm = re.compile(r'([0-3]*)\$') # exclm.sub(lambda m:'!' if m.group(1) == '' else ''.join(['!' for x in range(int(m.group(1)))]), rle)
+rexclm = re.compile(r'([0-3]*)\$') # exclm.sub(lambda m:'!' if m.group(1) == '' else ''.join(['!' for x in range(int(m.group(1)))]), rle)
 
 
 # ---- #
@@ -32,7 +32,7 @@ exclm = re.compile(r'([0-3]*)\$') # exclm.sub(lambda m:'!' if m.group(1) == '' e
 class CA:
     def __init__(self, bot):
         self.bot = bot
-        self.file = os.path.dirname(os.path.abspath(__file__))
+        self.dir = os.path.dirname(os.path.abspath(__file__))
         #TODO: Log channel messages at startup then continue to log with on_message() to avoid slowness when !sim is called
         # maybe
             
@@ -81,10 +81,10 @@ class CA:
         
         filedir = os.path.dirname(os.path.abspath(f'{ctx.message.id}_in.rle'))
         
-        os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {0}/{2}_out.rle {3}/{2}_in.rle'.format(self.file, parse, ctx.message.id, filedir))
+        os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {0}/{2}_out.rle {3}/{2}_in.rle'.format(self.dir, parse, ctx.message.id, filedir))
         # From here:
         # readlines on bgolly's output file and divide resulting list into two - one with each individual RLE and one with corresponding (width, height)
-        with open(f'{self.file}/{ctx.message.id}_out.rle', 'r') as pat:
+        with open(f'{self.dir}/{ctx.message.id}_out.rle', 'r') as pat:
             patlist = [line.rstrip('\n') for line in pat]
         
         headers = patlist[::2] # just headers
@@ -95,7 +95,7 @@ class CA:
         patlist = [pattern[:pattern.find('!')] for pattern in patlist] # remove final newline and exclamation point
         
         # applies above regexes to turn RLE into .lif ... readable enough if second arg recursively unpacked
-        patlist = [exclm.sub(lambda m:'!' if m.group(1) == '' else ''.join(['!' for x in range(int(m.group(1)))]), singletons.sub(lambda m:'.' if m.group() == 'b' else '*', rruns.sub(lambda m:''.join(['.' if m.group(2) == 'b' else '*' for x in range(int(m.group(1)))]), pattern))) for pattern in patlist]
+        patlist = [rexclm.sub(lambda m:'!' if m.group(1) == '' else ''.join(['!' for x in range(int(m.group(1)))]), rsingletons.sub(lambda m:'.' if m.group() == 'b' else '*', rruns.sub(lambda m:''.join(['.' if m.group(2) == 'b' else '*' for x in range(int(m.group(1)))]), pattern))) for pattern in patlist]
         
         print(patlist)
         
