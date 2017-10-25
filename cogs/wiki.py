@@ -36,9 +36,9 @@ def parse(txt):
     txt = rtags.sub('', txt)
     return txt
 
-def regpage(data, query, rqst, em):
-    async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as images:
-        images = images.text()
+async def regpage(data, query, rqst, em):
+    images = await rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}')
+    images = images.text()
     pgimg = rgif.search(images)
     find = rimage.findall(images)
     pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else ''))
