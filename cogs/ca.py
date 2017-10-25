@@ -80,7 +80,7 @@ class CA:
             patfile.write(parse["pat"])
         
         filedir = os.path.dirname(os.path.abspath(f'{ctx.message.id}_in.rle'))
-        os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {0}/{2}_out.rle {3}/{2}_in.rle && echo "out:" && cat {0}/{2}_out.rle && echo "in:" && cat {3}/{2}_in.rle'.format(self.file, parse, ctx.message.id, filedir))
+        os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {0}/{2}_out.rle {3}/{2}_in.rle'.format(self.file, parse, ctx.message.id, filedir))
         # From here:
         # readlines on bgolly's output file and divide resulting list into two - one with each individual RLE and one with corresponding (width, height)
         # for pattern in rle_list: turn into .lif file with final regexes above
