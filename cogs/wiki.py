@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-import asyncio, requests
+import asyncio
 import re
 import json
 from html import unescape
@@ -110,42 +110,41 @@ class Wiki:
             em.set_thumbnail(url='https://i.imgur.com/CQefDXF.png')
             await ctx.send(embed=em)
         else:
-            with requests.Session() as rqst:
-                data = rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}').text
-                
-                if '>REDIRECT ' in data:
-                    em.set_footer(text='(redirected from "' + query + '")')
-                    query = rredirect.search(data).group(1)
-                    data = rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}').text
-                    
-                if 'missingtitle' in data:
-                    await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
-                if 'invalidtitle' in data:
-                    await ctx.send(f'Invalid title: `{query}`')
-                else:
-                    data = json.loads(data)
-                    if '(disambiguation)' in data["parse"]["title"]:
-                        edit = True
-                        emb = disambig(data)
-                        links = emb[1]
-                        emb = emb[0]
-                        msg = await ctx.send(embed=emb)
-                        for i in range(len(links)):
-                            await msg.add_reaction(numbers_fu[i])
-                        try:
-                            react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check = lambda react, user: user == ctx.message.author and react.emoji in numbers_fu[:len(links)])
-                        except asyncio.TimeoutError:
-                            await msg.clear_reactions()
-                            return
-                        query = links[numbers_fu.index(react.emoji)]
-                        data = json.loads(rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}').text)
-                    
-                    regpage(data, query, rqst, em)
-                    if edit:
-                        await msg.edit(embed=em)
-                        await msg.clear_reactions()
+            async with aiohttp.ClientSession() as rqst:
+                async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as data:                
+                    if '>REDIRECT ' in data:
+                        em.set_footer(text='(redirected from "' + query + '")')
+                        query = rredirect.search(data).group(1)
+                        data = rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}').text
+                        
+                    if 'missingtitle' in data:
+                        await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
+                    if 'invalidtitle' in data:
+                        await ctx.send(f'Invalid title: `{query}`')
                     else:
-                        await ctx.send(embed=em)
+                        data = json.loads(data)
+                        if '(disambiguation)' in data["parse"]["title"]:
+                            edit = True
+                            emb = disambig(data)
+                            links = emb[1]
+                            emb = emb[0]
+                            msg = await ctx.send(embed=emb)
+                            for i in range(len(links)):
+                                await msg.add_reaction(numbers_fu[i])
+                            try:
+                                react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check = lambda react, user: user == ctx.message.author and react.emoji in numbers_fu[:len(links)])
+                            except asyncio.TimeoutError:
+                                await msg.clear_reactions()
+                                return
+                            query = links[numbers_fu.index(react.emoji)]
+                            data = await rqst.json(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}')
+                        
+                        regpage(data, query, rqst, em)
+                        if edit:
+                            await msg.edit(embed=em)
+                            await msg.clear_reactions()
+                        else:
+                            await ctx.send(embed=em)
 
 def setup(bot):
     bot.add_cog(Wiki(bot))
