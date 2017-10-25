@@ -93,10 +93,10 @@ class CA:
         headers = [(x, y, x * y) for x, y in headers] # put total area in tuple[2]
         
         patlist = patlist[1::2] # just RLE
-        patlist = [pattern[:pattern.find('!')] for pattern in patlist] # remove final newline and exclamation point
+        # patlist = [pattern[:pattern.find('!')] for pattern in patlist] # remove final exclamation point
         
         # applies above regexes to turn RLE into .lif ... readable enough if second arg recursively unpacked
-        patlist = [rexclm.sub(lambda m:'!' if m.group(1) == '' else ''.join(['!' for x in range(int(m.group(1)))]), rsingletons.sub(lambda m:'.' if m.group() == 'b' else '*', rruns.sub(lambda m:''.join(['.' if m.group(2) == 'b' else '*' for x in range(int(m.group(1)))]), pattern))) for pattern in patlist]
+        # patlist = [rexclm.sub(lambda m:'!' if m.group(1) == '' else ''.join(['!' for x in range(int(m.group(1)))]), rsingletons.sub(lambda m:'.' if m.group() == 'b' else '*', rruns.sub(lambda m:''.join(['.' if m.group(2) == 'b' else '*' for x in range(int(m.group(1)))]), pattern))) for pattern in patlist]
         
         print(patlist)
         
