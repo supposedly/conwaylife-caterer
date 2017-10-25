@@ -44,7 +44,7 @@ class CA:
             args.pop(args.index('g'))
             gfy = True
         if len(args) > 4:
-            await ctx.send(f"`Error: Too many args. '{self.bot.command_prefix(self.bot, ctx.message)]help sim' for more info`")
+            await ctx.send(f"`Error: Too many args. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
             return
         parse = {"rule": 'B3/S23', "pat": None, "gen": None, "step": '1'}
         for item in args:
