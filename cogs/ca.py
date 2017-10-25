@@ -38,6 +38,7 @@ class CA:
     
     @commands.command(name='sim')
     async def sim(self, ctx, *args): #args: *RULE *PAT GEN *STEP *g
+        await ctx.send(str(args))
         gfy = False
         if 'g' in args:
             args.pop(args.index('g'))
