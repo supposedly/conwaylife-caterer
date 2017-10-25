@@ -118,7 +118,8 @@ class Wiki:
                 if '>REDIRECT ' in data:
                     em.set_footer(text='(redirected from "' + query + '")')
                     query = rredirect.search(data).group(1)
-                    data = rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}').text
+                    async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+                        data = await resp.text()
                     
                 if 'missingtitle' in data:
                     await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
