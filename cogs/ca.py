@@ -72,7 +72,7 @@ class CA:
                     parse["pat"] = rmatch.group(0)
                     break
             if parse["pat"] is None: #stupid
-                await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)]help sim' for more info`")
+                await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
                 return
         await ctx.send('Running supplied pattern in rule `{0[rule]}` with step `{0[step]}` until generation `{0[gen]}`.'.format(parse))
         
