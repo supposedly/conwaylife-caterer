@@ -40,7 +40,7 @@ class utils:
         ctx.channel.trigger_typing()
         try:
             command = command[0]
-            await ctx.send(f'```nginx\n{self.bot.command_prefix(self.bot, ctx.message)}{command} {cmdargs[command]}``````ini{cmdhelp[command]}```')
+            await ctx.send(f'```nginx\n{self.bot.command_prefix(self.bot, ctx.message)}{command} {cmdargs[command]}``````ini\n{cmdhelp[command]}```')
         except (KeyError, IndexError) as e:
             desc = '''**```ini
        [A cellular automata bot for Conwaylife.​com]```**```makefile
