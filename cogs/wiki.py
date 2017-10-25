@@ -37,11 +37,12 @@ def parse(txt):
     return txt
 
 def regpage(data, query, rqst, em):
-    images = rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}').text
+    images = await rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}')
+    images = images.text()
     pgimg = rgif.search(images)
     find = rimage.findall(images)
     pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else ''))
-    images = json.loads(rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={pgimg}').text)
+    images = await rqst.json(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={pgimg}')
     try:
         pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
         em.set_thumbnail(url=pgimg)
@@ -112,6 +113,7 @@ class Wiki:
         else:
             async with aiohttp.ClientSession() as rqst:
                 async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as data:
+                    data = await data.text()
                     if '>REDIRECT ' in data:
                         em.set_footer(text='(redirected from "' + query + '")')
                         query = rredirect.search(data).group(1)
