@@ -2,11 +2,25 @@ import discord
 from discord.ext import commands
 import asyncio
 
-cmdhelp = {"help": 'CMD: Command to display usage info for. If ommitted, defaults to displaying generic help/info message.',
-"wiki": 'QUERY: Page title to search http://conwaylife.com/wiki/ for. If disambiguated, displays its disambig page with reaction UI allowing user to choose desired page.\nDisplays a small, nicely-formatted blurb from QUERY\'s page including image, title, and rеdirеct handling.\n\n(TODO: no arguments displays PoTW, allow linking to a specific section)',
-"dyk": 'Provides a random Did-You-Know fact from wiki.',
-"sim": 'Currently under construction.\nPAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which can be a multiliner in a triple-grave code block).\nRULE: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.\nSTEP: Step size. Affects simulation speed. If ommitted, defaults to 1.\nGEN: Generation to simulate up to. Mandatory.\ng: If present, uploads GIF output to gfycat. Otherwise sends directly through Discord.',
-"invite": 'Produces an oauth2 invite link for this bot with necessary permissions.'}
+cmdhelp = {"help": '[CMD]: Command to display usage info for. If ommitted, defaults to displaying generic help/info message.',
+
+"wiki": '''[QUERY]: Page title to search http://conwaylife.com/wiki/ for. If disambiguated, displays its disambig page with reaction UI allowing user to choose desired page.
+Displays a small, nicely-formatted blurb from QUERY's page including image, title, and rеdirеct handling.
+
+(TODO: no arguments displays PoTW, subsection links)''',
+
+"dyk": '''Provides a random Did-You-Know fact from wiki.''',
+
+"sim": '''[PAT]: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which can be a multiliner in a triple-grave code block).
+[RULE]: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
+[GEN]: Generation to simulate up to. Mandatory.
+[STEP]: Step size. Affects simulation speed. If ommitted, defaults to 1.
+[g]: If present, uploads GIF output to gfycat. Otherwise sends directly through Discord.
+
+Currently under construction.''',
+
+"invite": '''Produces an oauth2 invite link for this bot with necessary permissions.'''}
+
 cmdargs = {"help": 'CMD*', "wiki": 'QUERY', "dyk": '', "sim": 'RULE* PAT* GEN STEP* g*', "invite": ''}
 
 class utils:
@@ -26,7 +40,7 @@ class utils:
         ctx.channel.trigger_typing()
         try:
             command = command[0]
-            await ctx.send(f'```nginx\n{self.bot.command_prefix(self.bot, ctx.message)}{command} {cmdargs[command]}\n——————\n{cmdhelp[command]}```')
+            await ctx.send(f'```nginx\n{self.bot.command_prefix(self.bot, ctx.message)}{command} {cmdargs[command]}``````ini{cmdhelp[command]}```')
         except (KeyError, IndexError) as e:
             desc = '''**```ini
        [A cellular automata bot for Conwaylife.​com]```**```makefile
