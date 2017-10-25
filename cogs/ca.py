@@ -73,7 +73,7 @@ class CA:
             if parse["pat"] is None: #stupid
                 await ctx.send('`Error: No pattern specified and none found in channel history.`')
                 return
-        await ctx.send('Running supplied pattern in rule `{0["rule"]}` with step `{0["step"]}` until generation `{0["gen"]}`.'.format(parse))
+        await ctx.send('Running supplied pattern in rule `{0[rule]}` with step `{0[step]}` until generation `{0[gen]}`.'.format(parse))
         
         with open(f'{ctx.message.id}_in.rle', 'w') as patfile:
             patfile.write(parse["pat"])
