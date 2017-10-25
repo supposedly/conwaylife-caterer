@@ -141,7 +141,7 @@ class Wiki:
                             query = links[numbers_fu.index(react.emoji)]
                             data = await rqst.json(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}')
                         
-                        regpage(data, query, rqst, em)
+                        await regpage(data, query, rqst, em)
                         if edit:
                             await msg.edit(embed=em)
                             await msg.clear_reactions()
