@@ -109,14 +109,15 @@ class CA:
         images = []
         for subdir, dirs, files in os.walk(png_dir):
             files.sort()
-            for file in files:
-                file_path = os.path.join(subdir, file)
-                images.append(imageio.imread(file_path))
-        imageio.mimsave(f'{self.dir}/{ctx.message.id}.gif', images)
+            with imageio.get_writer(f'{self.dir}/{ctx.message.id}.gif', mode='I', duration='0.5') as writer:
+                for file in files:
+                    file_path = os.path.join(subdir, file)
+                    writer.append_data(imageio.imread(file_path))
         os.system(f'rm -r {png_dir}')
         
         # then either upload to gfycat or send directly to discord depending on presence of "g" flag
         await ctx.send(file=discord.File(f'{self.dir}/{ctx.message.id}.gif'))
+        os.system(f'rm -r {self.dir}/{ctx.message.id}.gif')
         # g'luck
                 
 
