@@ -108,6 +108,7 @@ class CA:
         png_dir = f'{self.dir}/{ctx.message.id}_frames/'
         images = []
         for subdir, dirs, files in os.walk(png_dir):
+            files.sort()
             for file in files:
                 file_path = os.path.join(subdir, file)
                 images.append(imageio.imread(file_path))
