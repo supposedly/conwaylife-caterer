@@ -98,10 +98,8 @@ class CA:
         gif = []
         for index in range(len(patlist)):
             # unroll RLE and convert to list of ints, 0=off and 1=on, then lastly pad out to proper width
-            frame = [l+[0]*(headers[index][0] - len(l)) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
+            frame = [l+[255]*(headers[index][0] - len(l)) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['255' if m.group(2) == 'b' else '0' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
             png.from_array(frame, 'L').save(f'{self.dir}/{ctx.message.id}_frames/{index}.png')
-        
-        # os.system(f'cd {self.dir}/{ctx.message.id}_frames/ && ls -l && cd ..')
         
         # finally pass all created pics to imageio for conversion to gif
 
@@ -110,9 +108,10 @@ class CA:
         for subdir, dirs, files in os.walk(png_dir):
             for file in files:
                 file_path = os.path.join(subdir, file)
-                if file_path.endswith(".png"):
-                    images.append(imageio.imread(file_path))
+                images.append(imageio.imread(file_path))
         imageio.mimsave(f'{self.dir}/{ctx.message.id}.gif', images)
+        os.system(f'rm -r {png_dir}')
+        
         # then either upload to gfycat or send directly to discord depending on presence of "g" flag
         await ctx.send(file=discord.File(f'{self.dir}/{ctx.message.id}.gif'))
         # g'luck
