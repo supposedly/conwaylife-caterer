@@ -99,7 +99,9 @@ class CA:
         for index in range(len(patlist)):
             # unroll RLE and convert to list of ints, 0=off and 1=on, then lastly pad out to proper width
             frame = [l+[0]*(headers[index][0] - len(l)) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
-            png.from_array(frame, 'L').save(f'{self.dir}/{ctx.message.id}_frames/{index}.png')
+            with open(f'{self.dir}/{ctx.message.id}_frames/{index}.png', wb) as out:
+                w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
+                w.write(out, frame)
         
         # finally pass all created pics to imageio for conversion to gif
 
