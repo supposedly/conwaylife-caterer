@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import re, os
-import png
+import png, imageio
 
 # jesus christ i am sorry (matches B/S and if no B then either 2-state single-slash rulestring or generations rulestring)
 rrulestring = re.compile(r'^(B)?[0-8cekainyqjrtwz-]*/(?(1)S?[0-8cekainyqjrtwz\-]*|[0-8cekainyqjrtwz\-]*(?:/[\d]{1,3})?)$') 
@@ -102,7 +102,17 @@ class CA:
             png.from_array(frame, 'L').save(f'{self.dir}/{ctx.message.id}_frames/{index}.rle')
         
         # finally pass all created pics to imageio for conversion to gif
+
+        png_dir = f'{self.dir}/{ctx.message.id}_frames/'
+        images = []
+        for subdir, dirs, files in os.walk(png_dir):
+            for file in files:
+                file_path = os.path.join(subdir, file)
+                if file_path.endswith(".png"):
+                    images.append(imageio.imread(file_path))
+        imageio.mimsave(f'{self.dir}/{ctx.message.id}.gif', images)
         # then either upload to gfycat or send directly to discord depending on presence of "g" flag
+        await ctx.send(file=discord.File(f'{self.dir}/{ctx.message.id}.gif'))
         # g'luck
                 
 
