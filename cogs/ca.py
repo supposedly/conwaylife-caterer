@@ -101,6 +101,8 @@ class CA:
             frame = [l+[0]*(headers[index][0] - len(l)) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
             png.from_array(frame, 'L').save(f'{self.dir}/{ctx.message.id}_frames/{index}.rle')
         
+        os.system(f'cd {ctx.message.id}_frames/ && ls -l && cd ..')
+        
         # finally pass all created pics to imageio for conversion to gif
 
         png_dir = f'{self.dir}/{ctx.message.id}_frames/'
