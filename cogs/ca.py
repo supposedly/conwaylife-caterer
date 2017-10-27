@@ -86,16 +86,16 @@ class CA:
         os.remove(f'{self.dir}/{ctx.message.id}_out.rle')
         os.remove(f'{self.dir}/{ctx.message.id}_in.rle')
         
-        positions = patlist[::2]
+        positions = patlist[::3]
         positions = [eval(i) for i in positions]
         
-        bboxes = patlist[1::2] # just bounding boxes
+        bboxes = patlist[1::3] # just bounding boxes
         bboxes = [eval(i) for i in bboxes]
         
         maxwidth = max(bboxes)[0]
         maxheight = max(bboxes, key=lambda x:x[1])[1]
         
-        patlist = patlist[2::2] # just RLE
+        patlist = patlist[2::3] # just RLE
         # ['4b3$o', '3o2b'] -> ['4b$$$o', '3o2b']
         patlist = [rdollarsigns.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist] # unroll newlines
         # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
