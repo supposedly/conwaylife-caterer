@@ -14,7 +14,7 @@ Displays a small, nicely-formatted blurb from QUERY's page including image, titl
 "sim": '''[PAT]: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which can be a multiliner in a triple-grave code block).
 [RULE]: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
 [GEN (required)]: Generation to simulate up to.
-[STEP]: Step size. Affects simulation speed. If ommitted, defaults to 1.
+[STEP]: Step size. Affects simulation speed. If ommitted, attempts to determine a reasonable step size from GEN.
 [g]: If present, uploads GIF output to gfycat. Otherwise sends directly through Discord.
 
 Currently under construction.''',
