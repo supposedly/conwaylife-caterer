@@ -118,7 +118,7 @@ class CA:
         png_dir = f'{self.dir}/{ctx.message.id}_frames/'
         for subdir, dirs, files in os.walk(png_dir):
             files.sort()
-            with imageio.get_writer(f'{self.dir}/{ctx.message.id}.gif', mode='I', duration=str(-0.5 / (-int(parse["gen"]) // 10)) as writer:
+            with imageio.get_writer(f'{self.dir}/{ctx.message.id}.gif', mode='I', duration=str(-0.5 / (-int(parse["gen"]) // 10))) as writer:
                 for file in files:
                     file_path = os.path.join(subdir, file)
                     writer.append_data(imageio.imread(file_path))
