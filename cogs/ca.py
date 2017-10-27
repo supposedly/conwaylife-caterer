@@ -73,7 +73,8 @@ class CA:
                 await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
                 return
         if parse["step"] is None:
-            parse["step"] = -(-parse["gen"] // 10) # set step, subject to change
+            # set step size, subject to change
+            parse["step"] = str(-(-int(parse["gen"]) // 10))
         await ctx.send('Running supplied pattern in rule `{0[rule]}` with step `{0[step]}` until generation `{0[gen]}`.'.format(parse))
         
         with open(f'{self.dir}/{ctx.message.id}_in.rle', 'w') as pat:
