@@ -86,27 +86,38 @@ class CA:
         os.remove(f'{self.dir}/{ctx.message.id}_out.rle')
         os.remove(f'{self.dir}/{ctx.message.id}_in.rle')
         
-        headers = patlist[::2] # just headers
-        headers = [tuple(map(int, header[4:header.find(', r')].split(', y = '))) for header in headers] # remove rulestring (not needed) and convert x, y to tuple of ints
+        positions = patlist[::2]
+        positions = [eval(i) for i in positions]
         
-        patlist = patlist[1::2] # just RLE
+        bboxes = patlist[1::2] # just bounding boxes
+        bboxes = [eval(i) for i in bboxes]
+        
+        maxwidth = max(bboxes)[0]
+        maxheight = max(bboxes, key=lambda x:x[1])[1]
+        
+        patlist = patlist[2::2] # just RLE
         # ['4b3$o', '3o2b'] -> ['4b$$$o', '3o2b']
         patlist = [rdollarsigns.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist] # unroll newlines
         # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
         patlist = [i.split('$') for i in patlist]
 
-        gif = []
-        for index in range(len(patlist)):
-            # unroll RLE and convert to list of ints, 0=off and 1=on, then lastly pad out to proper width
-            frame = [l+[1]*(headers[index][0] - len(l)) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['1' if m.group(2) == 'b' else '0' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
-            with open(f'{self.dir}/{ctx.message.id}_frames/{index}.png', 'wb') as out:
+        with open(f'{self.dir}/{ctx.message.id}_frames/{index}.png', 'wb') as out:
+            for index in range(len(patlist)):
+                # unroll RLE and convert to list of ints, 1=off and 0=on, then lastly pad out to proper width
+                frame = [l+[1]*((maxwidth - len(l)) - positions[index][0]) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['1' if m.group(2) == 'b' else '0' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
+                
+                # pad out to proper height with 1=off cell
+                [frame.append([1]*maxwidth) for j in range(maxheight - len(frame)) - positions[index][1]]
+                
+                # double frame size
+                frame = [frame[i//2] for i in range(len(frame)*2)]
+                
                 w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
                 w.write(out, frame)
         
         # finally pass all created pics to imageio for conversion to gif
 
         png_dir = f'{self.dir}/{ctx.message.id}_frames/'
-        images = []
         for subdir, dirs, files in os.walk(png_dir):
             files.sort()
             with imageio.get_writer(f'{self.dir}/{ctx.message.id}.gif', mode='I', duration='0.5') as writer:
@@ -117,7 +128,7 @@ class CA:
         
         # then either upload to gfycat or send directly to discord depending on presence of "g" flag
         await ctx.send(file=discord.File(f'{self.dir}/{ctx.message.id}.gif'))
-        os.system(f'rm -r {self.dir}/{ctx.message.id}.gif')
+        os.remove(f'{self.dir}/{ctx.message.id}.gif')
         # g'luck
                 
 
