@@ -43,7 +43,7 @@ class CA:
         if len(args) > 4:
             await ctx.send(f"`Error: Too many args. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
             return
-        parse = {"rule": 'B3/S23', "pat": None, "gen": None, "step": None}
+        parse = {"rule": 'B3/S23', "pat": None, "gen": None, "step": '1'}
         for item in args:
             if item.isdigit():
                 parse["step" if parse["gen"] else "gen"] = item
@@ -72,9 +72,6 @@ class CA:
             if parse["pat"] is None: #stupid
                 await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
                 return
-        if parse["step"] is None:
-            # set step size, subject to change
-            parse["step"] = str(-(-int(parse["gen"]) // 10))
         await ctx.send('Running supplied pattern in rule `{0[rule]}` with step `{0[step]}` until generation `{0[gen]}`.'.format(parse))
         
         with open(f'{self.dir}/{ctx.message.id}_in.rle', 'w') as pat:
@@ -121,7 +118,7 @@ class CA:
         png_dir = f'{self.dir}/{ctx.message.id}_frames/'
         for subdir, dirs, files in os.walk(png_dir):
             files.sort()
-            with imageio.get_writer(f'{self.dir}/{ctx.message.id}.gif', mode='I', duration='0.5') as writer:
+            with imageio.get_writer(f'{self.dir}/{ctx.message.id}.gif', mode='I', duration=str(-(-int(parse["gen"]) // 10))) as writer:
                 for file in files:
                     file_path = os.path.join(subdir, file)
                     writer.append_data(imageio.imread(file_path))
