@@ -50,7 +50,7 @@ def parse(current):
     patlist = [i.split('$') for i in patlist]
     return patlist, positions, bboxes, maxwidth, maxheight
 
-def makeframes(current, patlist):
+def makeframes(current, patlist, positions, bboxes, maxwidth, maxheight):
     for index in range(len(patlist)):
         # unroll RLE and convert to list of ints, 1=off and 0=on, then lastly pad out to proper width
         frame = [l+[1]*((maxwidth - len(l)) - positions[index][0]) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['1' if m.group(2) == 'b' else '0' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
