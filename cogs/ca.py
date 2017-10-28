@@ -48,7 +48,7 @@ def parse(current):
     patlist = [rdollarsigns.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist] # unroll newlines
     # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
     patlist = [i.split('$') for i in patlist]
-    return patlist
+    return patlist, positions, bboxes, maxwidth, maxheight
 
 def makeframes(current, patlist):
     for index in range(len(patlist)):
@@ -139,8 +139,8 @@ class CA:
         
         os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {2}_out.rle {2}_in.rle'.format(self.dir, args, current))
         
-        patlist = await self.loop.run_in_executor(self.executor, parse, current)
-        await self.loop.run_in_executor(self.executor, makeframes, current, patlist)
+        patlist, positions, bboxes, maxwidth, maxheight = await self.loop.run_in_executor(self.executor, parse, current) # probably too many things to return, hmm
+        await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bboxes, maxwidth, maxheight)
         await self.loop.run_in_executor(self.executor, makegif, current, int(args["gen"]))
         
         await ctx.send(file=discord.File(f'{current}.gif'))
