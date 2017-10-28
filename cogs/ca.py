@@ -100,6 +100,9 @@ class CA:
         patlist = [rdollarsigns.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist] # unroll newlines
         # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
         patlist = [i.split('$') for i in patlist]
+
+        pad = len(str(parse["gen"])) # what to pad number out to
+
         for index in range(len(patlist)):
             # unroll RLE and convert to list of ints, 1=off and 0=on, then lastly pad out to proper width
             frame = [l+[1]*((maxwidth - len(l)) - positions[index][0]) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['1' if m.group(2) == 'b' else '0' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
@@ -107,9 +110,10 @@ class CA:
             # pad out to proper height with 1=off cell
             [frame.append([1]*maxwidth) for j in range((maxheight - len(frame)) + positions[index][1])]
             
-            # double frame size
-            frame = [frame[i//2] for i in range(len(frame)*2)]
-            with open(f'{self.dir}/{ctx.message.id}_frames/{index}.png', 'wb') as out:
+            # double frame size, need to find a better way than nested list comp to do this haha
+            [[[frame[i][j//2] for j in range(len(frame[i])*2)] for i in range(len(frame))][k//2] for k in range(len(frame)*2)]
+            
+            with open(f'{self.dir}/{ctx.message.id}_frames/{index:0{pad}}.png', 'wb') as out:
                 w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
                 w.write(out, frame)
         
