@@ -50,7 +50,7 @@ def parse(current):
     patlist = [i.split('$') for i in patlist]
     return patlist, positions, bboxes, maxwidth, maxheight
 
-def makeframes(current, patlist, positions, bboxes, maxwidth, maxheight):
+def makeframes(current, patlist, positions, bboxes, maxwidth, maxheight, pad):
     for index in range(len(patlist)):
         # unroll RLE and convert to list of ints, 1=off and 0=on, then lastly pad out to proper width
         frame = [l+[1]*((maxwidth - len(l)) - positions[index][0]) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['1' if m.group(2) == 'b' else '0' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
@@ -132,7 +132,6 @@ class CA:
                 await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
                 return
         await ctx.send('Running supplied pattern in rule `{0[rule]}` with step `{0[step]}` until generation `{0[gen]}`.'.format(args))
-        pad = len(str(args["gen"])) # what to pad number out to
         
         with open(f'{current}_in.rle', 'w') as pat:
             pat.write(args["pat"])
@@ -140,7 +139,7 @@ class CA:
         os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {2}_out.rle {2}_in.rle'.format(self.dir, args, current))
         
         patlist, positions, bboxes, maxwidth, maxheight = await self.loop.run_in_executor(self.executor, parse, current) # probably too many things to return, hmm
-        await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bboxes, maxwidth, maxheight)
+        await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bboxes, maxwidth, maxheight, len(str(args["gen"])))
         await self.loop.run_in_executor(self.executor, makegif, current, int(args["gen"]))
         
         await ctx.send(file=discord.File(f'{current}.gif'))
