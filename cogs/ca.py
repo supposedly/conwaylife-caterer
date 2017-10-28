@@ -110,7 +110,7 @@ class CA:
             frame = [l+[1]*((maxwidth - len(l)) + positions[index][0]) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['1' if m.group(2) == 'b' else '0' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
             
             # pad out to proper height with 1=off cell
-            [frame.append([0]*maxwidth) for j in range((maxheight - len(frame)) + positions[index][1])]
+            [frame.append([1]*maxwidth) for j in range((maxheight - len(frame)) + positions[index][1])]
             
             # double frame size, need to find a better way than nested list comp to do this haha
             frame = [[[frame[i][j//2] for j in range(len(frame[i])*2)] for i in range(len(frame))][k//2] for k in range(len(frame)*2)]
