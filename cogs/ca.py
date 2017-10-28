@@ -91,57 +91,57 @@ class CA:
             
     
     @commands.command(name='sim')
-    async def sim(self, ctx, *args): #args: *RULE *PAT GEN *STEP *g
+    async def sim(self, ctx, *inputs): #inputs: *RULE *PAT GEN *STEP *g
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
         
         gfy = False
-        if 'g' in args:
-            args.pop(args.index('g'))
+        if 'g' in inputs:
+            inputs.pop(inputs.index('g'))
             gfy = True
-        if len(args) > 4:
+        if len(inputs) > 4:
             await ctx.send(f"`Error: Too many args. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
             return
-        parse = {"rule": 'B3/S23', "pat": None, "gen": None, "step": '1'}
-        for item in args:
+        args = {"rule": 'B3/S23', "pat": None, "gen": None, "step": '1'}
+        for item in inputs:
             if item.isdigit():
-                parse["step" if parse["gen"] else "gen"] = item
+                args["step" if args["gen"] else "gen"] = item
             elif rpattern.match(item):
-                parse["pat"] = item
+                args["pat"] = item
             elif rrulestring.match(item):
-                parse["rule"] = item
-        if parse["gen"] is None:
+                args["rule"] = item
+        if args["gen"] is None:
             await ctx.send('`Error: No GEN specified.`')
             return
-        if parse["pat"] is None:
+        if args["pat"] is None:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rxrle.match(msg.content.lstrip('`').rstrip('`'))
                 if rmatch:
-                    parse["pat"] = rmatch.group(2).replace('\n', '')
+                    args["pat"] = rmatch.group(2).replace('\n', '')
                     try:
-                        parse["rule"] = rmatch.group(1)
+                        args["rule"] = rmatch.group(1)
                     except Exception as e:
                         pass
                     break
                     
                 rmatch = rlif.match(msg.content)
                 if rmatch:
-                    parse["pat"] = rmatch.group(0)
+                    args["pat"] = rmatch.group(0)
                     break
-            if parse["pat"] is None: #stupid
+            if args["pat"] is None: #stupid
                 await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
                 return
-        await ctx.send('Running supplied pattern in rule `{0[rule]}` with step `{0[step]}` until generation `{0[gen]}`.'.format(parse))
-        pad = len(str(parse["gen"])) # what to pad number out to
+        await ctx.send('Running supplied pattern in rule `{0[rule]}` with step `{0[step]}` until generation `{0[gen]}`.'.format(args))
+        pad = len(str(args["gen"])) # what to pad number out to
         
         with open(f'{current}_in.rle', 'w') as pat:
-            pat.write(parse["pat"])
+            pat.write(args["pat"])
         
-        os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {2}_out.rle {2}_in.rle'.format(self.dir, parse, current))
+        os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {2}_out.rle {2}_in.rle'.format(self.dir, args, current))
         
         patlist = await self.loop.run_in_executor(self.executor, parse, current)
         await self.loop.run_in_executor(self.executor, makeframes, current, patlist)
-        await self.loop.run_in_executor(self.executor, makegif, current, int(parse["gen"]))
+        await self.loop.run_in_executor(self.executor, makegif, current, int(args["gen"]))
         
         await ctx.send(file=discord.File(f'{current}.gif'))
         os.remove(f'{current}.gif')
