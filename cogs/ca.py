@@ -139,9 +139,9 @@ class CA:
         
         os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {2}_out.rle {2}_in.rle'.format(self.dir, parse, current))
         
-        patlist = self.loop.run_in_executor(self.executor, parse, current)
-        self.loop.run_in_executor(self.executor, makeframes, current, patlist)
-        self.loop.run_in_executor(self.executor, makegif, current, int(parse["gen"]))
+        patlist = await self.loop.run_in_executor(self.executor, parse, current)
+        await self.loop.run_in_executor(self.executor, makeframes, current, patlist)
+        await self.loop.run_in_executor(self.executor, makegif, current, int(parse["gen"]))
         
         await ctx.send(file=discord.File(f'{current}.gif'))
         os.remove(f'{current}.gif')
