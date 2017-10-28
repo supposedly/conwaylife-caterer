@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 import re, os
 import png, imageio
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # jesus christ i am sorry (matches B/S and if no B then either 2-state single-slash rulestring or generations rulestring)
 rrulestring = re.compile(r'^(B)?[0-8cekainyqjrtwz-]*/(?(1)S?[0-8cekainyqjrtwz\-]*|[0-8cekainyqjrtwz\-]*(?:/[\d]{1,3})?)$') 
@@ -111,7 +113,7 @@ class CA:
             [frame.append([1]*maxwidth) for j in range((maxheight - len(frame)) + positions[index][1])]
             
             # double frame size, need to find a better way than nested list comp to do this haha
-            [[[frame[i][j//2] for j in range(len(frame[i])*2)] for i in range(len(frame))][k//2] for k in range(len(frame)*2)]
+            frame = [[[frame[i][j//2] for j in range(len(frame[i])*2)] for i in range(len(frame))][k//2] for k in range(len(frame)*2)]
             
             with open(f'{self.dir}/{ctx.message.id}_frames/{index:0{pad}}.png', 'wb') as out:
                 w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
