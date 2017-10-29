@@ -40,31 +40,61 @@ def parse(current):
     bboxes = patlist[1::3] # just bounding boxes
     bboxes = [eval(i) for i in bboxes]
     
-    maxwidth = max(bboxes)[0]
-    maxheight = max(bboxes, key=lambda x:x[1])[1]
+    # Determine the bounding box to make gifs from
+    # The rectangle: xmin <= x <= xmax, ymin <= y <= ymax
+    # where (x|y)(min|max) is the min/max coordinate across all gens.
+    xmins, ymins = zip(*positions)
+    widths, heights = zip(*bboxes)
+    xmaxs = [xm+w for xm, w in zip(xmins, widths)]
+    ymaxs = [ym+h for ym, h in zip(ymins, heights)]
+    xmin, ymin, xmax, ymax = min(xmins), min(ymins), max(xmaxs), max(ymaxs)
+    # Bounding box: top-left x and y, width and height
+    bbox = xmin, ymin, xmax-xmin, ymax-ymin
     
     patlist = patlist[2::3] # just RLE
     # ['4b3$o', '3o2b'] -> ['4b$$$o', '3o2b']
     patlist = [rdollarsigns.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist] # unroll newlines
     # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
     patlist = [i.split('$') for i in patlist]
-    return patlist, positions, bboxes, maxwidth, maxheight
+    return patlist, positions, bbox
 
-def makeframes(current, patlist, positions, bboxes, maxwidth, maxheight, pad):
+def makeframes(current, patlist, positions, bbox, pad):
+
+    assert len(patlist) == len(positions), (patlist, positions)
+    xmin, ymin, width, height = bbox
+
+    # Used in doubling the frame size
+    def double_list(li):
+        """[a, b, c] => [a, a, b, b, c, c]
+        Changes in one copy(ex. c) will affect the other (c)."""
+        return [e for pair in zip(li, li) for e in pair]
+
     for index in range(len(patlist)):
-        # unroll RLE and convert to list of ints, 1=off and 0=on, then lastly pad out to proper width
-        frame = [l+[1]*((maxwidth - len(l)) - positions[index][0]) for l in [list(map(int, i)) for i in [rruns.sub(lambda m:''.join(['1' if m.group(2) == 'b' else '0' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[index]]]]
-        
-        # pad out to proper width with 1=off cell
-        [frame.append([1]*maxwidth) for j in range((maxheight - len(frame)) - positions[index][1])]
-        
-        # pad beginning of strings
-        frame = [[1]*((maxwidth - len(l)))+l for l in frame]
-        [frame.insert(0, ([1]*maxwidth)) for j in range((maxheight - len(frame)))]
-        
-        # double frame size, need to find a better way than nested list comp to do this haha
-        frame = [[[frame[i][j//2] for j in range(len(frame[i])*2)] for i in range(len(frame))][k//2] for k in range(len(frame)*2)]
-        
+        pat = patlist[index]
+        xpos, ypos = positions[index]
+        dx, dy = xpos - xmin, ypos - ymin
+
+        # Create a blank frame of off cells
+        # Colors: on=0, off=1
+        frame = [[1] * width for _ in range(height)]
+
+        # unroll RLE and convert to list of ints, 1=off and 0=on
+        int_pattern = []
+        for row in pat:
+            int_row = []
+            for runs, chars in rruns.findall(row):
+                runs = int(runs) if runs else 1
+                state = 1 if chars == 'b' else 0
+                int_row.extend([state] * runs)
+            int_pattern.append(int_row)
+
+        # Draw the pattern onto the frame
+        for i, int_row in enumerate(int_pattern):
+            # replace this row of frame to int_row
+            frame[dy+i][dx:dx+len(int_row)] = int_row
+
+        frame = double_list([double_list(row) for row in frame])
+
         with open(f'{current}_frames/{index:0{pad}}.png', 'wb') as out:
             w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
             w.write(out, frame)    
@@ -140,8 +170,8 @@ class CA:
         os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {2}_out.rle {2}_in.rle'.format(self.dir, args, current))
         
         # use separate process (so as to avoid blocking event loop) to create gif with
-        patlist, positions, bboxes, maxwidth, maxheight = await self.loop.run_in_executor(self.executor, parse, current)
-        await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bboxes, maxwidth, maxheight, len(str(args["gen"])))
+        patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
+        await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(args["gen"])))
         await self.loop.run_in_executor(self.executor, makegif, current, int(args["gen"]))
         
         await ctx.send(file=discord.File(f'{current}.gif'))
