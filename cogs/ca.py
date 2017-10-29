@@ -10,10 +10,10 @@ from concurrent.futures import ProcessPoolExecutor
 rrulestring = re.compile(r'^(B)?[0-8cekainyqjrtwz-]*/(?(1)S?[0-8cekainyqjrtwz\-]*|[0-8cekainyqjrtwz\-]*(?:/[\d]{1,3})?)$') 
 
 # matches one-line RLE or .lif
-rpattern = re.compile(r'^[\dobo$]*[obo$][\dobo$]*!?$|^[.*!]+$')
+rpattern = re.compile(r'^[\dob$]*[ob$][\dob$]*!?$|^[.*!]+$')
 
 # matches multiline XRLE
-rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+, ?rule ?= ?(.+)$)?\n(^[\dobo$]*[obo$][\dobo$\n]*!?)$', re.M)
+rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+, ?rule ?= ?(.+)$)?\n(^[\dob$]*[ob$][\dob$\n]*!?)$', re.M)
 
 # splits RLE into its runs
 rruns = re.compile(r'([0-9]*)([ob])') # [rruns.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
@@ -70,7 +70,7 @@ def makeframes(current, patlist, positions, bboxes, maxwidth, maxheight, pad):
             w.write(out, frame)    
 
 def makegif(current, gen):
-    # finally pass all created pics to imageio for conversion to gif
+    # finally, pass all created pics to imageio for conversion to gif
     # then either upload to gfycat or send directly to discord depending on presence of "g" flag
     png_dir = f'{current}_frames/'
     for subdir, dirs, files in os.walk(png_dir):
@@ -87,8 +87,8 @@ class CA:
         self.bot = bot
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.loop = bot.loop
-        self.executor = ProcessPoolExecutor() # this probably should not be in self but idk
-            
+        self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
+        
     
     @commands.command(name='sim')
     async def sim(self, ctx, *inputs): #inputs: *RULE *PAT GEN *STEP *g
@@ -106,7 +106,7 @@ class CA:
         for item in inputs:
             if item.isdigit():
                 args["step" if args["gen"] else "gen"] = item
-            elif rpattern.match(item):
+            elif rpattern.match(item.lstrip('`').rstrip('`')):
                 args["pat"] = item
             elif rrulestring.match(item):
                 args["rule"] = item
@@ -128,7 +128,7 @@ class CA:
                 if rmatch:
                     args["pat"] = rmatch.group(0)
                     break
-            if args["pat"] is None: #stupid
+            if args["pat"] is None: # stupid
                 await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
                 return
         await ctx.send('Running supplied pattern in rule `{0[rule]}` with step `{0[step]}` until generation `{0[gen]}`.'.format(args))
@@ -136,16 +136,17 @@ class CA:
         with open(f'{current}_in.rle', 'w') as pat:
             pat.write(args["pat"])
         
+        # run bgolly with parameters
         os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {2}_out.rle {2}_in.rle'.format(self.dir, args, current))
         
-        patlist, positions, bboxes, maxwidth, maxheight = await self.loop.run_in_executor(self.executor, parse, current) # probably too many things to return, hmm
+        # use separate process (so as to avoid blocking event loop) to create gif with
+        patlist, positions, bboxes, maxwidth, maxheight = await self.loop.run_in_executor(self.executor, parse, current)
         await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bboxes, maxwidth, maxheight, len(str(args["gen"])))
         await self.loop.run_in_executor(self.executor, makegif, current, int(args["gen"]))
         
         await ctx.send(file=discord.File(f'{current}.gif'))
         os.remove(f'{current}.gif')
         # g'luck
-                
 
 def setup(bot):
     bot.add_cog(CA(bot))
