@@ -118,65 +118,52 @@ class CA:
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.loop = bot.loop
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
-        
     
     @commands.command(name='sim')
-    async def sim(self, ctx, *inputs): #inputs: *RULE *PAT GEN *STEP *g
+    async def sim(self, ctx, gen, step='1', rule='B3/S23', pat=None, flags=None): # flags = *g*t
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
         
-        gfy = False
-        if 'g' in inputs:
-            inputs.pop(inputs.index('g'))
-            gfy = True
-        if len(inputs) > 4:
-            await ctx.send(f"`Error: Too many args. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-            return
-        args = {"rule": 'B3/S23', "pat": None, "gen": None, "step": '1'}
-        for item in inputs:
-            if item.isdigit():
-                args["step" if args["gen"] else "gen"] = item
-            elif rpattern.match(item.lstrip('`').rstrip('`')):
-                args["pat"] = item
-            elif rrulestring.match(item):
-                args["rule"] = item
-        if args["gen"] is None:
-            await ctx.send('`Error: No GEN specified.`')
-            return
-        if args["pat"] is None:
+        if pat is None:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rxrle.match(msg.content.lstrip('`').rstrip('`'))
                 if rmatch:
-                    args["pat"] = rmatch.group(2).replace('\n', '')
+                    pat = rmatch.group(2).replace('\n', '')
                     try:
-                        args["rule"] = rmatch.group(1)
+                        rule = rmatch.group(1)
                     except Exception as e:
                         pass
                     break
                     
                 rmatch = rlif.match(msg.content)
                 if rmatch:
-                    args["pat"] = rmatch.group(0)
+                    pat = rmatch.group(0)
                     break
-            if args["pat"] is None: # stupid
+            if pat is None: # stupid
                 await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
                 return
-        await ctx.send('Running supplied pattern in rule `{0[rule]}` with step `{0[step]}` until generation `{0[gen]}`.'.format(args))
+        await ctx.send(f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
         
-        with open(f'{current}_in.rle', 'w') as pat:
-            pat.write(args["pat"])
+        with open(f'{current}_in.rle', 'w') as infile:
+            infile.write(pat)
         
         # run bgolly with parameters
-        os.system('{0}/resources/bgolly -m {1[gen]} -i {1[step]} -q -q -r {1[rule]} -o {2}_out.rle {2}_in.rle'.format(self.dir, args, current))
+        os.system(f'{self.dir}/resources/bgolly -m {gen} -i {step} -q -q -r {rule} -o {current}_out.rle {current}_in.rle')
         
         # use separate process (so as to avoid blocking event loop) to create gif with
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
-        await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(args["gen"])))
-        await self.loop.run_in_executor(self.executor, makegif, current, int(args["gen"]))
+        await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
+        await self.loop.run_in_executor(self.executor, makegif, current, int(gen))
         
         await ctx.send(file=discord.File(f'{current}.gif'))
         os.remove(f'{current}.gif')
-        # g'luck
+    
+    @sim.error
+    async def sim_error(self, ctx, error):
+        # In case of missing GEN:
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send(f"`Error: No {error.param.upper()} given. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+        
 
 def setup(bot):
     bot.add_cog(CA(bot))
