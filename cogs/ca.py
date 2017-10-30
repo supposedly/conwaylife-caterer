@@ -157,7 +157,13 @@ class CA:
         
         await ctx.send(file=discord.File(f'{current}.gif'))
         os.remove(f'{current}.gif')
-        # g'luck
+    
+    @sim.error
+    async def sim_error(self, ctx, error):
+        # In case of missing GEN:
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send(f"`Error: No {error.param.upper()} given. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+        
 
 def setup(bot):
     bot.add_cog(CA(bot))
