@@ -126,7 +126,7 @@ class CA:
         
         if pat is None:
             async for msg in ctx.channel.history(limit=50):
-                rmatch = rxrle.match(msg.content.lstrip('`').rstrip('`'))
+                rmatch = rxrle.match(msg.content.split('```')[1])
                 if rmatch:
                     pat = rmatch.group(2).replace('\n', '')
                     try:
