@@ -126,13 +126,14 @@ class CA:
         
         if pat is None:
             async for msg in ctx.channel.history(limit=50):
-                rmatch = rxrle.match(msg.content.split('```')[1])
+                rmatch = rxrle.match(msg.content.lstrip('`').rstrip('`'))
                 if rmatch:
                     pat = rmatch.group(2).replace('\n', '')
                     try:
                         rule = rmatch.group(1)
                     except Exception as e:
                         pass
+                        print(e)
                     break
                     
                 rmatch = rlif.match(msg.content)
@@ -148,7 +149,7 @@ class CA:
             infile.write(pat)
         
         # run bgolly with parameters
-        os.system(f'{self.dir}/resources/bgolly -m {gen} -i {step} -q -q -r {rule} -o {current}_out.rle {current}_in.rle')
+        os.system(f'{self.dir}/resources/bgolly -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle')
         
         # use separate process (so as to avoid blocking event loop) to create gif with
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
