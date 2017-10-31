@@ -7,17 +7,13 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 from concurrent.futures import ProcessPoolExecutor
 
 # matches multiline XRLE
-rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+, ?rule ?= ?(.+)$)?\n(^[\dob$]*[ob$][\dob$\n]*!?)$', re.M)
+rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?)?\n(^[\dob$]*[ob$][\dob$\n]*!?)$', re.M)
 
 # splits RLE into its runs
 rruns = re.compile(r'([0-9]*)([ob])') # [rruns.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
 
 # unrolls $ signs
 rdollarsigns = re.compile(r'(\d+)\$')
-
-# matches .lif
-rlif = re.compile(r'(?:^[.*!]+$)+')
-
 
 # ---- #
 
@@ -122,19 +118,14 @@ class CA:
         
         if pat is None:
             async for msg in ctx.channel.history(limit=50):
-                rmatch = rxrle.match(msg.content.lstrip('`').rstrip('`'))
-                if rmatch:
-                    pat = rmatch.group(2).replace('\n', '')
-                    try:
+                try:
+                    rmatch = list(filter(None, [rxrle.match(i) for i in msg.content.split('`')]))[0]
+                except IndexError as e:
+                    print(e)
+                else:
+                    pat = rmatch.group(2)
+                    if rmatch.group(1):
                         rule = rmatch.group(1)
-                    except Exception as e:
-                        pass
-                        print(e)
-                    break
-                    
-                rmatch = rlif.match(msg.content)
-                if rmatch:
-                    pat = rmatch.group(0)
                     break
             if pat is None: # stupid
                 await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
