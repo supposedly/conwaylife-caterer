@@ -62,11 +62,11 @@ def makeframes(current, patlist, positions, bbox, pad):
     for index in range(len(patlist)):
         pat = patlist[index]
         xpos, ypos = positions[index]
-        dx, dy = xpos - xmin, ypos - ymin
+        dx, dy = (xpos - xmin) + 1, (ypos - ymin) + 1 #+1 for one-cell padding
         
         # Create a blank frame of off cells
         # Colors: on=0, off=1
-        frame = [[1] * width for _ in range(height)]
+        frame = [[1] * (width+2) for _ in range(height+2)] #+2 for one-cell padding
         
         # unroll RLE and convert to list of ints, 1=off and 0=on
         int_pattern = []
@@ -121,7 +121,7 @@ class CA:
                 try:
                     rmatch = list(filter(None, [rxrle.match(i) for i in msg.content.split('`')]))[0]
                 except IndexError as e:
-                    print(e)
+                    pass
                 else:
                     pat = rmatch.group(2)
                     if rmatch.group(1):
