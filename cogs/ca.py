@@ -6,12 +6,6 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 from concurrent.futures import ProcessPoolExecutor
 
-# jesus christ i am sorry (matches B/S and if no B then either 2-state single-slash rulestring or generations rulestring)
-rrulestring = re.compile(r'^(B)?[0-8cekainyqjrtwz-]*/(?(1)S?[0-8cekainyqjrtwz\-]*|[0-8cekainyqjrtwz\-]*(?:/[\d]{1,3})?)$') 
-
-# matches one-line RLE or .lif
-rpattern = re.compile(r'^[\dob$]*[ob$][\dob$]*!?$|^[.*!]+$')
-
 # matches multiline XRLE
 rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+, ?rule ?= ?(.+)$)?\n(^[\dob$]*[ob$][\dob$\n]*!?)$', re.M)
 
@@ -59,25 +53,25 @@ def parse(current):
     return patlist, positions, bbox
 
 def makeframes(current, patlist, positions, bbox, pad):
-
+    
     assert len(patlist) == len(positions), (patlist, positions)
     xmin, ymin, width, height = bbox
-
+    
     # Used in doubling the frame size
-    def double_list(li):
-        """[a, b, c] => [a, a, b, b, c, c]
+    def scale_list(li, mult):
+        """(li=[a, b, c], mult=2) => [a, a, b, b, c, c]
         Changes in one copy(ex. c) will affect the other (c)."""
-        return [e for pair in zip(li, li) for e in pair]
-
+        return [i for i in li for _ in range(mult)]
+    
     for index in range(len(patlist)):
         pat = patlist[index]
         xpos, ypos = positions[index]
         dx, dy = xpos - xmin, ypos - ymin
-
+        
         # Create a blank frame of off cells
         # Colors: on=0, off=1
         frame = [[1] * width for _ in range(height)]
-
+        
         # unroll RLE and convert to list of ints, 1=off and 0=on
         int_pattern = []
         for row in pat:
@@ -87,14 +81,16 @@ def makeframes(current, patlist, positions, bbox, pad):
                 state = 1 if chars == 'b' else 0
                 int_row.extend([state] * runs)
             int_pattern.append(int_row)
-
+        
         # Draw the pattern onto the frame
         for i, int_row in enumerate(int_pattern):
-            # replace this row of frame to int_row
+            # replace this row of frame with int_row
             frame[dy+i][dx:dx+len(int_row)] = int_row
-
-        frame = double_list([double_list(row) for row in frame])
-
+        
+        anchor = min(height, width)
+        mult = -(-75 // anchor) if anchor <= 75 else 1
+        frame = scale_list([scale_list(row, mult) for row in frame], mult)
+        
         with open(f'{current}_frames/{index:0{pad}}.png', 'wb') as out:
             w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
             w.write(out, frame)    
@@ -151,7 +147,7 @@ class CA:
         # run bgolly with parameters
         os.system(f'{self.dir}/resources/bgolly -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle')
         
-        # use separate process (so as to avoid blocking event loop) to create gif with
+        # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
         await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
         await self.loop.run_in_executor(self.executor, makegif, current, int(gen))
