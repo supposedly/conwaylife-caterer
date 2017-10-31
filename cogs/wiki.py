@@ -41,7 +41,7 @@ async def regpage(data, query, rqst, em):
         images = await resp.text()
     pgimg = rgif.search(images)
     find = rimage.findall(images)
-    pgimg = (pgimg.group(0) if pgimg else (min(find, key = len) if find else ''))
+    pgimg = pgimg.group(0) if pgimg else (min(find, key = len) if find else '')
     async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={pgimg}') as resp:
         images = await resp.json()
     try:
@@ -57,22 +57,23 @@ async def regpage(data, query, rqst, em):
     em.url = f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}'
     em.description = desc
 
-def parsedisambig(txt):
-    txt = txt.replace('<b>', '').replace('</b>', '')
-    # think ^ should stay this way so the title doesn't clash visually with the options, but ('' --> '**') if you ever wanna change it in the future
-    links = rdisamb.findall(txt)
-    txt = rlinks.sub(lambda m: f'**{m.group(2)}**', txt) # change to '**[{m.group(2)}](http://conwaylife.com{m.group(1)})**' for hyperlink although it looks really ugly
-    txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
-    
-    txt = rtags.sub('', txt)
-    
-    txt = rnewlines.sub('\n', txt)
-    return (txt, links)
-
 def disambig(data):
+
+    def parse_disamb(txt):
+        txt = txt.replace('<b>', '').replace('</b>', '')
+        links = rdisamb.findall(txt)
+        txt = rlinks.sub(lambda m: f'**{m.group(2)}**', txt) # change to '**[{m.group(2)}](http://conwaylife.com{m.group(1)})**' for hyperlink although it looks really ugly
+        txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
+        
+        txt = rtags.sub('', txt)
+        
+        txt = rnewlines.sub('\n', txt)
+        return txt, links
+    
     pgtitle = data["parse"]["title"]
-    desc_links = parsedisambig(data["parse"]["text"]["*"])
-    return (discord.Embed(title=f'**{pgtitle}**', url=f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}', description=desc_links[0], color=0xffffff), desc_links[1])
+    desc_links = parse_disamb(data["parse"]["text"]["*"])
+    emb = discord.Embed(title=f'{pgtitle}', url=f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}', description=desc_links[0], color=0xffffff)
+    return emb, desc_links[1]
 
 class Wiki:
     def __init__(self, bot):
@@ -81,7 +82,7 @@ class Wiki:
     @commands.command(name='dyk', aliases=['DYK'])
     async def dyk(self, ctx, *num: int):
         if not num:
-            num = (randint(0, 91),)
+            num = randint(0, 91),
         em = discord.Embed()
         em.color = 0xffffff
         em.title = 'Did you know...'
@@ -106,7 +107,7 @@ class Wiki:
             query = 'methusynthesae'
         if query[:1].lower() + query[1:] == 'methusynthesae':
             gus = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they *are* patterns, and **don't** form other patterns."
-            em.title = '**Methusynthesae**'
+            em.title = 'Methusynthesae'
             em.description = gus
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='https://i.imgur.com/CQefDXF.png')
@@ -123,7 +124,7 @@ class Wiki:
                     
                 if 'missingtitle' in data:
                     await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
-                if 'invalidtitle' in data:
+                elif 'invalidtitle' in data:
                     await ctx.send(f'Invalid title: `{query}`')
                 else:
                     data = json.loads(data)

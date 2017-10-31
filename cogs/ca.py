@@ -15,6 +15,9 @@ rruns = re.compile(r'([0-9]*)([ob])') # [rruns.sub(lambda m:''.join(['0' if m.gr
 # unrolls $ signs
 rdollarsigns = re.compile(r'(\d+)\$')
 
+# determines 80% of available RAM to allow bgolly to use
+maxmem = os.popen('free -m').read().split()[7] // 1.25
+
 # ---- #
 
 def parse(current):
@@ -112,7 +115,10 @@ class CA:
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
     
     @commands.command(name='sim')
-    async def sim(self, ctx, gen, step='1', rule='B3/S23', pat=None, flags=None): # flags = *g*t
+    async def sim(self, ctx, gen: int, step=1: int, rule='B3/S23', pat=None):
+        if gen / step > 2500:
+            await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+    
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
         
@@ -136,12 +142,12 @@ class CA:
             infile.write(pat)
         
         # run bgolly with parameters
-        os.system(f'{self.dir}/resources/bgolly -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle')
+        os.system(f'{self.dir}/resources/bgolly -M {maxmem} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle')
         
         # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
         await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
-        await self.loop.run_in_executor(self.executor, makegif, current, int(gen))
+        await self.loop.run_in_executor(self.executor, makegif, current, gen)
         
         await ctx.send(file=discord.File(f'{current}.gif'))
         os.remove(f'{current}.gif')
