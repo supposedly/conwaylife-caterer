@@ -31,12 +31,12 @@ cmdargs = {"help": '*CMD', "wiki": 'QUERY', "dyk": '', "sim": 'GEN *STEP *RULE *
 class Utils:
     def __init__(self, bot):
         self.bot = bot
-        self.invite = discord.utils.oauth_url(bot.user.id, permissions=discord.Permissions(permissions=388160))
+        self._invite = discord.utils.oauth_url(bot.user.id, permissions=discord.Permissions(permissions=388160))
       # https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
     
     @commands.command(name='invite')
     async def invite(self, ctx):
-        em = discord.Embed(description=f'Use [this link]({self.invite}) to add me to your server!', color=0x000000)
+        em = discord.Embed(description=f'Use [this link]({self._invite}) to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=self.bot.user.avatar_url)
         await ctx.send(embed=em)
     

@@ -16,7 +16,7 @@ rruns = re.compile(r'([0-9]*)([ob])') # [rruns.sub(lambda m:''.join(['0' if m.gr
 rdollarsigns = re.compile(r'(\d+)\$')
 
 # determines 80% of available RAM to allow bgolly to use
-maxmem = os.popen('free -m').read().split()[7] // 1.25
+maxmem = int(os.popen('free -m').read().split()[7]) // 1.25
 
 # ---- #
 
@@ -115,9 +115,11 @@ class CA:
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
     
     @commands.command(name='sim')
-    async def sim(self, ctx, gen: int, step=1: int, rule='B3/S23', pat=None):
+    async def sim(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None):
+    
         if gen / step > 2500:
             await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+            return
     
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
