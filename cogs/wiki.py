@@ -11,8 +11,8 @@ from random import randint
 rparens = re.compile(r" \(.+?\)")
 rbracks = re.compile(r"\[.+?\]")
 rtags = re.compile(r"<.+?>", re.S)
-rredherring = re.compile(r"<p>.{0,10}</p>", re.S) #to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
-rctrlchars = re.compile(r"\\.") #needs to be changed maybe
+rredherring = re.compile(r"<p>.{0,10}</p>", re.S) # to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
+rctrlchars = re.compile(r"\\.") # needs to be changed maybe
 rredirect = re.compile(r'">(.+?)</a>')
 
 rgif = re.compile(r"File[^F]+?\.gif")
@@ -23,6 +23,8 @@ rlinksb = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
 rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
 
 rnewlines = re.compile(r"\n+")
+
+rpgimg = re.compile(r'(?<=f=")/w/images/[\d]+?/[\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
 
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
 
@@ -36,19 +38,22 @@ def parse(txt):
     txt = rtags.sub('', txt)
     return txt
 
-async def regpage(data, query, rqst, em):
+async def regpage(data, query, rqst, em, pgimg):
     async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as resp:
         images = await resp.text()
-    pgimg = rgif.search(images)
-    find = rimage.findall(images)
-    pgimg = pgimg.group(0) if pgimg else (min(find, key = len) if find else '')
-    async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={pgimg}') as resp:
-        images = await resp.json()
-    try:
-        pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
-        em.set_thumbnail(url=pgimg)
-    except (KeyError, TypeError):
-        pass
+    
+    if not pgimg:
+        pgimg = rgif.search(images)
+        find = rimage.findall(images)
+        pgimg = pgimg.group(0) if pgimg else (min(find, key = len) if find else '')
+        async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={pgimg}') as resp:
+            images = await resp.json()
+        try:
+            pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
+        except (KeyError, TypeError):
+            pass
+    
+    em.set_thumbnail(url=pgimg)
 
     pgtitle = data["parse"]["title"]
     desc = unescape(parse(data["parse"]["text"]["*"]))
@@ -92,7 +97,7 @@ class Wiki:
         await ctx.send(embed=em)
         
 
-    @commands.command(name='wiki')
+    @commands.group(name='wiki', aliases=['Wiki'], invoke_without_subcommand = True)
     async def wiki(self, ctx, *, query: str):
         if query[:1].lower() + query[1:] == 'caterer':
             await ctx.message.add_reaction('👋')
@@ -116,16 +121,18 @@ class Wiki:
             async with aiohttp.ClientSession() as rqst:
                 async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
                     data = await resp.text()
+                
+                pgimg = rpgimg.search(data.split('Category:')[0])
+                if pgimg:
+                    pgimg = pgimg.group()
+                    
                 if '>REDIRECT ' in data:
                     em.set_footer(text='(redirected from "' + query + '")')
                     query = rredirect.search(data).group(1)
                     async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
                         data = await resp.text()
-                    
-                if 'missingtitle' in data:
+                if 'missingtitle' in data or 'invalidtitle' in data:
                     await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
-                elif 'invalidtitle' in data:
-                    await ctx.send(f'Invalid title: `{query}`')
                 else:
                     data = json.loads(data)
                     if '(disambiguation)' in data["parse"]["title"]:
@@ -145,12 +152,19 @@ class Wiki:
                         async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
                             data = await resp.json()
                     
-                    await regpage(data, query, rqst, em)
+                    await regpage(data, query, rqst, em, pgimg)
                     if edit:
                         await msg.edit(embed=em)
                         await msg.clear_reactions()
                     else:
                         await ctx.send(embed=em)
+    @wiki.group(name='rle', aliases=['r', 'RLE'], invoke_without_subcommand = True)
+    async def rle(self, ctx, *, query: str):
+        pass
+    
+    @rle.command(name='synth', aliases=['s', 'synthesis'])
+    async def synth(self, ctx, *, query: str):
+        pass        
 
 def setup(bot):
     bot.add_cog(Wiki(bot))
