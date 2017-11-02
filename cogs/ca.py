@@ -6,6 +6,9 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 from concurrent.futures import ProcessPoolExecutor
 
+# determines ~80% of available RAM to allow bgolly to use
+maxmem = int(os.popen('free -m').read().split()[7]) // 1.25
+
 # matches multiline XRLE
 rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?)?\n(^[\dob$]*[ob$][\dob$\n]*!?)$', re.M)
 
@@ -14,9 +17,6 @@ rruns = re.compile(r'([0-9]*)([ob])') # [rruns.sub(lambda m:''.join(['0' if m.gr
 
 # unrolls $ signs
 rdollarsigns = re.compile(r'(\d+)\$')
-
-# determines 80% of available RAM to allow bgolly to use
-maxmem = int(os.popen('free -m').read().split()[7]) // 1.25
 
 # ---- #
 
@@ -106,6 +106,9 @@ def makegif(current, gen):
                 writer.append_data(imageio.imread(file_path))
     os.system(f'rm -r {png_dir}')
 
+def straight_gif():
+    header, trailer = 'GIF89a', '\x3b'
+    #TODO: 
 
 class CA:
     def __init__(self, bot):
@@ -114,12 +117,11 @@ class CA:
         self.loop = bot.loop
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
     
-    @commands.command(name='sim')
-    async def sim(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None):
-    
+    # temporary addition to allow both the main command and the experimental straight-to-gif function to use the same processing code
+    def process(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None):
         if gen / step > 2500:
             await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-            return
+            raise ValueError('max frames exceeded')
     
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
@@ -137,7 +139,7 @@ class CA:
                     break
             if pat is None: # stupid
                 await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-                return
+                raise TypeError('missing required PAT argument')
         await ctx.send(f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
         
         with open(f'{current}_in.rle', 'w') as infile:
@@ -145,6 +147,18 @@ class CA:
         
         # run bgolly with parameters
         os.system(f'{self.dir}/resources/bgolly -M {maxmem} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle')
+        
+        return current
+        
+    
+    @commands.group(name='sim', invoke_without_subcommand=True)
+    async def sim(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None):
+    
+        # temporary addition to allow both this and the experimental straight-to-gif function to use the same input processing (i.e. DRY)
+        try:
+            current = self.process(self, ctx, *ctx.args)
+        except (ValueError, TypeError) as e:
+            return
         
         # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
@@ -159,6 +173,16 @@ class CA:
         # In case of missing GEN:
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(f"`Error: No {error.param.upper()} given. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+    
+    @sim.command(name='direct', aliases=['d'])
+    async def direct(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None):
+        
+        # temporary addition to allow both this and the experimental straight-to-gif function to use the same input processing (i.e. DRY)
+        try:
+            current = self.process(self, ctx, *ctx.args)
+        except (ValueError, TypeError) as e:
+            return
+        #TODO: figure out what you want to do here lol
         
 
 def setup(bot):
