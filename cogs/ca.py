@@ -1,12 +1,14 @@
 import discord
 from discord.ext import commands
 import re, os
-import png, imageio
-from PIL import ImageFile
-ImageFile.LOAD_TRUNCATED_IMAGES = True
+# import png, imageio
+# from PIL import ImageFile
+# ImageFile.LOAD_TRUNCATED_IMAGES = True
 from concurrent.futures import ProcessPoolExecutor
 import struct
 from collections import namedtuple
+
+import traceback
 
 ColorScheme = namedtuple('ColorScheme', 'size table')
 """Color scheme used in the gif file.
@@ -132,9 +134,9 @@ def compress(data, mincodesize): #PASTED from scorbie/giffer.py
         contents.append(chr(len(word)))
         contents.append(word)
     contents.append('\x00')
-    return ''.join(contents)
+    return ''.join(contents).encode()
 
-def straight_gif(current, patlist, positions, bbox, pad): #ADAPTED from scorbie/giffer.py
+def straight_gif(current, patlist, positions, bbox): #ADAPTED from scorbie/giffer.py
 
     assert len(patlist) == len(positions), (patlist, positions)
     xmin, ymin, width, height = bbox
@@ -145,10 +147,10 @@ def straight_gif(current, patlist, positions, bbox, pad): #ADAPTED from scorbie/
         Changes in one copy(ex. c) will affect the other (c)."""
         return [i for i in li for _ in range(mult)]
     
-    header, trailer = 'GIF89a', '\x3b'
+    header, trailer = b'GIF89a', b'\x3b'
     screendesc = struct.pack("<2HB2b", width, height, 0x90+colors.size, 0, 0)
-    applic = "\x21\xFF\x0B" + "NETSCAPE2.0" + struct.pack("<2bHb", 3, 1, 0, 0)
-    imagedesc = "\x2C" + struct.pack("<4HB", 0, 0, width, height, 0x00)
+    applic = b"\x21\xFF\x0B" + b"NETSCAPE2.0" + struct.pack("<2bHb", 3, 1, 0, 0)
+    imagedesc = b"\x2C" + struct.pack("<4HB", 0, 0, width, height, 0x00)
     bordercolor = 2 ** (colors.size + 1) - 1
     borderrow = [bordercolor] * (width)
     # Gather contents to write as gif file.
@@ -156,7 +158,7 @@ def straight_gif(current, patlist, positions, bbox, pad): #ADAPTED from scorbie/
     
     for index in range(len(patlist)):
         # Graphics control extension
-        gifcontent += ["\x21\xF9", struct.pack("<bBH2b", 4, 0x00, pause, 0, 0)]
+        gifcontent += [b"\x21\xF9", struct.pack("<bBH2b", 4, 0x00, 50, 0, 0)] #50 is pause time
         
         pat = patlist[index]
         xpos, ypos = positions[index]
@@ -192,7 +194,7 @@ def straight_gif(current, patlist, positions, bbox, pad): #ADAPTED from scorbie/
         
     gifcontent.append(trailer)
     with open(f'{current}.gif','wb') as gif:
-        gif.write("".join(gifcontent))
+        gif.write(b''.join([i if isinstance(i, bytes) else i.encode() for i in gifcontent]))
 
 class CA:
     def __init__(self, bot):
@@ -202,7 +204,7 @@ class CA:
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
         
     
-    @commands.group(name='sim', invoke_without_subcommand=True)
+    @commands.command(name='sim', invoke_without_subcommand=True)
     async def sim(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None):
         if gen / step > 2500:
             await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
@@ -234,63 +236,8 @@ class CA:
         
         # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
-        assert len(patlist) == len(positions), (patlist, positions)
-        xmin, ymin, width, height = bbox
         
-        # Used in scaling up the frame size
-        def scale_list(li, mult):
-            """(li=[a, b, c], mult=2) => [a, a, b, b, c, c]
-            Changes in one copy(ex. c) will affect the other (c)."""
-            return [i for i in li for _ in range(mult)]
-        
-        header, trailer = 'GIF89a', '\x3b'
-        screendesc = struct.pack("<2HB2b", width, height, 0x90+colors.size, 0, 0)
-        applic = "\x21\xFF\x0B" + "NETSCAPE2.0" + struct.pack("<2bHb", 3, 1, 0, 0)
-        imagedesc = "\x2C" + struct.pack("<4HB", 0, 0, width, height, 0x00)
-        bordercolor = 2 ** (colors.size + 1) - 1
-        borderrow = [bordercolor] * (width)
-        # Gather contents to write as gif file.
-        gifcontent = [header, screendesc, colors.table, applic]
-        
-        for index in range(len(patlist)):
-            # Graphics control extension
-            gifcontent += ["\x21\xF9", struct.pack("<bBH2b", 4, 0x00, pause, 0, 0)]
-            
-            pat = patlist[index]
-            xpos, ypos = positions[index]
-            dx, dy = (xpos - xmin) + 1, (ypos - ymin) + 1 #+1 for one-cell padding
-            
-            # Create a blank frame of off cells
-            # Colors: on=0, off=1
-            frame = [[1] * (width+2) for _ in range(height+2)] #+2 for one-cell padding
-            
-            # unroll RLE and convert to list of ints, 1=off and 0=on
-            int_pattern = []
-            for row in pat:
-                int_row = []
-                for runs, chars in rruns.findall(row):
-                    runs = int(runs) if runs else 1
-                    state = 1 if chars == 'b' else 0
-                    int_row.extend([state] * runs)
-                int_pattern.append(int_row)
-            
-            # Draw the pattern onto the frame
-            for i, int_row in enumerate(int_pattern):
-                # replace this row of frame with int_row
-                frame[dy+i][dx:dx+len(int_row)] = int_row
-            
-            anchor = min(width, height)
-            mult = -(-75 // anchor) if anchor <= 75 else 1
-            frame = scale_list([scale_list(row, mult) for row in frame], mult)
-            
-            image = ''.join(''.join(chr(i) for i in row) for row in frame)
-            
-            # Image descriptor + Image
-            gifcontent += [imagedesc, compress(image, colors.size+1)]
-            
-        gifcontent.append(trailer)
-        with open(f'{current}.gif','wb') as gif:
-            gif.write("".join(gifcontent))
+        await self.loop.run_in_executor(self.executor, straight_gif, current, patlist, positions, bbox)
             
         await ctx.send(file=discord.File(f'{current}.gif'))
         os.remove(f'{current}.gif')
@@ -300,7 +247,11 @@ class CA:
         # In case of missing GEN:
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(f"`Error: No {error.param.upper()} given. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-        
+        elif isinstance(error, commands.CommandInvokeError):
+            #print('Ignoring exception in on_message\n', 'Traceback (most recent call last):')
+            #traceback.print_tb(error.__traceback__)
+            #print(error)
+            raise Exception('a')
 
 def setup(bot):
     bot.add_cog(CA(bot))
