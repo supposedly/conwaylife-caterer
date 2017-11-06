@@ -115,8 +115,8 @@ class Wiki:
             em.title = 'Methusynthesae'
             em.description = gus
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
-            em.set_thumbnail(url='attachment://methusynthesis1.png')
-            await ctx.send(file=discord.File('./resources/methusynthesis1.png', 'methusynthesis1.png'), embed=em)
+            em.set_thumbnail(url='https://i.imgur.com/pZmruZg.png')
+            await ctx.send(embed=em)
         else:
             async with aiohttp.ClientSession() as rqst:
                 async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
