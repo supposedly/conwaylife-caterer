@@ -8,15 +8,15 @@ from html import unescape
 from collections import namedtuple
 from random import randint
 
-rparens = re.compile(r" \(.+?\)")
-rbracks = re.compile(r"\[.+?\]")
-rtags = re.compile(r"<.+?>", re.S)
-rredherring = re.compile(r"<p>.{0,10}</p>", re.S) # to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
-rctrlchars = re.compile(r"\\.") # needs to be changed maybe
+rparens = re.compile(r' \(.+?\)')
+rbracks = re.compile(r'\[.+?\]')
+rtags = re.compile(r'<.+?>', re.S)
+rredherring = re.compile(r'<p>.{0,10}</p>', re.S) # to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
+rctrlchars = re.compile(r'\\.') # needs to be changed maybe
 rredirect = re.compile(r'">(.+?)</a>')
 
-rgif = re.compile(r"File[^F]+?\.gif")
-rimage = re.compile(r"File[^F]+?\.png")
+rgif = re.compile(r'File[^F]+?\.gif')
+rimage = re.compile(r'File[^F]+?\.png')
 
 rlinks = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
 rlinksb = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
@@ -24,7 +24,8 @@ rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
 
 rnewlines = re.compile(r"\n+")
 
-rpgimg = re.compile(r'(?<=f=")/w/images/[\d]+?/[\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
+rpgimg = re.compile(r'(?<=f=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
+rpgimgfallback = re.compile(r'(?<=c=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
 
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
 
@@ -120,21 +121,17 @@ class Wiki:
         else:
             async with aiohttp.ClientSession() as rqst:
                 async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
-                    data = await resp.text()
-                
-                pgimg = rpgimg.search(data.split('Category:')[0])
-                if pgimg:
-                    pgimg = pgimg.group()
+                    pgtxt = await resp.text()
                     
-                if '>REDIRECT ' in data:
+                if '>REDIRECT ' in pgtxt:
                     em.set_footer(text='(redirected from "' + query + '")')
-                    query = rredirect.search(data).group(1)
+                    query = rredirect.search(pgtxt).group(1)
                     async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
-                        data = await resp.text()
-                if 'missingtitle' in data or 'invalidtitle' in data:
+                        pgtxt = await resp.text()
+                if 'missingtitle' in pgtxt or 'invalidtitle' in pgtxt:
                     await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
                 else:
-                    data = json.loads(data)
+                    data = json.loads(pgtxt)
                     if '(disambiguation)' in data["parse"]["title"]:
                         edit = True
                         emb = disambig(data)
@@ -150,7 +147,16 @@ class Wiki:
                             return
                         query = links[numbers_fu.index(react.emoji)]
                         async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
-                            data = await resp.json()
+                            pgtxt = await resp.text()
+                            data = json.loads(pgtxt)
+                    
+                    pgimg = rpgimg.search(pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0])
+                    if pgimg:
+                        pgimg = pgimg.group()
+                    else:
+                        pgimg = rpgimgfallback.search(pgtxt.split('Category:')[0])
+                        pgimg = pgimg.group() if pgimg else None #TODO: fix this entire bit of unholiness jfc
+                    pgimg = f'http://conwaylife.com{pgimg}'
                     
                     await regpage(data, query, rqst, em, pgimg)
                     if edit:
