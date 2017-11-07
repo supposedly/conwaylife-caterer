@@ -7,6 +7,9 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 from concurrent.futures import ProcessPoolExecutor
 
+# matches LtL rulestring
+rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]')
+
 # matches multiline XRLE
 rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?)?\n(^[\dob$]*[ob$][\dob$\n]*!?)$', re.M)
 
@@ -117,7 +120,6 @@ class CA:
     
     @commands.command(name='sim', aliases=cmd.aliases['sim'])
     async def sim(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None):
-    
         if gen / step > 2500:
             await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
             return
@@ -145,7 +147,11 @@ class CA:
             infile.write(pat)
         
         # run bgolly with parameters
-        os.system(f'{self.dir}/resources/bgolly -M {maxmem} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle')
+        preface = f'{self.dir}/resources/bgolly' + (' -a "Larger than Life"' if rLtL.match(rule) else '')
+        bg_err = os.popen(f'{preface} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
+        if bg_err:
+            await ctx.send(f'`{bg_err}`')
+            return
         
         # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
