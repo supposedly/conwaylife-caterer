@@ -6,6 +6,7 @@ import png, imageio
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 from concurrent.futures import ProcessPoolExecutor
+import traceback, sys
 
 # matches LtL rulestring
 rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]')
@@ -163,9 +164,29 @@ class CA:
     
     @sim.error
     async def sim_error(self, ctx, error):
+        moreinfo = f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`"
         # In case of missing GEN:
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(f"`Error: No {error.param.upper()} given. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+            await ctx.send(f'`Error: No {error.param.upper()} given. {moreinfo}')
+        # Bad argument:
+        elif isinstance(error, commands.BadArgument):
+            badarg = str(error).split('"')[3].split('"')[0]
+            await ctx.send(f'`Error: Invalid {badarg.upper()}. {moreinfo}')
+        # Something went wrong in the command itself:
+        elif isinstance(error, commands.CommandInvokeError):
+            exc = traceback.format_exception(type(error), error, error.__traceback__)
+            
+            # extract relevant traceback only (not whatever led up to CommandInvokeError)
+            end = '\nThe above exception was the direct cause of the following exception:\n\n'
+            end = len(exc) - next(i for i, j in enumerate(reversed(exc), 1) if j == end)
+            
+            try:
+                print('Ignoring exception in on_message', exc[0].split('""l"')[1], *exc[1:end])
+            except Exception as e:
+                print(f'{e.__class__.__name__}: {e}\n\n')
+                raise error
+        else:
+            raise error
         
 
 def setup(bot):
