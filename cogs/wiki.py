@@ -1,9 +1,7 @@
-import discord
+import discord, aiohttp, asyncio
+import re, json
 from discord.ext import commands
 from cogs.resources import wiki_dyk, cmd
-import asyncio, aiohttp
-import re
-import json
 from html import unescape
 from collections import namedtuple
 from random import randint

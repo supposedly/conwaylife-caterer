@@ -21,11 +21,12 @@ async def on_ready():
             try:
                 bot.load_extension(cog)
             except Exception as e:
-                print(f'Error loading extension {cog}: {e}')
+                print(f'Error loading extension {cog}. {e.__class__.__name__}: {e}')
     print(f'Discord: {discord.__version__}')
     print('Logged in as')
     print(bot.user.name)
     print(bot.user.id)
+    print('Guilds:', ', '.join(f'{i.id} "{i.name}"' for i in bot.guilds) if len(bot.guilds) < 10 else len(bot.guilds))
     print('------')
 
 bot.run(os.getenv('DISCORD_TOKEN'))

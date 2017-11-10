@@ -27,8 +27,8 @@ NUM: Specific DYK(s) to display. If omitted, displays a single random DYK instea
 "sim": '''# Currently under construction. Simulates PAT with output to animated gif. #
 
 <[FLAGS]>
-g (gfy): If present, uploads GIF output to gfycat. Otherwise sends directly through Discord.
-t (track): If present, stabilizes GIF around pattern. Useful for spaceships.
+r (rand): Simulate a random soup in given rule, default 16x16 but can be specified. Precludes PAT.
+    x, y: Width and height of generated soup.
 
 <[ARGS]>
 GEN (required): Generation to simulate up to.
@@ -50,11 +50,11 @@ args = {
 
 "info": '',
 
-"wiki": '(*type format) QUERY',
+"wiki": '(type *format) QUERY',
 
 "dyk": '**NUM',
 
-"sim": '(*gfy) (*track) GEN *STEP *RULE *PAT',
+"sim": '(rand *x *y) (gfy) (track) GEN *STEP *RULE *PAT',
 
 "link": '',
 
@@ -73,6 +73,8 @@ aliases = {
 "dyk": [],
 
 "sim": ['gif'],
+
+"sim.rand": ['r', 'R'],
 
 "link": ['invite', 'url'],
 

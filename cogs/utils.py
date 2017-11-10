@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 from cogs.resources import cmd
-import asyncio
 from platform import python_version
 
 class Utils:
@@ -19,13 +18,16 @@ class Utils:
             
     
     @commands.command(name='help', aliases=cmd.aliases['help'])
-    async def help(self, ctx, *command: str):
+    async def help(self, ctx, *command):
         ctx.channel.trigger_typing()
         prefix = self.bot.command_prefix(self.bot, ctx.message)
-        try:
-            command = command[0]
+        command = [v for v in cmd.args if command[0] in cmd.args[v]]
+        if command:
             msg = f'```nginx\n{prefix}{command} {cmd.args[command]}``````apache\n{cmd.desc[command]}```'
-        except (KeyError, IndexError) as e:
+            if cmd.aliases[command]:
+                msg += '```apache\nAliases: {}```'.format(', '.join(prefix+i for i in cmd.aliases[command]))
+            await ctx.send(msg)
+        else:
             desc = '''**```ini
     [A cellular automata bot for Conwaylife.com]```**```makefile
 Commands:
@@ -38,10 +40,6 @@ Commands:
    {1}'{0}info' for credits & general information```'''.format(prefix, '  ' if prefix == '!' else ' ')
             em = discord.Embed(description=desc)
             await ctx.send(embed=em)
-        else:
-            if cmd.aliases[command]:
-                msg += '```apache\nAliases: {}```'.format(', '.join(prefix+i for i in cmd.aliases[command]))
-            await ctx.send(msg)
     
     @commands.command(name='info', aliases=cmd.aliases['info'])
     async def info(self, ctx):

@@ -1,12 +1,13 @@
 import discord
+import png, imageio
+import re, os, sys, traceback
+import random
 from discord.ext import commands
 from cogs.resources import cmd
-import re, os
-import png, imageio
+from concurrent.futures import ProcessPoolExecutor
+
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-from concurrent.futures import ProcessPoolExecutor
-import traceback, sys
 
 # matches LtL rulestring
 rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]')
@@ -111,6 +112,24 @@ def makegif(current, gen):
                 writer.append_data(imageio.imread(file_path))
     os.system(f'rm -r {png_dir}')
 
+def makesoup(rulestring, x, y):
+    """generates random soup as RLE with specified dimensions"""
+
+    rle = f'x = {x}, y = {y}, rule = {rulestring}\n'
+    randx = 0
+    for row in range(y):
+        pos = x
+        while pos > 0:
+            # below could also just be random.randint(1,x) but something likes this gives natural-ish-looking results
+            runlength = random.choices(range(1, x), (1.7**i for i in reversed(range(1, x))))[0]
+            if runlength > pos:
+                runlength = pos # or just `break`
+            # switches o/b from last occurrence of the letter
+            rle += (str(runlength) if runlength > 1 else '') + 'ob'['o' in rle[-3 if rle[-1] == '\n' else -1]]
+            pos -= runlength
+        rle += '$\n' if y > row + 1 else '!\n'
+    return rle
+
 
 class CA:
     def __init__(self, bot):
@@ -119,8 +138,8 @@ class CA:
         self.loop = bot.loop
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
     
-    @commands.command(name='sim', aliases=cmd.aliases['sim'])
-    async def sim(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None):
+    @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
+    async def sim(self, ctx, gen: int, rule='B3/S23', step: int=1, pat=None, randpat=False):
         if gen / step > 2500:
             await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
             return
@@ -128,21 +147,25 @@ class CA:
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
         
-        if pat is None:
-            async for msg in ctx.channel.history(limit=50):
-                try:
-                    rmatch = list(filter(None, [rxrle.match(i) for i in msg.content.split('`')]))[0]
-                except IndexError as e:
-                    pass
-                else:
-                    pat = rmatch.group(2)
-                    if rmatch.group(1):
-                        rule = rmatch.group(1)
-                    break
-            if pat is None: # stupid
-                await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-                return
-        await ctx.send(f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
+        if randpat:
+            pat = randpat
+            await ctx.send(f'Running soup with supplied dimensions in rule `{rule}` with step `{step}` until generation `{gen}`.')
+        else:
+            if pat is None:
+                async for msg in ctx.channel.history(limit=50):
+                    try:
+                        rmatch = list(filter(None, [rxrle.match(i) for i in msg.content.split('`')]))[0]
+                    except IndexError as e:
+                        pass
+                    else:
+                        pat = rmatch.group(2)
+                        if rmatch.group(1):
+                            rule = rmatch.group(1)
+                        break
+                if pat is None: # stupid
+                    await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+                    return
+            await ctx.send(f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
         
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)
@@ -161,6 +184,16 @@ class CA:
         
         await ctx.send(file=discord.File(f'{current}.gif'))
         os.remove(f'{current}.gif')
+        
+    @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
+    async def rand(self, ctx, x: int=None, y: int=None, gen: int=None, rule='B3/S23', step: int = 1):
+        moreinfo = f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`"
+        if x and y is None:
+            gen = x
+            x, y = 16, 16
+        if gen is None:
+            await ctx.send('Error: No GEN given. {moreinfo}')
+        await ctx.invoke(self.sim, gen=gen, rule=rule, step=step, randpat=makesoup(rule, x, y))
     
     @sim.error
     async def sim_error(self, ctx, error):
@@ -169,7 +202,7 @@ class CA:
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send(f'`Error: No {error.param.upper()} given. {moreinfo}')
         # Bad argument:
-        elif isinstance(error, commands.BadArgument):
+        elif isinstance(error, (commands.BadArgument, ZeroDivisionError)): # BadArgument on failure to convert to int, ZDE on gen=0
             badarg = str(error).split('"')[3].split('"')[0]
             await ctx.send(f'`Error: Invalid {badarg.upper()}. {moreinfo}')
         # Something went wrong in the command itself:
@@ -181,12 +214,13 @@ class CA:
             end = len(exc) - next(i for i, j in enumerate(reversed(exc), 1) if j == end)
             
             try:
-                print('Ignoring exception in on_message', exc[0].split('""l"')[1], *exc[1:end])
+                print('Ignoring exception in on_message', exc[0].split('"""')[1], *exc[1:end])
             except Exception as e:
                 print(f'{e.__class__.__name__}: {e}\n\n')
                 raise error
         else:
             raise error
+        
         
 
 def setup(bot):
