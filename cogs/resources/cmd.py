@@ -28,7 +28,8 @@ NUM: Specific DYK(s) to display. If omitted, displays a single random DYK instea
 
 <[FLAGS]>
 r (rand): Simulate a random soup in given rule, default 16x16 but can be specified. Precludes PAT.
-    x, y: Width and height of generated soup.
+    x: Width of generated soup.
+    y: Height.
 
 <[ARGS]>
 GEN (required): Generation to simulate up to.

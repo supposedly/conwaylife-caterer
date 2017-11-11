@@ -18,10 +18,12 @@ class Utils:
             
     
     @commands.command(name='help', aliases=cmd.aliases['help'])
-    async def help(self, ctx, *command):
+    async def help(self, ctx, command=None):
         ctx.channel.trigger_typing()
         prefix = self.bot.command_prefix(self.bot, ctx.message)
-        command = [v for v in cmd.args if command[0] in cmd.args[v]]
+        if command not in cmd.aliases:
+            command = [v for v in cmd.aliases if command in cmd.aliases[v]]
+            command = command[0] if command else None
         if command:
             msg = f'```nginx\n{prefix}{command} {cmd.args[command]}``````apache\n{cmd.desc[command]}```'
             if cmd.aliases[command]:

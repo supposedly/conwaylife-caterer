@@ -1,7 +1,7 @@
 import discord
 import png, imageio
 import re, os, sys, traceback
-import random
+import random, math
 from discord.ext import commands
 from cogs.resources import cmd
 from concurrent.futures import ProcessPoolExecutor
@@ -116,14 +116,14 @@ def makesoup(rulestring, x, y):
     """generates random soup as RLE with specified dimensions"""
 
     rle = f'x = {x}, y = {y}, rule = {rulestring}\n'
-    randx = 0
+    
     for row in range(y):
         pos = x
         while pos > 0:
             # below could also just be random.randint(1,x) but something likes this gives natural-ish-looking results
-            runlength = random.choices(range(1, x), (1.7**i for i in reversed(range(1, x))))[0]
+            runlength = math.ceil(-math.log(1-random.random()))
             if runlength > pos:
-                runlength = pos # or just `break`
+                runlength = pos # or just `break`, no big difference qualitatively
             # switches o/b from last occurrence of the letter
             rle += (str(runlength) if runlength > 1 else '') + 'ob'['o' in rle[-3 if rle[-1] == '\n' else -1]]
             pos -= runlength
@@ -139,7 +139,7 @@ class CA:
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
     
     @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
-    async def sim(self, ctx, gen: int, rule='B3/S23', step: int=1, pat=None, randpat=False):
+    async def sim(self, ctx, gen: int, step: int=1, rule='B3/S23', pat=None, randpat=False):
         if gen / step > 2500:
             await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
             return
@@ -186,14 +186,18 @@ class CA:
         os.remove(f'{current}.gif')
         
     @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
-    async def rand(self, ctx, x: int=None, y: int=None, gen: int=None, rule='B3/S23', step: int = 1):
-        moreinfo = f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`"
-        if x and y is None:
+    async def rand(self, ctx, x='', y='', gen='', rule='B3/S23', step: int=1):
+        moreinfo = f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
+        if x and (y and not y.isdigit()):
+            gen = x
+            rule = y
+            x, y = 16, 16
+        elif x and y is '':
             gen = x
             x, y = 16, 16
-        if gen is None:
-            await ctx.send('Error: No GEN given. {moreinfo}')
-        await ctx.invoke(self.sim, gen=gen, rule=rule, step=step, randpat=makesoup(rule, x, y))
+        if gen is '' or not gen.isdigit():
+            await ctx.send(f'`Error: No GEN given. {moreinfo}`')
+        await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=step, randpat=makesoup(rule, int(x), int(y)))
     
     @sim.error
     async def sim_error(self, ctx, error):
