@@ -1,4 +1,5 @@
 import discord
+import asyncio
 from discord.ext import commands
 from cogs.resources import cmd
 from platform import python_version
@@ -67,9 +68,22 @@ Commands:
           '{self.bot.command_prefix(self.bot, ctx.message)}help' for command info```'''))
         
     
+    async def try_delete(self, sent, caller): # no fun allowed
+        try:
+            await self.bot.wait_for('message_delete', timeout=30.0, check=lambda m: m.id == caller.id)
+        except asyncio.TimeoutError:
+            pass
+        else:
+            await sent.delete()
+    
     @commands.command(name='no', aliases=cmd.aliases['no']) # extremely useful
     async def no(self, ctx):
-        await ctx.send('no')
+        await self.try_delete(await ctx.send('no'), ctx.message)
+
+    
+    @commands.command(name='yes', aliases=cmd.aliases['yes']) # slightly less useful
+    async def yes(self, ctx):
+        await self.try_delete(await ctx.send('yes'), ctx.message)
 
 def setup(bot):
     bot.add_cog(Utils(bot))

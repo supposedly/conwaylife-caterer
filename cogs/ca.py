@@ -196,7 +196,19 @@ class CA:
             gen = x
             x, y = 16, 16
         if gen is '' or not gen.isdigit():
-            await ctx.send(f'`Error: No GEN given. {moreinfo}`')
+            async for msg in ctx.channel.history(limit=50):
+                try:
+                    rmatch = list(filter(None, [rxrle.match(i) for i in msg.content.split('`')]))[0]
+                except IndexError as e:
+                    pass
+                else:
+                    pat = rmatch.group(2)
+                    if rmatch.group(1):
+                        rule = rmatch.group(1)
+                    break
+            if gen is '' or not gen.isdigit(): # stupid
+                await ctx.send(f"`Error: No GEN given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+                return
         await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=step, randpat=makesoup(rule, int(x), int(y)))
     
     @sim.error

@@ -17,7 +17,7 @@ FORMAT (optional): Specifies file format for TYPE. Must be any of "rle" (default
 <[ARGS]>
 QUERY: Title to search for оn http://conwaylife.com/wiki. If disambiguated, displays options with reaction UI allowing user to navigate to intended page.
 
-#TODO: no arguments displays PoTW, allow subsection links, implement flags''',
+#TODO: allow subsection links, implement flags''',
 
 "dyk": '''# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
 
@@ -37,11 +37,13 @@ STEP: Step size. Affects simulation speed. If ommitted, defaults to 1.
 RULE: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
 PAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
 
-#TODO: streamline GIF generation process, implement proper LZW compression, implement flags & especially gfycat upload''',
+#TODO: streamline GIF generation process, implement proper LZW compression, implement flags besides rand & especially gfycat upload''',
 
 "link": '''# Produces an oauth2 invite link for this bot with necessary permissions. #''',
 
-"no": '''# no #'''
+"no": '''# no #''',
+
+"yes": '''# yes? #'''
 }
 
 # ---------- #
@@ -59,7 +61,9 @@ args = {
 
 "link": '',
 
-"no": ''
+"no": '',
+
+"yes": ''
 }
 
 # ---------- #
@@ -67,7 +71,7 @@ args = {
 aliases = {
 "help": [],
 
-"info": ['what'],
+"info": ['about', 'what'],
 
 "wiki": [],
 
@@ -79,5 +83,7 @@ aliases = {
 
 "link": ['invite', 'url'],
 
-"no": []
+"no": [],
+
+"yes": []
 }

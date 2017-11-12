@@ -25,12 +25,16 @@ rnewlines = re.compile(r"\n+")
 rpgimg = re.compile(r'(?<=f=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
 rpgimgfallback = re.compile(r'(?<=c=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
 
+rpotw = re.compile(r'><a href="(.+?)" title="(.+?)">Read more...') #feel like the starting > should not be there but it won't work without
+
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
 
-def parse(txt):
-    txt = rredherring.sub('', txt)
-    txt = txt.replace('<b>', '**').replace('</b>', '**').split('<p>', 1)[1].split('</p>')[0]
-    txt = rctrlchars.sub('', txt)
+def parse(txt, potw=False):
+    if not potw:
+        txt = rredherring.sub('', txt)
+        txt = txt.split('<p>', 1)[1].split('</p>')[0]
+    txt = txt.replace('<b>', '**').replace('</b>', '**')
+    txt = rctrlchars.sub('', txt) # likely does nothing
     txt = rparens.sub('', txt)
     txt = rbracks.sub('', txt)
     txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
@@ -97,7 +101,7 @@ class Wiki:
         
 
     @commands.group(name='wiki', aliases=cmd.aliases['wiki'], invoke_without_subcommand = True)
-    async def wiki(self, ctx, *, query: str):
+    async def wiki(self, ctx, *, query=''):
         if query[:1].lower() + query[1:] == 'caterer':
             await ctx.message.add_reaction('👋')
         await ctx.channel.trigger_typing()
@@ -116,58 +120,71 @@ class Wiki:
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='https://i.imgur.com/pZmruZg.png')
             await ctx.send(embed=em)
-        else:
+            return
+        if not query: # get pattern of the week instead
             async with aiohttp.ClientSession() as rqst:
+                async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=Main_Page') as resp:
+                    data = await resp.text()
+            pgtxt = json.loads(data)["parse"]["text"]["*"]
+            potw = data.split(r'article\">')[1]
+            info = rpotw.search(pgtxt)
+            em = discord.Embed(title="This week's featured article", url=f'http://conwaylife.com{info.group(1)}') # title=info.group(2)
+            em.set_thumbnail(url=f'http://conwaylife.com{rpgimgfallback.search(data).group()}')
+            em.description = parse(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
+            await ctx.send(embed=em)
+            return            
+        
+        async with aiohttp.ClientSession() as rqst:
+            async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+                pgtxt = await resp.text()
+                
+            if '>REDIRECT ' in pgtxt:
+                em.set_footer(text='(redirected from "' + query + '")')
+                query = rredirect.search(pgtxt).group(1)
                 async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
                     pgtxt = await resp.text()
-                    
-                if '>REDIRECT ' in pgtxt:
-                    em.set_footer(text='(redirected from "' + query + '")')
-                    query = rredirect.search(pgtxt).group(1)
+            if 'missingtitle' in pgtxt or 'invalidtitle' in pgtxt:
+                await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
+            else:
+                data = json.loads(pgtxt)
+                if '(disambiguation)' in data["parse"]["title"]:
+                    edit = True
+                    emb = disambig(data)
+                    links = emb[1]
+                    emb = emb[0]
+                    msg = await ctx.send(embed=emb)
+                    for i in range(len(links)):
+                        await msg.add_reaction(numbers_fu[i])
+                    try:
+                        react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check = lambda react, user: user == ctx.message.author and react.emoji in numbers_fu[:len(links)])
+                    except asyncio.TimeoutError:
+                        await msg.clear_reactions()
+                        return
+                    query = links[numbers_fu.index(react.emoji)]
                     async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
                         pgtxt = await resp.text()
-                if 'missingtitle' in pgtxt or 'invalidtitle' in pgtxt:
-                    await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
+                        data = json.loads(pgtxt)
+                
+                pgimg = rpgimg.search(pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0])
+                if pgimg:
+                    pgimg = pgimg.group()
                 else:
-                    data = json.loads(pgtxt)
-                    if '(disambiguation)' in data["parse"]["title"]:
-                        edit = True
-                        emb = disambig(data)
-                        links = emb[1]
-                        emb = emb[0]
-                        msg = await ctx.send(embed=emb)
-                        for i in range(len(links)):
-                            await msg.add_reaction(numbers_fu[i])
-                        try:
-                            react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check = lambda react, user: user == ctx.message.author and react.emoji in numbers_fu[:len(links)])
-                        except asyncio.TimeoutError:
-                            await msg.clear_reactions()
-                            return
-                        query = links[numbers_fu.index(react.emoji)]
-                        async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
-                            pgtxt = await resp.text()
-                            data = json.loads(pgtxt)
-                    
-                    pgimg = rpgimg.search(pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0])
-                    if pgimg:
-                        pgimg = pgimg.group()
-                    else:
-                        pgimg = rpgimgfallback.search(pgtxt.split('Category:')[0])
-                        pgimg = pgimg.group() if pgimg else None #TODO: fix this entire bit of unholiness jfc
-                    pgimg = f'http://conwaylife.com{pgimg}'
-                    
-                    await regpage(data, query, rqst, em, pgimg)
-                    if edit:
-                        await msg.edit(embed=em)
-                        await msg.clear_reactions()
-                    else:
-                        await ctx.send(embed=em)
+                    pgimg = rpgimgfallback.search(pgtxt.split('Category:')[0])
+                    pgimg = pgimg.group() if pgimg else None #TODO: fix this entire bit of unholiness jfc
+                pgimg = f'http://conwaylife.com{pgimg}'
+                
+                await regpage(data, query, rqst, em, pgimg)
+                if edit:
+                    await msg.edit(embed=em)
+                    await msg.clear_reactions()
+                else:
+                    await ctx.send(embed=em)
     @wiki.group(name='rle', aliases=['r', 'RLE'], invoke_without_subcommand = True)
-    async def rle(self, ctx, *, query: str):
+    async def rle(self, ctx, *, query):
         pass
     
     @rle.command(name='synth', aliases=['s', 'synthesis'])
-    async def synth(self, ctx, *, query: str):
+    async def synth(self, ctx, *, query):
         pass        
 
 def setup(bot):
