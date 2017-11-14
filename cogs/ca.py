@@ -193,20 +193,28 @@ class CA:
     @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
     async def rand(self, ctx, x='', y='', gen='', rule='', step: int=1):
         moreinfo = f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
-        if x and (y and not y.isdigit()): # allow user to specify only gen and rule, defaulting to xy 16 x 16
-            gen = x
-            rule = y
+        
+        #XXX: below seems a bit more long-winded than is necessary
+        
+        if x and (y and not y.isdigit()): # allow user to specify only gen and rule and maybe step, defaulting to xy 16 x 16
+            if gen.isdigit():
+                step = int(gen)
+            gen, rule = x, y
             x, y = 16, 16
-        elif x and y is '': # allow user to specify only gen, defaulting to xy 16 x 16 and rule B3/S23
-            gen = x
+        elif x and not y: # allow user to specify only gen, defaulting to xy 16 x 16 and rule last sent or B3/S23
+            gen, x, y = x, 16, 16
+        elif x and y.isdigit() and not gen:
+            gen, step = x, int(y)
             x, y = 16, 16
-        if rule is '':
+        if rule.isdigit(): # allow user to specify only dims, gen, and step, defaulting to rule last sent or B3/S23
+            step, rule = int(rule), ''
+        if not rule:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rrulestring.search(msg.content) or rLtL.search(msg.content)
                 if rmatch:
                     rule = rmatch.group()
                     break
-            if rule is '': # stupid
+            if not rule: # stupid
                 rule = 'B3/S23'
         await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=step, randpat=makesoup(rule, int(x), int(y)), soup_dims='×'.join(str(i) for i in (x,y)))
     
