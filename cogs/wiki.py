@@ -24,8 +24,9 @@ rnewlines = re.compile(r"\n+")
 
 rpgimg = re.compile(r'(?<=f=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
 rpgimgfallback = re.compile(r'(?<=c=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
+rthumb = re.compile(r'(?<=c=\\")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\.(?:png|jpg|gif))/\d+px-\1') # matches thumbnail URL format
 
-rpotw = re.compile(r'><a href="(.+?)" title="(.+?)">Read more...') #feel like the starting > should not be there but it won't work without
+rpotw = re.compile(r'><a href="(.+?)" title="(.+?)">Read more...') #feel like the starting > shouldn't be there but it won't work without
 
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
 
@@ -39,45 +40,41 @@ def parse(txt, potw=False):
     txt = rbracks.sub('', txt)
     txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
     txt = rtags.sub('', txt)
-    return txt
+    return unescape(txt)
 
 async def regpage(data, query, rqst, em, pgimg):
-    async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as resp:
-        images = await resp.text()
-    
-    if not pgimg:
+    if pgimg:
+        pgimg = f'http://conwaylife.com{pgimg}'
+    else:
+        async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as resp:
+            images = await resp.text()
         pgimg = rgif.search(images)
         find = rimage.findall(images)
-        pgimg = pgimg.group(0) if pgimg else (min(find, key = len) if find else '')
+        pgimg = pgimg.group() if pgimg else (min(find, key=len) if find else '')
         async with rqst.get(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={pgimg}') as resp:
             images = await resp.json()
         try:
             pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
-        except (KeyError, TypeError):
+        except (KeyError, TypeError) as e:
             pass
-    
     em.set_thumbnail(url=pgimg)
 
     pgtitle = data["parse"]["title"]
-    desc = unescape(parse(data["parse"]["text"]["*"]))
+    desc = parse(data["parse"]["text"]["*"])
 
     em.title = f'{pgtitle}'
     em.url = f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}'
     em.description = desc
 
 def disambig(data):
-
     def parse_disamb(txt):
         txt = txt.replace('<b>', '').replace('</b>', '')
         links = rdisamb.findall(txt)
         txt = rlinks.sub(lambda m: f'**{m.group(2)}**', txt) # change to '**[{m.group(2)}](http://conwaylife.com{m.group(1)})**' for hyperlink although it looks really ugly
         txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
-        
         txt = rtags.sub('', txt)
-        
         txt = rnewlines.sub('\n', txt)
         return txt, links
-    
     pgtitle = data["parse"]["title"]
     desc_links = parse_disamb(data["parse"]["text"]["*"])
     emb = discord.Embed(title=f'{pgtitle}', url=f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}', description=desc_links[0], color=0xffffff)
@@ -100,7 +97,7 @@ class Wiki:
         await ctx.send(embed=em)
         
 
-    @commands.group(name='wiki', aliases=cmd.aliases['wiki'], invoke_without_subcommand = True)
+    @commands.group(name='wiki', aliases=cmd.aliases['wiki'], invoke_without_subcommand=True)
     async def wiki(self, ctx, *, query=''):
         if query[:1].lower() + query[1:] == 'caterer':
             await ctx.message.add_reaction('👋')
@@ -121,16 +118,28 @@ class Wiki:
             em.set_thumbnail(url='https://i.imgur.com/pZmruZg.png')
             await ctx.send(embed=em)
             return
+        
         if not query: # get pattern of the week instead
             async with aiohttp.ClientSession() as rqst:
                 async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=Main_Page') as resp:
                     data = await resp.text()
+            
             pgtxt = json.loads(data)["parse"]["text"]["*"]
-            potw = data.split(r'article\">')[1]
+            data = data.split('Download.')[0]
+            try:
+                pgimg = (rpgimg.search(data) or rpgimgfallback.search(data) or rthumb.search(data)).group()
+            except AttributeError as e:
+                print(e)
+                pass
+            else:
+                print(pgimg)
+                em.set_thumbnail(url=f'http://conwaylife.com{pgimg}')
             info = rpotw.search(pgtxt)
-            em = discord.Embed(title="This week's featured article", url=f'http://conwaylife.com{info.group(1)}') # title=info.group(2)
-            em.set_thumbnail(url=f'http://conwaylife.com{rpgimgfallback.search(data).group()}')
+            
+            em.title="This week's featured article"
+            em.url = f'http://conwaylife.com{info.group(1)}' # pgtitle=info.group(2)
             em.description = parse(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
+            
             await ctx.send(embed=em)
             return            
         
@@ -153,32 +162,36 @@ class Wiki:
                     links = emb[1]
                     emb = emb[0]
                     msg = await ctx.send(embed=emb)
+                    
+                    def check(rxn, user): # too long for lambda :(
+                        return user == ctx.message.author and rxn.emoji in numbers_fu[:len(links)] and rxn.message.id == msg.id
+                        
                     for i in range(len(links)):
                         await msg.add_reaction(numbers_fu[i])
+                        
                     try:
-                        react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check = lambda react, user: user == ctx.message.author and react.emoji in numbers_fu[:len(links)])
-                    except asyncio.TimeoutError:
+                        react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
+                    except asyncio.TimeoutError as e:
                         await msg.clear_reactions()
                         return
+                    
                     query = links[numbers_fu.index(react.emoji)]
                     async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
                         pgtxt = await resp.text()
                         data = json.loads(pgtxt)
                 
-                pgimg = rpgimg.search(pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0])
-                if pgimg:
-                    pgimg = pgimg.group()
-                else:
-                    pgimg = rpgimgfallback.search(pgtxt.split('Category:')[0])
-                    pgimg = pgimg.group() if pgimg else None #TODO: fix this entire bit of unholiness jfc
-                pgimg = f'http://conwaylife.com{pgimg}'
+                pgtxt = pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0]
+                pgimg = rpgimg.search(pgtxt) or rpgimgfallback.search(pgtxt) or rthumb.search(pgtxt)
+                pgimg = pgimg.group() if pgimg else None
                 
                 await regpage(data, query, rqst, em, pgimg)
+                
                 if edit:
                     await msg.edit(embed=em)
                     await msg.clear_reactions()
                 else:
                     await ctx.send(embed=em)
+    
     @wiki.group(name='rle', aliases=['r', 'RLE'], invoke_without_subcommand = True)
     async def rle(self, ctx, *, query):
         pass
