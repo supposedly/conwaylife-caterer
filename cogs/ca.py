@@ -144,7 +144,8 @@ class CA:
     @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
     async def sim(self, ctx, gen: int, step: int=1, rule='B3/S23', pat=None, **kwargs):
         rand = kwargs.pop('randpat', None)
-        confirm = f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.'
+        dims = kwargs.pop('soup_dims', None)
+        
         if gen / step > 2500:
             await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
             return
@@ -154,7 +155,7 @@ class CA:
         
         if rand:
             pat = rand
-            confirm = f'Running soup with supplied dimensions in rule `{rule}` with step `{step}` until generation `{gen}`.'
+            rand = f'Running `{dims}` soup in rule `{rule}` with step `{step}` until generation `{gen}`.' # meh
         if pat is None:
             async for msg in ctx.channel.history(limit=50):
                 try:
@@ -169,7 +170,7 @@ class CA:
             if pat is None: # stupid
                 await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
                 return
-        await ctx.send(confirm)
+        await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
         
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)
@@ -207,7 +208,7 @@ class CA:
                     break
             if rule is '': # stupid
                 rule = 'B3/S23'
-        await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=step, randpat=makesoup(rule, int(x), int(y)))
+        await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=step, randpat=makesoup(rule, int(x), int(y)), soup_dims='×'.join(str(i) for i in (x,y)))
     
     @sim.error
     async def sim_error(self, ctx, error):
