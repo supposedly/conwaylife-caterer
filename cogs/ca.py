@@ -12,6 +12,9 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 # matches LtL rulestring
 rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]')
 
+# jesus christ i am sorry (matches B/S and if no B then either 2-state single-slash rulestring or generations rulestring)
+rrulestring = re.compile(r'(B)?[0-8cekainyqjrtwz-]+(?(1)/?(S)?[0-8cekainyqjrtwz\-]*|/(S)?[0-8cekainyqjrtwz\-]*(?(2)|(?(3)|/[\d]{1,3})?))')
+
 # matches multiline XRLE
 rxrle = re.compile(r'^(?:#.*$)?(?:^x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?)?\n(^[\dob$]*[ob$][\dob$\n]*!?)$', re.M)
 
@@ -100,13 +103,13 @@ def makeframes(current, patlist, positions, bbox, pad):
             w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
             w.write(out, frame)    
 
-def makegif(current, gen):
+def makegif(current, gen, step):
     # finally, pass all created pics to imageio for conversion to gif
     # then either upload to gfycat or send directly to discord depending on presence of "g" flag
     png_dir = f'{current}_frames/'
     for subdir, dirs, files in os.walk(png_dir):
         files.sort()
-        with imageio.get_writer(f'{current}.gif', mode='I', duration=str(-0.5 / (-gen // 10))) as writer:
+        with imageio.get_writer(f'{current}.gif', mode='I', duration=str(max(1/60, (-0.5 / (-gen // 10)) / step))) as writer:
             for file in files:
                 file_path = os.path.join(subdir, file)
                 writer.append_data(imageio.imread(file_path))
@@ -139,7 +142,9 @@ class CA:
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
     
     @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
-    async def sim(self, ctx, gen: int, step: int=1, rule='B3/S23', pat=None, randpat=False):
+    async def sim(self, ctx, gen: int, step: int=1, rule='B3/S23', pat=None, **kwargs):
+        rand = kwargs.pop('randpat', None)
+        confirm = f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.'
         if gen / step > 2500:
             await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
             return
@@ -147,25 +152,24 @@ class CA:
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
         
-        if randpat:
-            pat = randpat
-            await ctx.send(f'Running soup with supplied dimensions in rule `{rule}` with step `{step}` until generation `{gen}`.')
-        else:
-            if pat is None:
-                async for msg in ctx.channel.history(limit=50):
-                    try:
-                        rmatch = list(filter(None, [rxrle.match(i) for i in msg.content.split('`')]))[0]
-                    except IndexError as e:
-                        pass
-                    else:
-                        pat = rmatch.group(2)
-                        if rmatch.group(1):
-                            rule = rmatch.group(1)
-                        break
-                if pat is None: # stupid
-                    await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-                    return
-            await ctx.send(f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
+        if rand:
+            pat = rand
+            confirm = f'Running soup with supplied dimensions in rule `{rule}` with step `{step}` until generation `{gen}`.'
+        if pat is None:
+            async for msg in ctx.channel.history(limit=50):
+                try:
+                    rmatch = list(filter(None, [rxrle.match(i) for i in msg.content.split('`')]))[0]
+                except IndexError as e:
+                    pass
+                else:
+                    pat = rmatch.group(2)
+                    if rmatch.group(1):
+                        rule = rmatch.group(1)
+                    break
+            if pat is None: # stupid
+                await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+                return
+        await ctx.send(confirm)
         
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)
@@ -180,35 +184,29 @@ class CA:
         # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
         await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
-        await self.loop.run_in_executor(self.executor, makegif, current, gen)
+        await self.loop.run_in_executor(self.executor, makegif, current, gen, step)
         
         await ctx.send(file=discord.File(f'{current}.gif'))
         os.remove(f'{current}.gif')
         
     @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
-    async def rand(self, ctx, x='', y='', gen='', rule='B3/S23', step: int=1):
+    async def rand(self, ctx, x='', y='', gen='', rule='', step: int=1):
         moreinfo = f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
-        if x and (y and not y.isdigit()):
+        if x and (y and not y.isdigit()): # allow user to specify only gen and rule, defaulting to xy 16 x 16
             gen = x
             rule = y
             x, y = 16, 16
-        elif x and y is '':
+        elif x and y is '': # allow user to specify only gen, defaulting to xy 16 x 16 and rule B3/S23
             gen = x
             x, y = 16, 16
-        if gen is '' or not gen.isdigit():
+        if rule is '':
             async for msg in ctx.channel.history(limit=50):
-                try:
-                    rmatch = list(filter(None, [rxrle.match(i) for i in msg.content.split('`')]))[0]
-                except IndexError as e:
-                    pass
-                else:
-                    pat = rmatch.group(2)
-                    if rmatch.group(1):
-                        rule = rmatch.group(1)
+                rmatch = rrulestring.search(msg.content) or rLtL.search(msg.content)
+                if rmatch:
+                    rule = rmatch.group()
                     break
-            if gen is '' or not gen.isdigit(): # stupid
-                await ctx.send(f"`Error: No GEN given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-                return
+            if rule is '': # stupid
+                rule = 'B3/S23'
         await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=step, randpat=makesoup(rule, int(x), int(y)))
     
     @sim.error
