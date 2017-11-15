@@ -147,8 +147,7 @@ class CA:
         dims = kwargs.pop('soup_dims', None)
         
         if gen / step > 2500:
-            await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-            return
+            return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
     
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
@@ -168,8 +167,7 @@ class CA:
                         rule = rmatch.group(1)
                     break
             if pat is None: # stupid
-                await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-                return
+                return await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
         await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
         
         with open(f'{current}_in.rle', 'w') as infile:
@@ -179,8 +177,7 @@ class CA:
         preface = f'{self.dir}/resources/bgolly' + (' -a "Larger than Life"' if rLtL.match(rule) else '')
         bg_err = os.popen(f'{preface} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
         if bg_err:
-            await ctx.send(f'`{bg_err}`')
-            return
+            return await ctx.send(f'`{bg_err}`')
         
         # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
@@ -210,7 +207,7 @@ class CA:
             step, rule = int(rule), ''
         if not rule:
             async for msg in ctx.channel.history(limit=50):
-                rmatch = rrulestring.search(msg.content) or rLtL.search(msg.content)
+                rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
                 if rmatch:
                     rule = rmatch.group()
                     break

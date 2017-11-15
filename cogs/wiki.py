@@ -1,8 +1,7 @@
 import discord, aiohttp, asyncio
-import re, json
+import re, json, html
 from discord.ext import commands
 from cogs.resources import wiki_dyk, cmd
-from html import unescape
 from collections import namedtuple
 from random import randint
 
@@ -40,7 +39,7 @@ def parse(txt, potw=False):
     txt = rbracks.sub('', txt)
     txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
     txt = rtags.sub('', txt)
-    return unescape(txt)
+    return html.unescape(txt)
 
 async def regpage(data, query, rqst, em, pgimg):
     if pgimg:
@@ -86,16 +85,39 @@ class Wiki:
     
     @commands.command(name='dyk', aliases=cmd.aliases['dyk'])
     async def dyk(self, ctx, *num: int):
-        if not num:
+        if num == ():
             num = randint(0, 91),
+        indices = ((91 if not i else (i - 1) % 92) for i in num)
         em = discord.Embed()
         em.color = 0xffffff
-        em.title = 'Did you know...'
+        em.title = 'Did you know...\n'
         em.description = ''
-        for item in num:
-            em.description += f'**#{item}:** {wiki_dyk.trivia[item - 1]}\n'
+        for item in indices:
+            em.description += f'**#{item + 1}:** {wiki_dyk.trivia[item]}\n'
         await ctx.send(embed=em)
-        
+    
+    @dyk.error
+    async def dyk_search(self, ctx, error):
+        # is it bad practice to abuse the error handler like this? ...probably
+        if isinstance(error, commands.BadArgument):
+            em = discord.Embed()
+            em.color = 0xffffff
+            em.title = 'Did you know...\n'
+            
+            # remove invocation from message and keep query, since we can't do ctx.args here
+            query = ctx.message.content.split(' ', 1)[1].rstrip()
+            query = query[len(query) > 1 and query[0] == '.':] # allow searching for numbers
+            rquery = re.compile(fr'\b{query}\b', re.I)
+            matches = [wiki_dyk.plaintext.index(i) for i in wiki_dyk.plaintext if rquery.search(i)]
+            if not matches:
+                return await ctx.send(f'No results found for `{query}`.')
+            em.description = ''
+            for item in matches[:3]:
+                em.description += f'**#{item}:** {wiki_dyk.trivia[item]}\n'
+            em.set_footer(text=f'Showing first three or fewer DYK results for "{query}"')
+            await ctx.send(embed=em)
+        else:
+            raise error
 
     @commands.group(name='wiki', aliases=cmd.aliases['wiki'], invoke_without_subcommand=True)
     async def wiki(self, ctx, *, query=''):
@@ -116,8 +138,7 @@ class Wiki:
             em.description = gus
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='https://i.imgur.com/pZmruZg.png')
-            await ctx.send(embed=em)
-            return
+            return await ctx.send(embed=em)
         
         if not query: # get pattern of the week instead
             async with aiohttp.ClientSession() as rqst:
@@ -140,8 +161,7 @@ class Wiki:
             em.url = f'http://conwaylife.com{info.group(1)}' # pgtitle=info.group(2)
             em.description = parse(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
             
-            await ctx.send(embed=em)
-            return            
+            return await ctx.send(embed=em)
         
         async with aiohttp.ClientSession() as rqst:
             async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
@@ -167,13 +187,16 @@ class Wiki:
                         return user == ctx.message.author and rxn.emoji in numbers_fu[:len(links)] and rxn.message.id == msg.id
                         
                     for i in range(len(links)):
-                        await msg.add_reaction(numbers_fu[i])
+                        try:
+                            await msg.add_reaction(numbers_fu[i])
+                        except IndexError as e:
+                            await msg.clear_reactions()
+                            return await msg.add_reaction(self.bot.get_emoji(371495166277582849))
                         
                     try:
                         react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
                     except asyncio.TimeoutError as e:
-                        await msg.clear_reactions()
-                        return
+                        return await msg.clear_reactions()
                     
                     query = links[numbers_fu.index(react.emoji)]
                     async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:

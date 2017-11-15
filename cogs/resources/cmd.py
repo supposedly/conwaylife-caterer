@@ -7,22 +7,24 @@ CMD: Command to display usage info for. If ommitted or invalid, displays generic
 
 "info": '''# Displays credits, useful links, and information about this bot's dependencies. #''',
 
-"wiki": '''# Displays a small, nicely-formatted blurb from QUERY's page including image, title, and rеdirеct handling. #
+"wiki": '''# Displays a short, nicely-formatted blurb from QUERY's page on http://conwaylife.com/wiki. #
 # Will also display extra info and/or provide pattern files for QUERY, if specified. #
 
 <[FLAGS]>
-TYPE: Specifies whether to provide pattern file ("pat", "p") or synthesis ("synth", "s") from QUERY's page.
-FORMAT (optional): Specifies file format for TYPE. Must be any of "rle" (default), "lif105", "lif106", or "plaintext".
+type: Specifies whether to provide pattern file ("pat", "p") or synthesis ("synth", "s") from QUERY's page.
+    format: Specifies file format for TYPE. Must be any of "rle" (default), "lif105", "lif106", or "plaintext".
 
 <[ARGS]>
-QUERY: Title to search for оn http://conwaylife.com/wiki. If disambiguated, displays options with reaction UI allowing user to navigate to intended page.
+QUERY: Title to search for. If omitted, shows current Pattern of the Week (PoTW) instead.
 
 #TODO: allow subsection links, implement flags''',
 
 "dyk": '''# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
 
 <[ARGS]>
-NUM: Specific DYK(s) to display. If omitted, displays a single random DYK instead.''',
+NUM: Specific DYK(s) to display. If omitted, displays a single random DYK instead.
+[or]
+QUERY: If given a word instead of a number, searches for text in DYKs. To search for a number instead of NUM, prefix it with a period; .12, for instance, searches for DYKs containing "12".''',
 
 "sim": '''# Currently under construction. Simulates PAT with output to animated gif. #
 
@@ -53,9 +55,9 @@ args = {
 
 "info": '',
 
-"wiki": '(type *format) QUERY',
+"wiki": '(type *format) *QUERY',
 
-"dyk": '**NUM',
+"dyk": '**NUM / *QUERY',
 
 "sim": '(rand *x *y) (gfy) (track) GEN *STEP *RULE *PAT',
 
