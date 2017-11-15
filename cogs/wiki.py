@@ -106,14 +106,14 @@ class Wiki:
             
             # remove invocation from message and keep query, since we can't do ctx.args here
             query = ctx.message.content.split(' ', 1)[1].rstrip()
-            query = query[len(query) > 1 and query[0] == '.':] # allow searching for numbers
-            rquery = re.compile(fr'\b{query}\b', re.I)
+            query = query[len(query) > 1 and query[0] == '.' and query[1:].isdigit():] # allow searching for numbers by prepending a period
+            rquery = re.compile(fr'\b{re.escape(query)}\b', re.I)
             matches = [wiki_dyk.plaintext.index(i) for i in wiki_dyk.plaintext if rquery.search(i)]
             if not matches:
                 return await ctx.send(f'No results found for `{query}`.')
             em.description = ''
             for item in matches[:3]:
-                em.description += f'**#{item}:** {wiki_dyk.trivia[item]}\n'
+                em.description += f'**#{item + 1}:** {wiki_dyk.trivia[item]}\n'
             em.set_footer(text=f'Showing first three or fewer DYK results for "{query}"')
             await ctx.send(embed=em)
         else:
@@ -137,8 +137,8 @@ class Wiki:
             em.title = 'Methusynthesae'
             em.description = gus
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
-            em.set_thumbnail(url='https://i.imgur.com/pZmruZg.png')
-            return await ctx.send(embed=em)
+            em.set_thumbnail(url='attachment://methusynthesis1.png')
+            return await ctx.send(file=discord.File('./cogs/resources/methusynthesis1.png', 'methusynthesis1.png'), embed=em)
         
         if not query: # get pattern of the week instead
             async with aiohttp.ClientSession() as rqst:
