@@ -12,24 +12,24 @@ CMD: Command to display usage info for. If ommitted or invalid, displays generic
 
 <[FLAGS]>
 type: Specifies whether to provide pattern file ("pat", "p") or synthesis ("synth", "s") from QUERY's page.
-    format: Specifies file format for TYPE. Must be any of "rle" (default), "lif105", "lif106", or "plaintext".
+    format (optional): Specifies file format for TYPE. Should be any of "rle" (default), "lif105", "lif106", or "plaintext", but it also accepts "r", "5", "6", and "t" respectively.
 
 <[ARGS]>
 QUERY: Title to search for. If omitted, shows current Pattern of the Week (PoTW) instead.
 
-#TODO: allow subsection links, implement flags''',
+#TODO: allow subsection links''',
 
 "dyk": '''# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
 
 <[ARGS]>
 NUM: Specific DYK(s) to display. If omitted, displays a single random DYK instead.
 [or]
-QUERY: If given a word instead of a number, searches for text in DYKs. To search for a number instead of NUM, prefix it with a period; .12, for instance, searches for DYKs containing "12".''',
+SEARCH: Triggered automatically if input is not a number, and displays DYKs containing given text. To search for a number, prefix it with a single period; .12, for instance, searches for DYKs containing "12".''',
 
-"sim": '''# Currently under construction. Simulates PAT with output to animated gif. #
+"sim": '''# Simulates PAT with output to animated gif. #
 
 <[FLAGS]>
-r (rand): Simulate a random soup in given rule, default 16x16 but can be specified. Precludes PAT.
+r (random): Simulate a random soup in given rule, default 16x16 but can be specified. Precludes PAT.
     x: Width of generated soup.
     y: Height.
 
@@ -39,7 +39,7 @@ STEP: Step size. Affects simulation speed. If ommitted, defaults to 1.
 RULE: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
 PAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
 
-#TODO: streamline GIF generation process, implement proper LZW compression, implement flags besides rand & especially gfycat upload''',
+#TODO: streamline GIF generation process, implement proper LZW compression, implement flags & especially gfycat upload''',
 
 "link": '''# Produces an oauth2 invite link for this bot with necessary permissions. #''',
 
@@ -57,7 +57,7 @@ args = {
 
 "wiki": '(type *format) *QUERY',
 
-"dyk": '**NUM / *QUERY',
+"dyk": '**NUM / *SEARCH',
 
 "sim": '(rand *x *y) (gfy) (track) GEN *STEP *RULE *PAT',
 
@@ -81,7 +81,7 @@ aliases = {
 
 "sim": ['gif'],
 
-"sim.rand": ['r', 'R'],
+"sim.rand": ['r', 'random'],
 
 "link": ['invite', 'url'],
 

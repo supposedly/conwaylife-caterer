@@ -11,20 +11,15 @@ rtags = re.compile(r'<.+?>', re.S)
 rredherring = re.compile(r'<p>.{0,10}</p>', re.S) # to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
 rctrlchars = re.compile(r'\\.') # needs to be changed maybe
 rredirect = re.compile(r'">(.+?)</a>')
-
 rgif = re.compile(r'File[^F]+?\.gif')
 rimage = re.compile(r'File[^F]+?\.png')
-
 rlinks = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
 rlinksb = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
 rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
-
 rnewlines = re.compile(r"\n+")
-
 rpgimg = re.compile(r'(?<=f=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
 rpgimgfallback = re.compile(r'(?<=c=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
 rthumb = re.compile(r'(?<=c=\\")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\.(?:png|jpg|gif))/\d+px-\1') # matches thumbnail URL format
-
 rpotw = re.compile(r'><a href="(.+?)" title="(.+?)">Read more...') #feel like the starting > shouldn't be there but it won't work without
 
 numbers_fu = [u'\u0031\u20E3', u'\u0032\u20E3', u'\u0033\u20E3', u'\u0034\u20E3', u'\u0035\u20E3', u'\u0036\u20E3', u'\u0037\u20E3', u'\u0038\u20E3', u'\u0039\u20E3']
@@ -118,8 +113,8 @@ class Wiki:
             await ctx.send(embed=em)
         else:
             raise error
-
-    @commands.group(name='wiki', aliases=cmd.aliases['wiki'], invoke_without_subcommand=True)
+    
+    @commands.group(name='wiki', aliases=cmd.aliases['wiki'], invoke_without_command=True)
     async def wiki(self, ctx, *, query=''):
         if query[:1].lower() + query[1:] == 'caterer':
             await ctx.message.add_reaction('👋')
@@ -150,10 +145,8 @@ class Wiki:
             try:
                 pgimg = (rpgimg.search(data) or rpgimgfallback.search(data) or rthumb.search(data)).group()
             except AttributeError as e:
-                print(e)
                 pass
             else:
-                print(pgimg)
                 em.set_thumbnail(url=f'http://conwaylife.com{pgimg}')
             info = rpotw.search(pgtxt)
             
@@ -173,15 +166,84 @@ class Wiki:
                 async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
                     pgtxt = await resp.text()
             if 'missingtitle' in pgtxt or 'invalidtitle' in pgtxt:
-                await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
+                return await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
+            
+            data = json.loads(pgtxt)
+            if '(disambiguation)' in data["parse"]["title"]:
+                edit = True
+                emb = disambig(data)
+                links = emb[1]
+                emb = emb[0]
+                msg = await ctx.send(embed=emb)
+                
+                def check(rxn, user): # too long for lambda :(
+                    return user == ctx.message.author and rxn.emoji in numbers_fu[:len(links)] and rxn.message.id == msg.id
+                    
+                for i in range(len(links)):
+                    try:
+                        await msg.add_reaction(numbers_fu[i])
+                    except IndexError as e:
+                        await msg.clear_reactions()
+                        return await msg.add_reaction(self.bot.get_emoji(371495166277582849))
+                    
+                try:
+                    react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
+                except asyncio.TimeoutError as e:
+                    return await msg.clear_reactions()
+                
+                query = links[numbers_fu.index(react.emoji)]
+                async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+                    pgtxt = await resp.text()
+                    data = json.loads(pgtxt)
+            
+            pgtxt = pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0]
+            pgimg = rpgimg.search(pgtxt) or rpgimgfallback.search(pgtxt) or rthumb.search(pgtxt)
+            pgimg = pgimg.group() if pgimg else None
+            
+            await regpage(data, query, rqst, em, pgimg)
+            
+            if edit:
+                await msg.edit(embed=em)
+                await msg.clear_reactions()
             else:
+                await ctx.send(embed=em)
+   
+    def normalized_filetype(filetype):
+        filerefs = {('5', '105', 'l105', 'lif105'): '_105.lif', ('6', '106', 'l106', 'lif106'): '_106.lif', ('r', 'rle', 'RLE'): '.rle', ('t', 'plaintext', 'text', 'cells'): '.cells'}
+        normalized = filetype.strip('.').lower()
+        return [filerefs[v] for v in filerefs if normalized in v][0] if any(normalized in i for i in filerefs) else filetype,
+    
+    def normalized_query(query):
+        return query[0].upper() + query[1:]
+    
+    @wiki.command(name='pat', aliases=['p', 'pattern'])
+    async def pat(self, ctx, filetype: normalized_filetype, *, query: normalized_query=''):
+        say = ctx.send
+        async with ctx.typing():
+            if isinstance(filetype, tuple):
+                query = f'{filetype[0]} {query}'
+                filetype = '.rle'
+            
+            #XXX: D.R.Y. my dude
+            
+            async with aiohttp.ClientSession() as rqst:
+                async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+                    pgtxt = await resp.text()
+                    
+                if '>REDIRECT ' in pgtxt:
+                    query = rredirect.search(pgtxt).group(1)
+                    async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+                        pgtxt = await resp.text()
+                elif 'missingtitle' in pgtxt or 'invalidtitle' in pgtxt:
+                    return await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
+                
                 data = json.loads(pgtxt)
                 if '(disambiguation)' in data["parse"]["title"]:
-                    edit = True
                     emb = disambig(data)
-                    links = emb[1]
-                    emb = emb[0]
+                    links, emb = emb[1], emb[0]
                     msg = await ctx.send(embed=emb)
+                    
+                    say = msg.edit
                     
                     def check(rxn, user): # too long for lambda :(
                         return user == ctx.message.author and rxn.emoji in numbers_fu[:len(links)] and rxn.message.id == msg.id
@@ -196,32 +258,93 @@ class Wiki:
                     try:
                         react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
                     except asyncio.TimeoutError as e:
-                        return await msg.clear_reactions()
+                        return
+                    finally:
+                        await msg.clear_reactions()
                     
                     query = links[numbers_fu.index(react.emoji)]
                     async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
                         pgtxt = await resp.text()
-                        data = json.loads(pgtxt)
                 
-                pgtxt = pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0]
-                pgimg = rpgimg.search(pgtxt) or rpgimgfallback.search(pgtxt) or rthumb.search(pgtxt)
-                pgimg = pgimg.group() if pgimg else None
-                
-                await regpage(data, query, rqst, em, pgimg)
-                
-                if edit:
-                    await msg.edit(embed=em)
-                    await msg.clear_reactions()
+                if ' Pattern files' in pgtxt:
+                    rpat = re.compile(fr'http://www\.conwaylife\.com/patterns/[\w\-. ]+?{re.escape(filetype)}', re.I)
+                    patfile = rpat.search(pgtxt.split('Pattern files', 1)[-1])
+                    
+                    if patfile:
+                        async with rqst.get(patfile.group()) as resp:
+                            msgtext = '```makefile\n{}```'.format(await resp.text())
+                        try:
+                            await say(content=msgtext, embed=None)
+                        except discord.errors.HTTPException as e:
+                            await say(content='`Error: either the requested page has no pattern file or its file is too large to send via Discord.`', embed=None)
+                    else:
+                        await say(content='`Error: requested page contains no pattern file.`', embed=None)
                 else:
-                    await ctx.send(embed=em)
+                    await say(content='`Error: requested page lists no pattern file.`', embed=None)
     
-    @wiki.group(name='rle', aliases=['r', 'RLE'], invoke_without_subcommand = True)
-    async def rle(self, ctx, *, query):
-        pass
     
-    @rle.command(name='synth', aliases=['s', 'synthesis'])
-    async def synth(self, ctx, *, query):
-        pass        
+    @wiki.command(name='synth', aliases=['s', 'synthesis'])
+    async def synth(self, ctx, *, query: normalized_query):
+        say = ctx.send
+        async with ctx.typing():
+            
+            #XXX: D.R.Y. my dude
+            
+            async with aiohttp.ClientSession() as rqst:
+                async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+                    pgtxt = await resp.text()
+                    
+                if '>REDIRECT ' in pgtxt:
+                    query = rredirect.search(pgtxt).group(1)
+                    async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+                        pgtxt = await resp.text()
+                elif 'missingtitle' in pgtxt or 'invalidtitle' in pgtxt:
+                    return await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
+                
+                data = json.loads(pgtxt)
+                if '(disambiguation)' in data["parse"]["title"]:
+                    emb = disambig(data)
+                    links, emb = emb[1], emb[0]
+                    msg = await ctx.send(embed=emb)
+                    
+                    say = msg.edit
+                    
+                    def check(rxn, user): # too long for lambda :(
+                        return user == ctx.message.author and rxn.emoji in numbers_fu[:len(links)] and rxn.message.id == msg.id
+                        
+                    for i in range(len(links)):
+                        try:
+                            await msg.add_reaction(numbers_fu[i])
+                        except IndexError as e:
+                            await msg.clear_reactions()
+                            return await msg.add_reaction(self.bot.get_emoji(371495166277582849))
+                        
+                    try:
+                        react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
+                    except asyncio.TimeoutError as e:
+                        return
+                    finally:
+                        await msg.clear_reactions()
+                    
+                    query = links[numbers_fu.index(react.emoji)]
+                    async with rqst.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+                        pgtxt = await resp.text()
+                
+                if '>Glider synthesis<' in pgtxt:
+                    rpat = re.compile(fr'http://www\.conwaylife\.com/patterns/[\w\-. ]+?\.\w+', re.I)
+                    patfile = rpat.search(pgtxt.split('>Glider synthesis<', 1)[-1].split('Pattern files')[0])
+                    
+                    if patfile:
+                        async with rqst.get(patfile.group()) as resp:
+                            msgtext = '```makefile\n{}```'.format(await resp.text())
+                        try:
+                            await say(content=msgtext, embed=None)
+                        except discord.errors.HTTPException as e:
+                            await say(content=f'Page `{query}` lists no glider synthesis or its file is too large to send via Discord.', embed=None)
+                    else:
+                        await say(content=f'Page `{query}` contains no glider synthesis.', embed=None)
+                else:
+                    await say(content=f'Page `{query}` lists no glider synthesis.', embed=None)   
 
 def setup(bot):
     bot.add_cog(Wiki(bot))
