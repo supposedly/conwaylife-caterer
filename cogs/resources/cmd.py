@@ -12,7 +12,7 @@ CMD: Command to display usage info for. If ommitted or invalid, displays generic
 
 <[FLAGS]>
 type: Specifies whether to provide pattern file ("pat", "p") or synthesis ("synth", "s") from QUERY's page.
-    format (optional): Specifies file format for TYPE. Should be any of "rle" (default), "lif105", "lif106", or "plaintext", but it also accepts "r", "5", "6", and "t" respectively.
+    format (optional): Specifies file format for TYPE. Should be any of "rle" (default), "lif105", "lif106", or "plaintext", but it also accepts "r", "5", "6", and "t".
 
 <[ARGS]>
 QUERY: Title to search for. If omitted, shows current Pattern of the Week (PoTW) instead.
