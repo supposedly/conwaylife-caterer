@@ -11,7 +11,7 @@ CMD: Command to display usage info for. If ommitted or invalid, displays generic
 # Will also display extra info and/or provide pattern files for QUERY, if specified. #
 
 <[FLAGS]>
-type: Specifies whether to provide pattern file ("pat", "p") or synthesis ("synth", "s") from QUERY's page.
+type: Specifies whether to provide pattern file ("-pat", "-p") or synthesis ("-synth", "-s") from QUERY's page.
     format (optional): Specifies file format for TYPE. Should be any of "rle" (default), "lif105", "lif106", or "plaintext", but it also accepts "r", "5", "6", and "t".
 
 <[ARGS]>
