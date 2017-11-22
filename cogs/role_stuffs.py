@@ -61,26 +61,36 @@ class RoleManager:
     async def create_role_or_raise(self, ctx, error):
         if isinstance(error, commands.errors.BadArgument):
             say = ctx.send
-            reaction, created = False, True
+            reaction, created, is_color = False, True, True
             req_role, *members = ctx.message.content.split()[1:]
-            req_role = req_role.lower()
             all_roles = {i.color: i.name for i in ctx.guild.roles}
             if members:
                 try:
                     await commands.MemberConverter().convert(ctx, members[0])
                 except Exception as e:
-                    resp = await ColorConvert().convert(ctx, members[0])
-                    members = [ctx.message.author.mention]
-                    if resp in all_roles:
-                        req_role = all_roles[resp]
-                        created = None
-                    if req_role not in all_roles.values():
-                        all_roles[resp.value] = req_role
-                    else:
-                        resp = list(all_roles.keys())[list(all_roles.values()).index(req_role)]
-                        created = False if created else None
+                    try:
+                        resp = await ColorConvert().convert(ctx, req_role)
+                    except KeyError as e:
+                        try:
+                            resp = await ColorConvert().convert(ctx, f'{req_role}_{members[0]}')
+                        except (KeyError, IndexError) as e:
+                            req_role, members = '{} {}'.format(req_role, ' '.join(members)), None
+                            is_color = False
+                        else:
+                            req_role += f' {members.pop(0)}'
                     
-            if req_role in all_roles.values() and not members:
+                    if is_color:
+                        req_role, members = ' '.join(members), None
+                        if resp in all_roles:
+                            req_role = all_roles[resp]
+                            created = None
+                        if req_role not in all_roles.values():
+                            all_roles[resp.value] = req_role
+                        else:
+                            resp = list(all_roles.keys())[list(all_roles.values()).index(req_role)]
+                            created = False if created else None
+                    
+            elif req_role in all_roles.values():
                 return await ctx.send(f'No members given to assign role `{req_role}`!')
             
             if req_role not in all_roles.values():
@@ -127,6 +137,8 @@ class RoleManager:
                         await prompt.clear_reactions()
                         resp = resp.result()
                         resp = await ColorConvert().convert(ctx, resp.content if isinstance(resp, discord.Message) else resp[0].emoji)
+            
+            req_role = req_role.lower()
             req_role = await ctx.guild.create_role(name=req_role, color=resp, reason=f'Via {self.bot.user.name} by {ctx.message.author.name}')
             
             if created is None:
@@ -141,12 +153,11 @@ class RoleManager:
 
     @role.command(name='del', aliases=['delete', 'd'])
     @is_owner()
-    async def del_roles(self, ctx, *roles: LowRole):
-        for role in roles:
-            try:
-                await role.delete(reason=f'Via {self.bot.user.name} by {ctx.message.author.name}')
-            except discord.errors.Forbidden as e:
-                return await ctx.send('You need to give me the "Manage Roles" permission!')
+    async def del_roles(self, ctx, *, role: LowRole):
+        try:
+            await role.delete(reason=f'Via {self.bot.user.name} by {ctx.message.author.name}')
+        except discord.errors.Forbidden as e:
+            return await ctx.send('You need to give me the "Manage Roles" permission!')
         await ctx.message.add_reaction('👍')
 
     @del_roles.error
@@ -228,6 +239,12 @@ class RoleManager:
                 except discord.errors.NotFound as e:
                     pass
         await ctx.message.add_reaction('👍')
+    
+    @unrole.error
+    async def multi_word_rolename(self, ctx, error):
+        if isinstance(error, commands.BadArgument):
+            rolename = ' '.join(ctx.message.content.split()[1:])
+            return await ctx.invoke(self.unrole, await LowRole().convert(ctx, rolename))
 
     @commands.group(name='get')
     async def get(self, ctx):
@@ -253,9 +270,19 @@ class RoleManager:
         await ctx.send(embed=em)
 
     @get.command(name='colors', aliases=['colours'])
-    async def colors(self, ctx):
-        em = discord.Embed(description='\n'.join(f'{k} `0x{v:06x}`' for k, v in self.colors.items()))
-        await ctx.send(embed=em)
+    async def get_colors(self, ctx, *roles: LowRole):
+        if roles:
+            content, files = '', []
+            for role in roles:
+                content += f'{role.name}: `{role.color.value}`\n'
+                colorimg = Image.new('RGB', (30,30), role.color.to_rgb())
+                with io.BytesIO() as bIO:
+                    colorimg.save(bIO, format='PNG', optimize=True)
+                    files += [discord.File(bIO.getvalue(), filename=f'{role.color.value}.png')]
+            await ctx.send(files=files, content=content)
+        else:
+            em = discord.Embed(description='\n'.join(f'{k} `0x{v:06x}`' for k, v in self.colors.items()))
+            await ctx.send(embed=em)
 
     @commands.command(name='demo', aliases=['color', 'colour'])
     async def demo(self, ctx, *, color: ColorConvert):
