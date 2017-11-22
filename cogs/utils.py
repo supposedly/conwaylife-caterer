@@ -15,8 +15,6 @@ class Utils:
         em = discord.Embed(description=f'Use [this link]({self._invite}) to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=self.bot.user.avatar_url)
         await ctx.send(embed=em)
-             
-            
     
     @commands.command(name='help', aliases=cmd.aliases['help'])
     async def help(self, ctx, command=None):
