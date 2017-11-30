@@ -186,9 +186,9 @@ class RoleManagement:
     async def role(self, ctx, *args):
         color, rolename = await self.auto_convert(ctx, args)
         args = ' '.join(args)
-        async def make_role(rolename, color, reason=f'Via {self.bot.user.name} (bot) by {ctx.message.author.name}'):
+        async def make_role(rolename, color, say=ctx.send, reason=f'Via {self.bot.user.name} (bot) by {ctx.message.author.name}'):
             role = await TouchableRole().create(ctx, rolename, color=color, reason=reason)
-            await ctx.send(f'Successfully created role `{rolename}` with color `{str(color)[1:]}`!')
+            await say(content=f'Successfully created role `{rolename}` with color `{str(color)[1:]}`!')
             return role
         if not rolename:
             rolename = args
@@ -235,10 +235,11 @@ class RoleManagement:
                         color = await self.prompt_color(ctx, prompt)
                     except ValueError as e:
                         return await prompt.delete()
-                role = await make_role(rolename, color)
+                role = await make_role(rolename, color, say=prompt.edit)
             else:
-                color = await self.prompt_color(ctx, await ctx.send('Pick a color or type one out! Choose ✖ for default color.'))
-                role = await make_role(rolename, color)
+                prompt = await ctx.send('Pick a color or type one out! Choose ✖ for default color.')
+                color = await self.prompt_color(ctx, prompt)
+                role = await make_role(rolename, color, say=prompt.edit)
         await self.add_role(ctx, ctx.message.author, role)
         await ctx.message.add_reaction('👍')
     
