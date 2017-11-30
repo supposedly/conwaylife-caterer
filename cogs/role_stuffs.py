@@ -107,13 +107,15 @@ class ColorConvert(commands.ColourConverter):
 
 class TouchableRole(commands.RoleConverter):
     """Really just an abstraction layer between regular role names and role names prepended with the ESC character"""
-    async def convert(self, ctx, rolename):
+    @staticmethod
+    def namecheck(ctx, rolename):
         if rolename.startswith(' ') and ctx.message.author is ctx.guild.owner:
-            # Allow admin to run the commands on "actual" roles by using " rolename" instead of just rolename
-            return await super().convert(ctx, rolename[1:])
-        return await super().convert(ctx, f'{ESC}{rolename}')
+            return rolename[1:]
+        return f'{ESC}{rolename}'
+    async def convert(self, ctx, rolename):
+        return await super().convert(ctx, self.namecheck(ctx, rolename))
     async def create(self, ctx, rolename, color, reason):
-        return await ctx.guild.create_role(name=f'{ESC}{rolename}', color=color, reason=reason)
+        return await ctx.guild.create_role(name=self.namecheck(ctx, rolename), color=color, reason=reason)
 
 
 def is_owner():
@@ -188,6 +190,8 @@ class RoleManagement:
             role = await TouchableRole().create(ctx, rolename, color=color, reason=reason)
             await ctx.send(f'Successfully created role `{rolename}` with color `{str(color)[1:]}`!')
             return role
+        if not rolename:
+            rolename = args
         try:
             role = await TouchableRole().convert(ctx, rolename)
             # The above would have raised an exception, preventing us
@@ -214,10 +218,8 @@ class RoleManagement:
                 await ctx.send(f'Assigning existing role `{role.name}` for color `{str(color)[1:]}`.')
             elif color is not None:
                 rxns = ('✅', '🔴', '❌')
-                if rolename:
-                    msg = f'Create role `{rolename}` with color `{str(color)[1:]}`?\n(Red dot to create role `{args}` with custom color)'
-                else:
-                    msg = f'Create role `{args}` with color `{str(color)[1:]}`?\n(Red dot to create this role with custom color)'
+                msg = f'Create role `{rolename}` with color `{str(color)[1:]}`?\n(Red dot to create '
+                msg += ('this role' if rolename == args else f'role `{args}`') + 'with custom color)'
                 prompt = await ctx.send(msg)
                 [await prompt.add_reaction(i) for i in rxns]
                 try:
@@ -229,7 +231,6 @@ class RoleManagement:
                 if reaction.emoji == '❌':
                     return await prompt.delete()
                 if reaction.emoji == '🔴':
-                    rolename = args
                     try:
                         color = await self.prompt_color(ctx, prompt)
                     except ValueError as e:
@@ -261,12 +262,12 @@ class RoleManagement:
     @commands.command(name='unrole')
     async def unrole(self, ctx, *, role=None):
         """Remove a custom role from oneself or, if no args given, remove any & all custom roles"""
-        role = await TouchableRole().convert(ctx, role) # for some reason this doesn't work when done as func annotation
         async def remove_role(member, req_role, reason='Via {self.bot.user.name} (bot) by {ctx.message.author.name}'):
             await member.remove_roles(req_role, reason=reason)
             await self.check_role(req_role, member)
 
         if role is not None:
+            role = await TouchableRole().convert(ctx, role)
             await remove_role(ctx.message.author, role)
         else:
             ext_roles = [i for i in ctx.message.author.roles if i.name.startswith(ESC)]
