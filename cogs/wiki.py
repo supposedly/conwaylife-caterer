@@ -120,8 +120,15 @@ class Wiki:
                 data = json.loads(pgtxt)
         return pgtxt, data, say
     
-    @commands.command(name='dyk', aliases=cmd.aliases['dyk'])
+    @commands.command(name='dyk', aliases=cmd.aliases['dyk'], brief='Provide a random Did-You-Know fact from wiki')
     async def dyk(self, ctx, *num: int):
+        """# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
+
+        <[ARGS]>
+        NUM: Specific DYK(s) to display. If omitted, displays a single random DYK instead.
+        [or]
+        SEARCH: Triggered automatically if input is not a number, and displays DYKs containing given text. \
+To search for a number, prefix it with a single period; .12, for instance, searches for DYKs containing "12"."""
         if num == ():
             num = randint(0, 91),
         indices = ((91 if not i else (i - 1) % 92) for i in num)
@@ -156,8 +163,21 @@ class Wiki:
         else:
             raise error
     
-    @commands.group(name='wiki', aliases=cmd.aliases['wiki'], invoke_without_command=True)
+    @commands.group(name='wiki', aliases=cmd.aliases['wiki'], invoke_without_command=True, brief='Look for a page on http://conwaylife.com/wiki/')
     async def wiki(self, ctx, *, query=''):
+        """
+        # Displays a short, nicely-formatted blurb from QUERY's page on http://conwaylife.com/wiki. #
+        # Will also display extra info and/or provide pattern files for QUERY, if specified. #
+
+        <[FLAGS]>
+        type: Specifies whether to provide pattern file ("-pat", "-p") or synthesis ("-synth", "-s") from QUERY's page.
+          format (optional): Specifies file format for TYPE. Should be any of "rle" (default), "lif105", "lif106", or "plaintext", but it also accepts "r", "5", "6", and "t".
+
+        <[ARGS]>
+        QUERY: Title to search for. If omitted, shows current Pattern of the Week (PoTW) instead.
+
+        #TODO: allow subsection links
+        """
         if query[:1].lower() + query[1:] == 'caterer':
             await ctx.message.add_reaction('👋')
         await ctx.channel.trigger_typing()

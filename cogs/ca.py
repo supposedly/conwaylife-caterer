@@ -146,8 +146,23 @@ class CA:
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.executor = ProcessPoolExecutor(4)
     
-    @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
+    @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True, brief='Simulate a given CA pattern with GIF output')
     async def sim(self, ctx, gen: int, step: int=1, rule='B3/S23', pat=None, **kwargs):
+        """
+        # Simulates PAT with output to animated gif. #
+
+        <[FLAGS]>
+        r (random): Simulate a random soup in given rule, default 16x16 but can be specified. Precludes PAT.
+          x: Width of generated soup.
+          y: Height.
+
+        <[ARGS]>
+        GEN (required): Generation to simulate up to.
+        STEP: Step size. Affects simulation speed. If ommitted, defaults to 1.
+        RULE: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
+        PAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
+
+        #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & especially gfycat upload"""
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
         

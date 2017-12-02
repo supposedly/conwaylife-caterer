@@ -12,8 +12,10 @@ import datetime
 from collections import Counter
 
 class Admin:
-    """Admin-only commands that make the bot dynamic."""
-
+    """
+    Admin-only commands that make the bot dynamic.
+    Credit where it's due! This was copy-pasted entirely from Rapptz' "R. Danny" bot.
+    """
     def __init__(self, bot):
         self.bot = bot
         self._last_result = None
@@ -202,7 +204,6 @@ class Admin:
                 pass
             except discord.HTTPException as e:
                 await ctx.send(f'Unexpected error: `{e}`')
-
 
     @commands.command(hidden=True)
     async def sql(self, ctx, *, query: str):

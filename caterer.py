@@ -7,7 +7,7 @@ def get_prefix(bot, message):
     in_lounge = message.guild.id == 357922255553953794
     is_tester = bot.user.id == 376485072561504257
     try:
-        return ('!', '?')[is_tester] if in_lounge else 'ca.'
+        return ('!', ';')[is_tester] if in_lounge else 'ca.'
     except AttributeError as e: # if in DMs, message.guild is None and therefore has no attribute 'id'
         return '!' #TODO: subclass bot or something to make this able to be ''
 
