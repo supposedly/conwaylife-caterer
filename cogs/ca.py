@@ -1,4 +1,5 @@
 import discord
+import asyncio, concurrent
 import png, imageio
 import re, os, sys, traceback
 import random, math
@@ -23,6 +24,8 @@ rruns = re.compile(r'([0-9]*)([ob])') # [rruns.sub(lambda m:''.join(['0' if m.gr
 
 # unrolls $ signs
 rdollarsigns = re.compile(r'(\d+)\$')
+
+rspace = re.compile(r'\s')
 
 # determines 80% of available RAM to allow bgolly to use
 maxmem = int(os.popen('free -m').read().split()[7]) // 1.25
@@ -107,15 +110,12 @@ def makegif(current, gen, step):
     # then either upload to gfycat or send directly to discord depending on presence of "g" flag
     png_dir = f'{current}_frames/'
     duration = min(0.5, max(1/60, 5/gen/step) if gen else 1)
-    try:
-        for subdir, dirs, files in os.walk(png_dir):
-            files.sort()
-            with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as writer:
-                for file in files:
-                    file_path = os.path.join(subdir, file)
-                    writer.append_data(imageio.imread(file_path))
-    finally:
-        os.system(f'rm -r {png_dir}')
+    for subdir, dirs, files in os.walk(png_dir):
+        files.sort()
+        with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as writer:
+            for file in files:
+                file_path = os.path.join(subdir, file)
+                writer.append_data(imageio.imread(file_path))
 
 def makesoup(rulestring, x, y):
     """generates random soup as RLE with specified dimensions"""
@@ -143,16 +143,13 @@ class CA:
         self.loop = bot.loop
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
     
-    @classmethod
-    def StepConvert(step):
-        if step > 0:
-            return step - 1
+    def GenConvert(gen):
+        gen = int(gen)
+        if gen > 0:
+            return gen - 1
         raise Exception # bad step (less than or equal to zero)
     
     async def run_bgolly(self, current, gen, step, rule):
-        with open(f'{current}_in.rle', 'w') as infile:
-            infile.write(pat)
-        
         # run bgolly with parameters
         preface = f'{self.dir}/resources/bgolly' + (' -a "Larger than Life"' if rLtL.match(rule) else '')
         bg_err = os.popen(f'{preface} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
@@ -161,11 +158,10 @@ class CA:
             raise Exception
     
     @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
-    async def sim(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None, **kwargs):
+    async def sim(self, ctx, gen: GenConvert, step: int = 1, rule='B3/S23', pat=None, **kwargs):
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
         
-        step -= 1
         if gen / step > 2500:
             return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
     
@@ -174,7 +170,7 @@ class CA:
         
         if rand:
             pat = rand
-            rand = f'Running `{dims}` soup in rule `{rule}` with step `{step}` until generation `{gen}`.' # meh
+            rand = f'Running `{dims}` soup in rule `{rule}` with step `{step}` for `{gen}` step(s).' # meh
         if pat is None:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rxrle.search(msg.content)
@@ -187,8 +183,12 @@ class CA:
                 return await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
         else:
             pat = pat.strip('`')
-        await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
         
+        pat = rspace.sub('', pat)
+        await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` for `{gen}` step(s).')
+        
+        with open(f'{current}_in.rle', 'w') as infile:
+            infile.write(pat)
         await self.run_bgolly(current, gen, step, rule)
         # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
@@ -203,10 +203,13 @@ class CA:
                 # this will error out and break the loop if no reaction
                 futures = [
                   self.bot.wait_for('reaction_add', timeout=15.0, check=lambda rxn, usr: rxn.emoji == '➕' and rxn.message.id == gif.id and usr is ctx.message.author),
-                  self.bot.wait_for('message', timeout=15.0, check=lambda msg: msg.channel is gif.channel)
+                  self.bot.wait_for('message', timeout=15.0, check=lambda msg: msg.channel is gif.channel and msg.author.id != self.bot.user.id)
                   ]
-                await asyncio.wait(futures, loop=self.bot.loop, timeout=15.0, return_when=concurrent.futures.FIRST_COMPLETED)
-                
+                resp = await asyncio.wait(futures, loop=self.bot.loop, timeout=15.0, return_when=concurrent.futures.FIRST_COMPLETED)
+                [resp] = resp[0]
+                resp = resp.result()
+                resp[0].emoji # once again, this just forces error if not emoji
+                gen += 50
                 await self.run_bgolly(current, gen, step, rule)
                 # create gif on separate process to avoid blocking event loop
                 patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
@@ -214,8 +217,10 @@ class CA:
                 await self.loop.run_in_executor(self.executor, makegif, current, gen, step)
                 await gif.delete()
         finally:
+            await gif.clear_reactions()
             os.remove(f'{current}.gif')
             os.remove(f'{current}_in.rle')
+            os.system(f'rm -r {current}_frames/')
         
     @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
     async def rand(self, ctx, x='', y='', gen='', rule='', step: int=1):
