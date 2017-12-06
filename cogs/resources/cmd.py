@@ -4,9 +4,9 @@ args = {
 
 "info": '',
 
-"wiki": '(type *format) *QUERY',
+"wiki": '(type *format) *+QUERY',
 
-"dyk": '**NUM / *SEARCH',
+"dyk": '**NUM / *+SEARCH',
 
 "sim": '(rand *x *y) (gfy) (track) GEN *STEP *RULE *PAT',
 

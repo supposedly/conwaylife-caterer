@@ -27,17 +27,13 @@ rdollarsigns = re.compile(r'(\d+)\$')
 # determines 80% of available RAM to allow bgolly to use
 maxmem = int(os.popen('free -m').read().split()[7]) // 1.25
 
-"""
-note: these here global functions below, in marked but compulsory defiance of Good Programming, are gonna stay global bc they
-need to get pickled for asynchronous processing (and in turn because only top-level functions can get pickled)
-"""
+# ---- #
 
-def parse(current, rule):
+def parse(current):
     with open(f'{current}_out.rle', 'r') as pat:
         patlist = [line.rstrip('\n') for line in pat]
 
     os.remove(f'{current}_out.rle')
-    os.remove(f'{current}_in.rle')
     
     positions = patlist[::3]
     positions = [eval(i) for i in positions]
@@ -56,14 +52,12 @@ def parse(current, rule):
     # Bounding box: top-left x and y, width and height
     bbox = xmin, ymin, xmax-xmin, ymax-ymin
     
-    final = f"x = {bboxes[-1][0]}, y = {bboxes[-1][1]}, rule = {rule}\n{patlist[-1]}" # for recalculating
-    
     patlist = patlist[2::3] # just RLE
     # ['4b3$o', '3o2b'] -> ['4b$$$o', '3o2b']
     patlist = [rdollarsigns.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist] # unroll newlines
     # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
     patlist = [i.split('$') for i in patlist]
-    return patlist, positions, bbox, final
+    return patlist, positions, bbox
 
 def makeframes(current, patlist, positions, bbox, pad):
     
@@ -79,7 +73,7 @@ def makeframes(current, patlist, positions, bbox, pad):
     for index in range(len(patlist)):
         pat = patlist[index]
         xpos, ypos = positions[index]
-        dx, dy = (xpos - xmin) + 1, (ypos - ymin) + 1 # +1 for one-cell padding
+        dx, dy = (xpos - xmin) + 1, (ypos - ymin) + 1 #+1 for one-cell padding
         
         # Create a blank frame of off cells
         # Colors: on=0, off=1
@@ -110,18 +104,21 @@ def makeframes(current, patlist, positions, bbox, pad):
 
 def makegif(current, gen, step):
     # finally, pass all created pics to imageio for conversion to gif
-    # then either ~~upload to gfycat~~ or send directly to discord depending on presence of "g" flag
-    duration = max(1/60, 5/gen/step) if gen else 1
+    # then either upload to gfycat or send directly to discord depending on presence of "g" flag
     png_dir = f'{current}_frames/'
-    for subdir, dirs, files in os.walk(png_dir):
-        files.sort()
-        with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as writer:
-            for file in files:
-                file_path = os.path.join(subdir, file)
-                writer.append_data(imageio.imread(file_path))
+    duration = min(0.5, max(1/60, 5/gen/step) if gen else 1)
+    try:
+        for subdir, dirs, files in os.walk(png_dir):
+            files.sort()
+            with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as writer:
+                for file in files:
+                    file_path = os.path.join(subdir, file)
+                    writer.append_data(imageio.imread(file_path))
+    finally:
+        os.system(f'rm -r {png_dir}')
 
 def makesoup(rulestring, x, y):
-    """Generates random soup as RLE with specified dimensions"""
+    """generates random soup as RLE with specified dimensions"""
 
     rle = f'x = {x}, y = {y}, rule = {rulestring}\n'
     
@@ -138,41 +135,44 @@ def makesoup(rulestring, x, y):
         rle += '$\n' if y > row + 1 else '!\n'
     return rle
 
+
 class CA:
     def __init__(self, bot):
         self.bot = bot
-        self.loop = bot.loop
         self.dir = os.path.dirname(os.path.abspath(__file__))
-        self.executor = ProcessPoolExecutor(4)
+        self.loop = bot.loop
+        self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
     
-    @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True, brief='Simulate a given CA pattern with GIF output')
-    async def sim(self, ctx, gen: int, step: int=1, rule='B3/S23', pat=None, **kwargs):
-        """
-        # Simulates PAT with output to animated gif. #
-
-        <[FLAGS]>
-        r (random): Simulate a random soup in given rule, default 16x16 but can be specified. Precludes PAT.
-          x: Width of generated soup.
-          y: Height.
-
-        <[ARGS]>
-        GEN (required): Generation to simulate up to.
-        STEP: Step size. Affects simulation speed. If ommitted, defaults to 1.
-        RULE: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
-        PAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
-
-        #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & especially gfycat upload
-        """
+    @classmethod
+    def StepConvert(step):
+        if step > 0:
+            return step - 1
+        raise Exception # bad step (less than or equal to zero)
+    
+    async def run_bgolly(self, current, gen, step, rule):
+        with open(f'{current}_in.rle', 'w') as infile:
+            infile.write(pat)
+        
+        # run bgolly with parameters
+        preface = f'{self.dir}/resources/bgolly' + (' -a "Larger than Life"' if rLtL.match(rule) else '')
+        bg_err = os.popen(f'{preface} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
+        if bg_err:
+            await ctx.send(f'`{bg_err}`')
+            raise Exception
+    
+    @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
+    async def sim(self, ctx, gen: int, step: int = 1, rule='B3/S23', pat=None, **kwargs):
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
         
+        step -= 1
         if gen / step > 2500:
             return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
     
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
         
-        if rand is not None:
+        if rand:
             pat = rand
             rand = f'Running `{dims}` soup in rule `{rule}` with step `{step}` until generation `{gen}`.' # meh
         if pat is None:
@@ -183,49 +183,39 @@ class CA:
                     if rmatch.group(1):
                         rule = rmatch.group(1)
                     break
-            if pat is None:
+            if pat is None: # stupid
                 return await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
         else:
             pat = pat.strip('`')
-        gifmsg = await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
+        await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` until generation `{gen}`.')
         
-        with open(f'{current}_in.rle', 'w') as infile:
-            infile.write(pat)
-        
-        # run bgolly with parameters
-        preface = f'{self.dir}/resources/bgolly' + (' -a "Larger than Life"' if rLtL.match(rule) else '')
-        bg_err = os.popen(f'{preface} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
-        if bg_err:
-            return await ctx.send(f'`{bg_err}`')
-        
+        await self.run_bgolly(current, gen, step, rule)
         # create gif on separate process to avoid blocking event loop
-        patlist, positions, bbox, final = await self.loop.run_in_executor(self.executor, parse, current, rule)
+        patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
         await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
+        await self.loop.run_in_executor(self.executor, makegif, current, gen, step)
+        
         try:
-            await self.loop.run_in_executor(self.executor, makegif, current, gen, step)
-            gifmsg = await ctx.send(file=discord.File(f'{current}.gif', filename='{current}.gif'))
             while True:
-                await gifmsg.add_reaction('🇨🇭') # Swiss flag doubles as a plus sign (to indicate adding frames)
-                await self.bot.wait_for('reaction_add', timeout=10.0, check=lambda rxn, usr: rxn.emoji == '🇨🇭' and rxn.message.id == gifmsg.id and usr is ctx.message.author)
-                await gifmsg.clear_reactions()
-                gen += 50 # TODO: maybe make this increase with gen size
-                with open(f'{current}_in.rle', 'w') as infile:
-                    infile.write(final)
-                bg_err = os.popen(f'{preface} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
-                if bg_err:
-                    await ctx.send(f'`{bg_err}`')
-                    raise
-                patlist, positions, bbox, final = await self.loop.run_in_executor(self.executor, parse, current, rule)
+                gif = await ctx.send(file=discord.File(f'{current}.gif'))
+                
+                await gif.add_reaction('➕')
+                # this will error out and break the loop if no reaction
+                futures = [
+                  self.bot.wait_for('reaction_add', timeout=15.0, check=lambda rxn, usr: rxn.emoji == '➕' and rxn.message.id == gif.id and usr is ctx.message.author),
+                  self.bot.wait_for('message', timeout=15.0, check=lambda msg: msg.channel is gif.channel)
+                  ]
+                await asyncio.wait(futures, loop=self.bot.loop, timeout=15.0, return_when=concurrent.futures.FIRST_COMPLETED)
+                
+                await self.run_bgolly(current, gen, step, rule)
+                # create gif on separate process to avoid blocking event loop
+                patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
                 await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
                 await self.loop.run_in_executor(self.executor, makegif, current, gen, step)
-                gifmsg = await ctx.send(file=discord.File(f'{current}.gif', filename='{current}.gif'))
+                await gif.delete()
         finally:
-            await gifmsg.clear_reactions()
             os.remove(f'{current}.gif')
-            os.system('rm -r {current}_frames/')
-    
-    def dims_cap(arg):
-        return min(arg, 300)
+            os.remove(f'{current}_in.rle')
         
     @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
     async def rand(self, ctx, x='', y='', gen='', rule='', step: int=1):
@@ -251,7 +241,7 @@ class CA:
                 if rmatch:
                     rule = rmatch.group()
                     break
-            if not rule:
+            if not rule: # stupid
                 rule = 'B3/S23'
         await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=step, randpat=makesoup(rule, int(x), int(y)), soup_dims='×'.join(str(i) for i in (x,y)))
     
