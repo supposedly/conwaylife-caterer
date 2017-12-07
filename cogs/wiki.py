@@ -90,7 +90,7 @@ class Wiki:
 
     async def handle_page(self, ctx, query, say=None, num=0):
         if say is None:
-            say = ctx.send
+            msg = say = ctx.send
         async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
             pgtxt = await resp.text()
         data = json.loads(pgtxt)
@@ -119,7 +119,7 @@ class Wiki:
             async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
                 pgtxt = await resp.text()
                 data = json.loads(pgtxt)
-        return pgtxt, data, say
+        return pgtxt, data, msg
     
     @commands.command(name='dyk', aliases=cmd.aliases['dyk'], brief='Provide a random Did-You-Know fact from wiki')
     async def dyk(self, ctx, *num: int):
@@ -231,11 +231,12 @@ To search for a number, prefix it with a single period; .12, for instance, searc
         num = secs.index(req_sec) if req_sec in secs else 0
         
         try:
-            pgtxt, data, say = await self.handle_page(ctx, query, num=num)
+            pgtxt, data, blurb = await self.handle_page(ctx, query, num=num)
+            say = blurb.edit if blurb != ctx.send else ctx.send
         except (ValueError, IndexError, asyncio.TimeoutError) as e:
             return
         seclist = [None]*len(secs)
-        seclist[num] = [(pgtxt, data)]
+        seclist[num] = pgtxt, data
         
         pgtxt = pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0]
         pgimg = rpgimg.search(pgtxt) or rpgimgfallback.search(pgtxt) or rthumb.search(pgtxt)
@@ -294,7 +295,7 @@ To search for a number, prefix it with a single period; .12, for instance, searc
                 if reaction.emoji == '🔧': # glider synth
                     if None in (synthfile, seclist[0]):
                         seclist[0] = (await self.handle_page(ctx, query, num=0))[:-1]
-                        synthfile = await self.send_info(ctx, pgtxt, query, 'synth', say, filetype=r'\.\w+', send=False)
+                        synthfile = await self.send_info(ctx, seclist[0][0], query, 'synth', say, filetype=r'\.\w+', send=False)
                     await say(content=synthfile, embed=None)
                 said = True
         
@@ -342,7 +343,8 @@ To search for a number, prefix it with a single period; .12, for instance, searc
                 query = f'{filetype[0]} {query}'
                 filetype = '.rle'
             try:
-                pgtxt, data, say = await self.handle_page(ctx, query)
+                pgtxt, data, msg = await self.handle_page(ctx, query)
+                say = msg.edit if msg != ctx.send else ctx.send
             except (ValueError, IndexError, asyncio.TimeoutError) as e:
                 return
             
@@ -354,7 +356,8 @@ To search for a number, prefix it with a single period; .12, for instance, searc
     async def synth(self, ctx, *, query):
         async with ctx.typing():
             try:
-                pgtxt, data, say = await self.handle_page(ctx, query)
+                pgtxt, data, msg = await self.handle_page(ctx, query)
+                say = msg.edit if msg != ctx.send else ctx.send
             except (ValueError, IndexError, asyncio.TimeoutError) as e:
                 return
             

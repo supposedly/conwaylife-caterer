@@ -185,7 +185,7 @@ class CA:
             pat = pat.strip('`')
         
         pat = rspace.sub('', pat)
-        await ctx.send(re.escape(pat))
+        rule = rspace.sub('', rule)
         await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).')
         
         with open(f'{current}_in.rle', 'w') as infile:
