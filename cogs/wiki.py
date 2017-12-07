@@ -93,15 +93,6 @@ class Wiki:
             say = ctx.send
         async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
             pgtxt = await resp.text()
-            
-        if '>REDIRECT ' in pgtxt:
-            query = rredirect.search(pgtxt).group(1)
-            async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
-                pgtxt = await resp.text()
-        elif 'missingtitle' in pgtxt or 'invalidtitle' in pgtxt:
-            await ctx.send('Page `' + query + '` does not exist.') # no sanitization yeet
-            raise ValueError
-        
         data = json.loads(pgtxt)
         if '(disambiguation)' in data["parse"]["title"]:
             emb, links = self.disambig(data)
@@ -181,7 +172,7 @@ To search for a number, prefix it with a single period; .12, for instance, searc
 
         <[FLAGS]>
         type: Specifies whether to provide pattern file ("-pat", "-p") or synthesis ("-synth", "-s") from QUERY's page.
-          format (optional): Specifies file format for TYPE. Should be any of "rle" (default), "lif105", "lif106", or "plaintext", but it also accepts "r", "5", "6", and "t".
+          format (optional): Specifies file format for TYPE. Should be any of "rle" (default), "lif105", "lif106", or "plaintext", but also accepted are "r", "5", "6", and "t".
 
         <[ARGS]>
         QUERY: Title to search for. If omitted, shows current Pattern of the Week (PoTW) instead.
@@ -189,9 +180,10 @@ To search for a number, prefix it with a single period; .12, for instance, searc
         #TODO: allow subsection links
         """
         if '#' in query:
-            query, section = query.split('#', 1)
+            query, req_sec = query.split('#', 1)
+            req_sec = req_sec.lower()
         else:
-            section = None
+            req_sec = 0
         if query[:1].lower() + query[1:] == 'caterer':
             await ctx.message.add_reaction('👋')
         await ctx.channel.trigger_typing()
@@ -227,18 +219,88 @@ To search for a number, prefix it with a single period; .12, for instance, searc
             em.description = self.parse(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
             return await ctx.send(embed=em)
         
+        async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+            prelim = await resp.text()
+        if '>REDIRECT ' in prelim:
+            query = rredirect.search(prelim).group(1)
+        elif 'missingtitle' in prelim or 'invalidtitle' in prelim:
+            return await ctx.send(f'Page `{query}` does not exist.') # no sanitization yeet
+        async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=sections&format=json&page={query}') as resp:
+            secs = (await resp.json())["parse"]["sections"]
+        secs = [0] + [i["line"].lower() for i in secs if i["line"] not in ('See also', 'References', 'External links')]
+        num = secs.index(req_sec) if req_sec in secs else 0
+        
         try:
-            pgtxt, data, say = await self.handle_page(ctx, query)
+            pgtxt, data, say = await self.handle_page(ctx, query, num=num)
         except (ValueError, IndexError, asyncio.TimeoutError) as e:
             return
+        seclist = [None]*len(secs)
+        seclist[num] = [(pgtxt, data)]
         
         pgtxt = pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0]
         pgimg = rpgimg.search(pgtxt) or rpgimgfallback.search(pgtxt) or rthumb.search(pgtxt)
         pgimg = pgimg.group() if pgimg else None
-        
         em = await self.regpage(data, query, em, pgimg)
-        await say(embed=em)
-   
+        
+        nav = ['🔼', '🔽'] if num else ['🔽']
+        panes = ['📝', '🔧']; cur_pane = 0, '🗒'
+        ptypes = ['🇷', '🇨', '5⃣', '6⃣']
+        def check(rxn, usr):
+            return rxn.emoji in nav + panes and usr is ctx.message.author and rxn.message.id == blurb.id
+        try:
+            said, synthfile, rle = False, None, None
+            while True:
+                if not said:
+                    _ = await say(content=None, embed=em)
+                    if _ is not None:
+                        blurb = _
+                        say = blurb.edit
+                [await blurb.add_reaction(i) for i in (nav if not said else [])+panes]
+                said = False
+                reaction, user = await self.bot.wait_for('reaction_add', timeout=15.0, check=check)
+                await blurb.clear_reactions()
+                if reaction.emoji in nav or reaction.emoji == '🗒':
+                    try:
+                        num += 1 - 2 * ['🔽', '🔼'].index(reaction.emoji)
+                    except ValueError as e:
+                        panes.insert(*cur_pane)
+                        cur_pane = panes.index(reaction.emoji), reaction.emoji
+                        panes.remove(reaction.emoji)
+                    else:
+                        if num >= len(secs):
+                            num, nav = len(secs), ['🔼']
+                        elif num <= 0:
+                            num, nav = 0, ['🔽']
+                        else:
+                            nav = ['🔼', '🔽']
+                    if seclist[num] is not None:
+                        pgtxt, data = seclist[num]
+                    else:
+                        pgtxt, data, _ = await self.handle_page(ctx, query, num=num)
+                        seclist[num] = pgtxt, data
+                    em = await self.regpage(data, query, discord.Embed(), pgimg)
+                    continue
+                # else reaction.emoji must be in panes
+                if reaction.emoji == 'ℹ': # info (TODO)
+                    continue
+                panes.insert(*cur_pane)
+                cur_pane = panes.index(reaction.emoji), reaction.emoji
+                panes.remove(reaction.emoji)
+                if reaction.emoji == '📝': # pattern file
+                    if None in (rle, seclist[0]):
+                        seclist[0] = (await self.handle_page(ctx, query, num=0))[:-1]
+                        rle = await self.send_info(ctx, seclist[0][0], query, 'pat', say, filetype=re.escape('.rle'), send=False)
+                    await say(content=rle, embed=None)
+                if reaction.emoji == '🔧': # glider synth
+                    if None in (synthfile, seclist[0]):
+                        seclist[0] = (await self.handle_page(ctx, query, num=0))[:-1]
+                        synthfile = await self.send_info(ctx, pgtxt, query, 'synth', say, filetype=r'\.\w+', send=False)
+                    await say(content=synthfile, embed=None)
+                said = True
+        
+        finally:
+            await blurb.clear_reactions()
+                
     def normalized_filetype(filetype):
         filerefs = {('5', '105', 'l105', 'lif105'): '_105.lif', ('6', '106', 'l106', 'lif106'): '_106.lif', ('r', 'rle', 'RLE'): '.rle', ('t', 'plaintext', 'text', 'cells'): '.cells'}
         normalized = filetype.strip('.').lower()
@@ -248,8 +310,8 @@ To search for a number, prefix it with a single period; .12, for instance, searc
     def normalized_query(query):
         return query[0].upper() + query[1:]
     
-    async def send_info(self, ctx, pgtxt, query, caller, say, filetype):
-        notfound = {r'\.rle': 'RLE', r'\.cells': 'plaintext', r'_105\.lif': 'Life 1.05', r'_106\.lif': 'Life 1.06'}[filetype]
+    async def send_info(self, ctx, pgtxt, query, caller, say, filetype, send=True):
+        notfound = {r'\.rle': 'RLE', r'\.cells': 'plaintext', r'_105\.lif': 'Life 1.05', r'_106\.lif': 'Life 1.06'}.get(filetype, filetype)
         search = {'pat': (' Pattern files', f'{notfound} pattern file', 'Pattern files'), 'synth': ('>Glider synthesis<', 'glider synthesis')}
         if search[caller][0] in pgtxt:
             rpat = re.compile(fr'http://www\.conwaylife\.com/patterns/[\w\-. ]+?{filetype}', re.I)
@@ -258,14 +320,20 @@ To search for a number, prefix it with a single period; .12, for instance, searc
             if patfile:
                 async with self.session.get(patfile.group()) as resp:
                     msgtext = '```makefile\n{}```'.format(await resp.text())
-                try:
-                    await say(content=msgtext, embed=None)
-                except discord.errors.HTTPException as e:
-                    await say(content=f'Page `{query}` either has no {search[caller][1]} or its file is too large to send via Discord.', embed=None)
             else:
-                await say(content=f'Page `{query}` has no {search[caller][1]}.', embed=None)
+                msgtext = f'Page `{query}` has no {search[caller][1]}.'
         else:
-            await say(content=f'Page `{query}` lists no {search[caller][1]}.', embed=None)
+            msgtext = f'Page `{query}` lists no {search[caller][1]}.'
+        try:
+            if send:
+                await say(content=msgtext, embed=None)
+            else:
+                return msgtext
+        except discord.errors.HTTPException as e:
+            if send:
+                await say(content=f'Page `{query}` either has no {search[caller][1]} or its file is too large to send via Discord.', embed=None)
+            else:
+                return f'Page `{query}` either has no {search[caller][1]} or its file is too large to send via Discord.'
     
     @wiki.command(name='-pat', aliases=['-p', '-pattern'])
     async def pat(self, ctx, filetype: normalized_filetype, *, query=''):

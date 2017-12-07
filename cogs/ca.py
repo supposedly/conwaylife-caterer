@@ -149,7 +149,7 @@ class CA:
             return gen - 1
         raise Exception # bad step (less than or equal to zero)
     
-    async def run_bgolly(self, current, gen, step, rule):
+    async def run_bgolly(self, ctx, current, gen, step, rule):
         # run bgolly with parameters
         preface = f'{self.dir}/resources/bgolly' + (' -a "Larger than Life"' if rLtL.match(rule) else '')
         bg_err = os.popen(f'{preface} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
@@ -185,11 +185,12 @@ class CA:
             pat = pat.strip('`')
         
         pat = rspace.sub('', pat)
+        await ctx.send(re.escape(pat))
         await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).')
         
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)
-        await self.run_bgolly(current, gen, step, rule)
+        await self.run_bgolly(ctx, current, gen, step, rule)
         # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
         await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
@@ -210,7 +211,7 @@ class CA:
                 resp = resp.result()
                 resp[0].emoji # once again, this just forces error if not emoji
                 gen += 50
-                await self.run_bgolly(current, gen, step, rule)
+                await self.run_bgolly(ctx, current, gen, step, rule)
                 # create gif on separate process to avoid blocking event loop
                 patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
                 await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
