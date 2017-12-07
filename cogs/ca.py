@@ -170,7 +170,7 @@ class CA:
         
         if rand:
             pat = rand
-            rand = f'Running `{dims}` soup in rule `{rule}` with step `{step}` for `{gen}` step(s).' # meh
+            rand = f'Running `{dims}` soup in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).' # meh
         if pat is None:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rxrle.search(msg.content)
@@ -185,7 +185,7 @@ class CA:
             pat = pat.strip('`')
         
         pat = rspace.sub('', pat)
-        await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` for `{gen}` step(s).')
+        await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).')
         
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)

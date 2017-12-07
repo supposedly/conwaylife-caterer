@@ -15,10 +15,10 @@ rlinks = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
 rlinksb = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
 rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
 rnewlines = re.compile(r"\n+")
-rpgimg = re.compile(r'(?<=f=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
-rpgimgfallback = re.compile(r'(?<=c=\\")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
-rthumb = re.compile(r'(?<=c=\\")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\.(?:png|jpg|gif))/\d+px-\1') # matches thumbnail URL format
-rpotw = re.compile(r'><a href="(.+?)" title="(.+?)">Read more...') #feel like the starting > shouldn't be there but it won't work without
+rpgimg = re.compile(r'(?<=f=\\"|ef=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
+rpgimgfallback = re.compile(r'(?<=c=\\"|rc=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
+rthumb = re.compile(r'(?<=c=\\"|rc=")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\.(?:png|jpg|gif))/\d+px-\1') # matches thumbnail URL format
+rpotw = re.compile(r'><a href="(/wiki/(?!File:).+?)" title="(.+?)">Read more\.\.\.') # matches the URL and title of the 'Read more...' link
 
 class Wiki:
     def __init__(self, bot):
@@ -37,32 +37,41 @@ class Wiki:
         txt = rtags.sub('', txt)
         return html.unescape(txt)
 
-    async def regpage(self, data, query, em, pgimg):
-        if pgimg:
-            em.set_thumbnail(url=f'http://conwaylife.com{pgimg}')
-        else:
+    async def page_img(self, query, img_name=None):
+        if img_name is None:
             async with self.session.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as resp:
                 images = await resp.json()
-            pgimg = list(images["query"]["pages"].values())[0]["images"][0]
-            if 'missing' in pgimg: # uh
-                pgimg = list(images["query"]["pages"].values())[-1]["images"][0]
-            pgimg = pgimg["title"]
-            async with self.session.get(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={pgimg}') as resp:
-                images = await resp.json()
-            
-            try:
-                pgimg = list(images["query"]["pages"].values())[0]["imageinfo"][0]["url"]
-            except (KeyError, TypeError) as e:
-                pass
+            pglist = images["query"]["pages"].values()
+            for page in pglist: # uh
+                try:
+                    img_name = page["images"][0]
+                except KeyError as e:
+                    continue
+                if 'missing' not in img_name:
+                    img_name = img_name["title"]
+                    break
             else:
-                em.set_thumbnail(url=pgimg)
-        
+                raise IndexError
+        async with self.session.get(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={img_name}') as resp:
+            img_dir = (await resp.json())["query"]["pages"].values()
+        try:
+            pgimg = list(img_dir)[0]["imageinfo"][0]["url"]
+        except (KeyError, TypeError) as e:
+            raise
+        else:
+            return pgimg
+    
+    async def regpage(self, data, query, em, pgimg):
         pgtitle = data["parse"]["title"]
         desc = self.parse(data["parse"]["text"]["*"])
-
         em.title = f'{pgtitle}'
         em.url = f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}'
         em.description = desc.replace('Cite error: <ref> tags exist, but no <references/> tag was found', '')
+        try:
+            em.set_thumbnail(url=f'http://conwaylife.com{pgimg}' if pgimg else await self.page_img(query))
+        except IndexError as e:
+            pass
+        return em
 
     def disambig(self, data):
         def parse_disamb(txt):
@@ -79,8 +88,9 @@ class Wiki:
         emb = discord.Embed(title=f'{pgtitle}', url=f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}', description=desc_links[0], color=0xffffff)
         return emb, desc_links[1]
 
-    async def handle_page(self, ctx, query, num=0):
-        say = ctx.send
+    async def handle_page(self, ctx, query, say=None, num=0):
+        if say is None:
+            say = ctx.send
         async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
             pgtxt = await resp.text()
             
@@ -95,19 +105,19 @@ class Wiki:
         data = json.loads(pgtxt)
         if '(disambiguation)' in data["parse"]["title"]:
             emb, links = self.disambig(data)
-            msg = await ctx.send(embed=emb)
+            msg = await say(embed=emb)
             say = msg.edit
             
             def check(rxn, user): # too long for lambda :(
                 return user == ctx.message.author and rxn.emoji[0].isdigit() and rxn.message.id == msg.id
                 
             for i in range(len(links)):
-                #if i <= 9:
-                await msg.add_reaction(f'{i+1}\u20E3')
-                '''else:
+                if i <= 9:
+                    await msg.add_reaction(f'{i+1}\u20E3')
+                else:
                     await msg.clear_reactions()
                     await msg.add_reaction(self.bot.get_emoji(371495166277582849))
-                    raise e'''
+                    raise ValueError
             try:
                 react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
             except asyncio.TimeoutError as e:
@@ -178,13 +188,15 @@ To search for a number, prefix it with a single period; .12, for instance, searc
 
         #TODO: allow subsection links
         """
+        if '#' in query:
+            query, section = query.split('#', 1)
+        else:
+            section = None
         if query[:1].lower() + query[1:] == 'caterer':
             await ctx.message.add_reaction('👋')
         await ctx.channel.trigger_typing()
         em = discord.Embed()
         em.color = 0x000000
-        
-        edit = False
         
         if query[:1].lower() + query[1:] == 'methusynthesis':
             em.set_footer(text=f'(redirected from "{query}")')
@@ -210,11 +222,9 @@ To search for a number, prefix it with a single period; .12, for instance, searc
             else:
                 em.set_thumbnail(url=f'http://conwaylife.com{pgimg}')
             info = rpotw.search(pgtxt)
-            
             em.title="This week's featured article"
             em.url = f'http://conwaylife.com{info.group(1)}' # pgtitle=info.group(2)
             em.description = self.parse(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
-            
             return await ctx.send(embed=em)
         
         try:
@@ -226,8 +236,7 @@ To search for a number, prefix it with a single period; .12, for instance, searc
         pgimg = rpgimg.search(pgtxt) or rpgimgfallback.search(pgtxt) or rthumb.search(pgtxt)
         pgimg = pgimg.group() if pgimg else None
         
-        await self.regpage(data, query, em, pgimg)
-        
+        em = await self.regpage(data, query, em, pgimg)
         await say(embed=em)
    
     def normalized_filetype(filetype):
