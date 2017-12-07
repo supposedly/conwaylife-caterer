@@ -203,20 +203,26 @@ class CA:
                 await gif.add_reaction('➕')
                 # this will error out and break the loop if no reaction
                 futures = [
-                  self.bot.wait_for('reaction_add', timeout=15.0, check=lambda rxn, usr: rxn.emoji == '➕' and rxn.message.id == gif.id and usr is ctx.message.author),
-                  self.bot.wait_for('message', timeout=15.0, check=lambda msg: msg.channel is gif.channel and msg.author.id != self.bot.user.id)
+                  self.bot.wait_for('reaction_add', timeout=30.0, check=lambda rxn, usr: rxn.emoji == '➕' and rxn.message.id == gif.id and usr is ctx.message.author),
+                  self.bot.wait_for('message', timeout=30.0, check=lambda msg: msg.channel is gif.channel and msg.author.id != self.bot.user.id)
                   ]
-                resp = await asyncio.wait(futures, loop=self.bot.loop, timeout=15.0, return_when=concurrent.futures.FIRST_COMPLETED)
+                resp = await asyncio.wait(futures, loop=self.bot.loop, timeout=30.0, return_when=concurrent.futures.FIRST_COMPLETED)
                 [resp] = resp[0]
                 resp = resp.result()
                 resp[0].emoji # once again, this just forces error if not emoji
+                await gif.delete()
+                os.system(f'rm -r {current}_frames/'); os.mkdir(f'{current}_frames')
+                #TODO:
+                # Add to gen a dynamic amount instead of a constant 50
+                # (will be more on higher gens, although I'm undecided
+                # as to whether it should increase at an increasing or
+                # decreasing rate tending towards gen == infinity)
                 gen += 50
                 await self.run_bgolly(ctx, current, gen, step, rule)
                 # create gif on separate process to avoid blocking event loop
                 patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
                 await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
                 await self.loop.run_in_executor(self.executor, makegif, current, gen, step)
-                await gif.delete()
         finally:
             await gif.clear_reactions()
             os.remove(f'{current}.gif')
