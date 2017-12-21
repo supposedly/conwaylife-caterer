@@ -20,12 +20,16 @@ rrulestring = re.compile(r'(B)?[0-8cekainyqjrtwz-]+(?(1)/?(S)?[0-8cekainyqjrtwz\
 rxrle = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\dob$]*[ob$][\dob$\n]*!?)')
 
 # splits RLE into its runs
-rruns = re.compile(r'([0-9]*)([ob])') # [rruns.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
+rruns = re.compile(r'([0-9]*)([ob])')
+# [rruns.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
+
+# for argument matching later on
+_ = re.compile('^\d+$')
+REGS = (re.compile(r'^\d+x\d+$'), rrulestring, _, _)
+DEFAULTS = '16x16', 'B3/S23', '1', None
 
 # unrolls $ signs
 rdollarsigns = re.compile(r'(\d+)\$')
-
-rspace = re.compile(r'\s')
 
 # determines 80% of available RAM to allow bgolly to use
 maxmem = int(os.popen('free -m').read().split()[7]) // 1.25
@@ -37,27 +41,23 @@ def parse(current):
         patlist = [line.rstrip('\n') for line in pat]
 
     os.remove(f'{current}_out.rle')
-    
-    positions = patlist[::3]
-    positions = [eval(i) for i in positions]
-    
-    bboxes = patlist[1::3] # just bounding boxes
-    bboxes = [eval(i) for i in bboxes]
+    positions = [eval(i) for i in patlist[::3]]
+    bboxes = (eval(i) for i in patlist[1::3])
     
     # Determine the bounding box to make gifs from
     # The rectangle: xmin <= x <= xmax, ymin <= y <= ymax
     # where (x|y)(min|max) is the min/max coordinate across all gens.
     xmins, ymins = zip(*positions)
     widths, heights = zip(*bboxes)
-    xmaxs = [xm+w for xm, w in zip(xmins, widths)]
-    ymaxs = [ym+h for ym, h in zip(ymins, heights)]
+    xmaxs = (xm+w for xm, w in zip(xmins, widths))
+    ymaxs = (ym+h for ym, h in zip(ymins, heights))
     xmin, ymin, xmax, ymax = min(xmins), min(ymins), max(xmaxs), max(ymaxs)
     # Bounding box: top-left x and y, width and height
     bbox = xmin, ymin, xmax-xmin, ymax-ymin
     
     patlist = patlist[2::3] # just RLE
     # ['4b3$o', '3o2b'] -> ['4b$$$o', '3o2b']
-    patlist = [rdollarsigns.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist] # unroll newlines
+    patlist = (rdollarsigns.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist) # unroll newlines
     # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
     patlist = [i.split('$') for i in patlist]
     return patlist, positions, bbox
@@ -120,8 +120,8 @@ def makegif(current, gen, step):
 def makesoup(rulestring, x, y):
     """generates random soup as RLE with specified dimensions"""
 
-    rle = f'x = {x}, y = {y}, rule = {rulestring}\n'
-    
+    rle = f'x = {x}, y = {y}, rule = {rulestring}\n' # not really needed but it looks prettier :shrug:
+                                                     # also prevents the length stuff below from erroring
     for row in range(y):
         pos = x
         while pos > 0:
@@ -155,10 +155,23 @@ class CA:
         bg_err = os.popen(f'{preface} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
         if bg_err:
             await ctx.send(f'`{bg_err}`')
-            raise Exception
+            raise RuntimeError
     
     @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
     async def sim(self, ctx, gen: GenConvert, step: int = 1, rule='B3/S23', pat=None, **kwargs):
+        """
+        # Simulates PAT with output to animated gif. #
+        <[FLAGS]>
+        r (random): Simulate a random soup in given rule, default 16x16 but can be specified. Precludes PAT.
+           x: Width of generated soup.
+           y: Height.
+        <[ARGS]>
+        GEN (required): Generation to simulate up to.
+        STEP: Step size. Affects simulation speed. If ommitted, defaults to 1.
+        RULE: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
+        PAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
+        #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & especially gfycat upload
+        """
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
         
@@ -184,13 +197,15 @@ class CA:
         else:
             pat = pat.strip('`')
         
-        pat = rspace.sub('', pat)
-        rule = rspace.sub('', rule)
+        rule = ''.join(rule.split())
         await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).')
         
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)
-        await self.run_bgolly(ctx, current, gen, step, rule)
+        try:
+            await self.run_bgolly(ctx, current, gen, step, rule)
+        except RuntimeError:
+            return
         # create gif on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
         await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
@@ -223,6 +238,8 @@ class CA:
                 patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
                 await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
                 await self.loop.run_in_executor(self.executor, makegif, current, gen, step)
+        except IndexError:
+            pass
         finally:
             await gif.clear_reactions()
             os.remove(f'{current}.gif')
@@ -230,32 +247,30 @@ class CA:
             os.system(f'rm -r {current}_frames/')
         
     @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
-    async def rand(self, ctx, x='', y='', gen='', rule='', step: int=1):
+    async def rand(self, ctx, *args):
         moreinfo = f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
-        
-        #XXX: below seems a bit more long-winded than is necessary
-        
-        if x and (y and not y.isdigit()): # allow user to specify only gen and rule and maybe step, defaulting to xy 16 x 16
-            if gen.isdigit():
-                step = int(gen)
-            gen, rule = x, y
-            x, y = 16, 16
-        elif x and not y: # allow user to specify only gen, defaulting to xy 16 x 16 and rule last sent or B3/S23
-            gen, x, y = x, 16, 16
-        elif x and y.isdigit() and not gen:
-            gen, step = x, int(y)
-            x, y = 16, 16
-        if rule.isdigit(): # allow user to specify only dims, gen, and step, defaulting to rule last sent or B3/S23
-            step, rule = int(rule), ''
-        if not rule:
-            async for msg in ctx.channel.history(limit=50):
-                rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
-                if rmatch:
-                    rule = rmatch.group()
+        new = []
+        for i, j in enumerate(REGS): 
+            for v in args: 
+                if j.match(v) or rLtL.match(v):
+                    new.append(v)
+                    if v.isdigit():
+                        # I don't get why (y for y in args if y != v) doesn't work
+                        args = list(args)
+                        args.pop(args.index(v))
                     break
-            if not rule: # stupid
-                rule = 'B3/S23'
-        await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=step, randpat=makesoup(rule, int(x), int(y)), soup_dims='×'.join(str(i) for i in (x,y)))
+            else: 
+                 new.append(DEFAULTS[i]) 
+        dims, rule, *nums = new
+        try:
+            step, gen = sorted(int(i) for i in nums)
+        except TypeError:
+            try:
+                step, gen = 1, list(filter(None, nums))[0]
+            except IndexError:
+                return await ctx.send(f'`Error: No GEN given. {moreinfo}`')
+        x, y = dims.split('x')
+        await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=int(step), randpat=makesoup(rule, int(x), int(y)), soup_dims='×'.join(dims.split('x')))
     
     @sim.error
     async def sim_error(self, ctx, error):
