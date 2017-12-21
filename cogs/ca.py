@@ -136,18 +136,18 @@ def makesoup(rulestring, x, y):
     return rle
 
 
+def GenConvert(gen):
+    gen = int(gen)
+    if gen > 0:
+        return gen - 1
+    raise Exception # bad step (less than or equal to zero)
+
 class CA:
     def __init__(self, bot):
         self.bot = bot
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.loop = bot.loop
         self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
-    
-    def GenConvert(gen):
-        gen = int(gen)
-        if gen > 0:
-            return gen - 1
-        raise Exception # bad step (less than or equal to zero)
     
     async def run_bgolly(self, ctx, current, gen, step, rule):
         # run bgolly with parameters
@@ -198,7 +198,7 @@ class CA:
             pat = pat.strip('`')
         
         rule = ''.join(rule.split())
-        await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).')
+        announcement = await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).')
         
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)
@@ -233,6 +233,8 @@ class CA:
                 # as to whether it should increase at an increasing or
                 # decreasing rate tending towards gen == infinity)
                 gen += 50
+                content = (f'Running `{dims}` soup' if rand else f'Running supplied pattern') + f' in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).'
+                await announcement.edit(content=content)
                 await self.run_bgolly(ctx, current, gen, step, rule)
                 # create gif on separate process to avoid blocking event loop
                 patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
@@ -270,7 +272,7 @@ class CA:
             except IndexError:
                 return await ctx.send(f'`Error: No GEN given. {moreinfo}`')
         x, y = dims.split('x')
-        await ctx.invoke(self.sim, gen=int(gen), rule=rule, step=int(step), randpat=makesoup(rule, int(x), int(y)), soup_dims='×'.join(dims.split('x')))
+        await ctx.invoke(self.sim, gen=GenConvert(gen), rule=rule, step=int(step), randpat=makesoup(rule, int(x), int(y)), soup_dims='×'.join(dims.split('x')))
     
     @sim.error
     async def sim_error(self, ctx, error):
