@@ -14,6 +14,10 @@ class Utils:
     def to_command(self, arg):
         return self.bot.get_command(arg) if arg else None
     
+    @commands.command(name='ping')
+    async def ping(self, ctx):
+        await ctx.send(f'Pong! That took {1000*self.bot.latency:.0f}ms.')
+    
     @commands.command(name='link', aliases=cmd.aliases['link'], brief='Post an invite link for this bot')
     async def link(self, ctx):
         """# Produces an oauth2 invite link for this bot with necessary permissions. #"""
