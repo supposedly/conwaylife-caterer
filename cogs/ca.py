@@ -5,7 +5,6 @@ import re, os, sys, traceback
 import random, math
 from discord.ext import commands
 from cogs.resources import cmd
-from concurrent.futures import ProcessPoolExecutor
 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -22,11 +21,6 @@ rxrle = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\dob$]*[
 # splits RLE into its runs
 rruns = re.compile(r'([0-9]*)([ob])')
 # [rruns.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
-
-# for argument matching later on
-_ = re.compile(r'^\d+$')
-REGS = (re.compile(r'^\d+x\d+$'), rrulestring, _, _)
-DEFAULTS = '16x16', 'B3/S23', '1', None
 
 # unrolls $ signs
 rdollarsigns = re.compile(r'(\d+)\$')
@@ -135,8 +129,7 @@ def makesoup(rulestring, x, y):
         rle += '$\n' if y > row + 1 else '!\n'
     return rle
 
-
-def GenConvert(gen):
+def genconvert(gen):
     gen = int(gen)
     if gen > 0:
         return gen - 1
@@ -147,7 +140,9 @@ class CA:
         self.bot = bot
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.loop = bot.loop
-        self.executor = ProcessPoolExecutor() # this probably should not be in self's attributes but idk
+    
+    def moreinfo(self, ctx):
+        return f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
     
     async def run_bgolly(self, ctx, current, gen, step, rule):
         # run bgolly with parameters
@@ -158,7 +153,7 @@ class CA:
             raise RuntimeError
     
     @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
-    async def sim(self, ctx, gen: GenConvert, step: int = 1, rule='B3/S23', pat=None, **kwargs):
+    async def sim(self, ctx, gen: genconvert, step: int = 1, rule='B3/S23', pat=None, **kwargs):
         """
         # Simulates PAT with output to animated gif. #
         <[FLAGS]>
@@ -207,9 +202,9 @@ class CA:
         except RuntimeError:
             return
         # create gif on separate process to avoid blocking event loop
-        patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
-        await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
-        await self.loop.run_in_executor(self.executor, makegif, current, gen, step)
+        patlist, positions, bbox = await self.loop.run_in_executor(None, parse, current)
+        await self.loop.run_in_executor(None, makeframes, current, patlist, positions, bbox, len(str(gen)))
+        await self.loop.run_in_executor(None, makegif, current, gen, step)
         
         try:
             while True:
@@ -237,10 +232,11 @@ class CA:
                 await announcement.edit(content=content)
                 await self.run_bgolly(ctx, current, gen, step, rule)
                 # create gif on separate process to avoid blocking event loop
-                patlist, positions, bbox = await self.loop.run_in_executor(self.executor, parse, current)
-                await self.loop.run_in_executor(self.executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
-                await self.loop.run_in_executor(self.executor, makegif, current, gen, step)
-        except IndexError:
+                patlist, positions, bbox = await self.loop.run_in_executor(None, parse, current)
+                await self.loop.run_in_executor(None, makeframes, current, patlist, positions, bbox, len(str(gen)))
+                await self.loop.run_in_executor(None, makegif, current, gen, step)
+        except (IndexError, TypeError, ValueError):
+            # will occur in the "forces-error" unpacking line above
             pass
         finally:
             await gif.clear_reactions()
@@ -250,9 +246,13 @@ class CA:
         
     @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
     async def rand(self, ctx, *args):
-        moreinfo = f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
+      # defaults =  dims,   rule, gen, step 
+        defaults = '16x16', None, '300', None
+        _ = re.compile(r'^\d+$')
+        regs = re.compile(r'^\d+x\d+$'), rrulestring, _, _
+        
         new = []
-        for i, j in enumerate(REGS): 
+        for i, j in enumerate(regs): 
             for v in args: 
                 if j.match(v) or rLtL.match(v):
                     new.append(v)
@@ -262,7 +262,7 @@ class CA:
                         args.pop(args.index(v))
                     break
             else: 
-                 new.append(DEFAULTS[i]) 
+                 new.append(defaults[i]) 
         dims, rule, *nums = new
         try:
             step, gen = sorted(int(i) for i in nums)
@@ -270,20 +270,32 @@ class CA:
             try:
                 step, gen = 1, list(filter(None, nums))[0]
             except IndexError:
-                return await ctx.send(f'`Error: No GEN given. {moreinfo}`')
+                return await ctx.send(f'`Error: No GEN given. {self.moreinfo(ctx)}`')
+        if not rule:
+            async for msg in ctx.channel.history(limit=50):
+                rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
+                if rmatch:
+                    rule = rmatch.group()
+                    break
         x, y = dims.split('x')
-        await ctx.invoke(self.sim, gen=GenConvert(gen), rule=rule, step=int(step), randpat=makesoup(rule, int(x), int(y)), soup_dims='×'.join(dims.split('x')))
+        await ctx.invoke(
+          self.sim,
+          gen = genconvert(gen),
+          rule = rule or 'B3/S23',
+          step = int(step),
+          randpat = makesoup(rule, int(x), int(y)),
+          soup_dims = '×'.join(dims.split('x'))
+          )
     
     @sim.error
     async def sim_error(self, ctx, error):
-        moreinfo = f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`"
         # In case of missing GEN:
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(f'`Error: No {error.param.upper()} given. {moreinfo}')
+            await ctx.send(f'`Error: No {error.param.name.upper()} given. {self.moreinfo(ctx)}`')
         # Bad argument:
         elif isinstance(error, (commands.BadArgument, ZeroDivisionError)): # BadArgument on failure to convert to int, ZDE on gen=0
             badarg = str(error).split('"')[3].split('"')[0]
-            await ctx.send(f'`Error: Invalid {badarg.upper()}. {moreinfo}')
+            await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
         # Something went wrong in the command itself:
         elif isinstance(error, commands.CommandInvokeError):
             exc = traceback.format_exception(type(error), error, error.__traceback__)
