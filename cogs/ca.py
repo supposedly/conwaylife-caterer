@@ -5,6 +5,8 @@ import re, os, sys, traceback
 import random, math
 from discord.ext import commands
 from cogs.resources import cmd
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+
 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -129,82 +131,120 @@ def makesoup(rulestring, x, y):
         rle += '$\n' if y > row + 1 else '!\n'
     return rle
 
-def genconvert(gen):
-    gen = int(gen)
-    if gen > 0:
-        return gen - 1
-    raise Exception # bad step (less than or equal to zero)
-
 class CA:
     def __init__(self, bot):
         self.bot = bot
         self.dir = os.path.dirname(os.path.abspath(__file__))
+        self.ppe = ProcessPoolExecutor()
+        self.tpe = ThreadPoolExecutor() # also just None
         self.loop = bot.loop
+    
+    @staticmethod
+    def genconvert(gen):
+        if int(gen) > 0:
+            return int(gen) - 1
+        raise Exception # bad step (less than or equal to zero)
     
     def moreinfo(self, ctx):
         return f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
     
-    async def run_bgolly(self, ctx, current, gen, step, rule):
+    async def run_bgolly(self, current, algo, gen, step, rule):
         # run bgolly with parameters
-        preface = f'{self.dir}/resources/bgolly' + (' -a "Larger than Life"' if rLtL.match(rule) else '')
-        bg_err = os.popen(f'{preface} -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
-        if bg_err:
-            await ctx.send(f'`{bg_err}`')
-            raise RuntimeError
+        preface = f'{self.dir}/resources/bgolly'
+        return os.popen(f'{preface} -a "{algo}" -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
     
     @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
-    async def sim(self, ctx, gen: genconvert, step: int = 1, rule='B3/S23', pat=None, **kwargs):
+    async def sim(self, ctx, *args, **kwargs):
         """
         # Simulates PAT with output to animated gif. #
         <[FLAGS]>
         r (random): Simulate a random soup in given rule, default 16x16 but can be specified. Precludes PAT.
            x: Width of generated soup.
            y: Height.
+        -h: Use HashLife instead of the default QuickLife.
+        -ppe: Use ProcessPoolExecutor instead of ThreadPoolExecutor to simulate pattern. Probably slower. Don't use.
+        
         <[ARGS]>
         GEN (required): Generation to simulate up to.
         STEP: Step size. Affects simulation speed. If ommitted, defaults to 1.
         RULE: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
         PAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
-        #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & especially gfycat upload
+        #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
         """
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
+        executor = self.ppe if '-ppe' in args else self.tpe
+        _args = args
         
-        if gen / step > 2500:
-            return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
-    
-        current = f'{self.dir}/{ctx.message.id}'
-        os.mkdir(f'{current}_frames')
-        
+       # defaults =  gen, step, rule, pat 
+        defaults = '', '1', '', ''
+        _ = re.compile(r'^\d+$')
+        regs = _, _, rrulestring, re.compile(r'[\dob$]*[ob$][\dob$\n]*!?')
+
+        new = []
+        for i, j in enumerate(regs): 
+            for v in args: 
+                if j.match(v) or rLtL.match(v):
+                    new.append(v)
+                    if v.isdigit():
+                        # I don't get why (y for y in args if y != v) doesn't work
+                        args = list(args)
+                        args.pop(args.index(v))
+                    break
+            else: 
+                 new.append(defaults[i]) 
+        gen, step, rule, pat = [int(i) if i.isdigit() else i for i in new]
+        if not rule:
+            async for msg in ctx.channel.history(limit=50):
+                rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
+                if rmatch:
+                    rule = rmatch.group()
+                    break
+            else:
+                rule = ''
         if rand:
             pat = rand
-            rand = f'Running `{dims}` soup in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).' # meh
-        if pat is None:
+
+        if not pat:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rxrle.search(msg.content)
                 if rmatch:
                     pat = rmatch.group(2)
-                    if rmatch.group(1):
+                    if rmatch.group(1) and not rule:
                         rule = rmatch.group(1)
                     break
-            if pat is None: # stupid
-                return await ctx.send(f"`Error: No PAT given and none found in channel history. '{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info`")
+            if not pat:
+                return await ctx.send(f"`Error: No PAT given and none found in channel history. {self.moreinfo(ctx)}`")
         else:
             pat = pat.strip('`')
         
-        rule = ''.join(rule.split())
-        announcement = await ctx.send(rand if rand else f'Running supplied pattern in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).')
+        try:
+            step, gen = sorted([int(step), int(gen)])
+        except ValueError:
+            return await ctx.send(f"`Error: No GEN given. {self.moreinfo(ctx)}`")
+        
+        if gen / step > 2500:
+            return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. {self.moreinfo(ctx)}`")
+        
+        current = f'{self.dir}/{ctx.message.id}'
+        os.mkdir(f'{current}_frames')
+        
+        rule = ''.join(rule.split()) or 'B3/S23'
+        algo = 'Larger than Life' if rLtL.match(rule) else 'HashLife' if '-h' in _args else 'QuickLife'
+        content = f'Running `{dims}` soup' if rand else f'Running supplied pattern'
+        content += f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
+        content += f' using `{algo}`.' if algo != 'QuickLife' else '.'
+        announcement = await ctx.send(content)
         
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)
-        try:
-            await self.run_bgolly(ctx, current, gen, step, rule)
-        except RuntimeError:
-            return
+        bg_err = await self.run_bgolly(current, algo, gen, step, rule)
+        if bg_err:
+            return await ctx.send(f'`{bg_err}`')
         # create gif on separate process to avoid blocking event loop
-        patlist, positions, bbox = await self.loop.run_in_executor(None, parse, current)
-        await self.loop.run_in_executor(None, makeframes, current, patlist, positions, bbox, len(str(gen)))
-        await self.loop.run_in_executor(None, makegif, current, gen, step)
+        patlist, positions, bbox = await self.loop.run_in_executor(executor, parse, current)
+        await self.loop.run_in_executor(executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
+        await self.loop.run_in_executor(executor, makegif, current, gen, step)
         
         try:
             while True:
@@ -228,13 +268,17 @@ class CA:
                 # as to whether it should increase at an increasing or
                 # decreasing rate tending towards gen == infinity)
                 gen += 50
-                content = (f'Running `{dims}` soup' if rand else f'Running supplied pattern') + f' in rule `{rule}` with step `{step}` for `{gen+1}` generation(s).'
+                content = f'Running `{dims}` soup' if rand else f'Running supplied pattern'
+                content += f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
+                content += f' using `{algo}`.' if algo != 'QuickLife' else '.'
                 await announcement.edit(content=content)
-                await self.run_bgolly(ctx, current, gen, step, rule)
+                bg_err = await self.run_bgolly(current, algo, gen, step, rule)
+                if bg_err:
+                    return await ctx.send(f'`{bg_err}`')
                 # create gif on separate process to avoid blocking event loop
-                patlist, positions, bbox = await self.loop.run_in_executor(None, parse, current)
-                await self.loop.run_in_executor(None, makeframes, current, patlist, positions, bbox, len(str(gen)))
-                await self.loop.run_in_executor(None, makegif, current, gen, step)
+                patlist, positions, bbox = await self.loop.run_in_executor(executor, parse, current)
+                await self.loop.run_in_executor(executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
+                await self.loop.run_in_executor(executor, makegif, current, gen, step)
         except (IndexError, TypeError, ValueError):
             # will occur in the "forces-error" unpacking line above
             pass
@@ -280,9 +324,9 @@ class CA:
         x, y = dims.split('x')
         await ctx.invoke(
           self.sim,
-          gen = genconvert(gen),
-          rule = rule or 'B3/S23',
-          step = int(step),
+          str(self.genconvert(gen)),
+          str(step),
+          rule or 'B3/S23',
           randpat = makesoup(rule, int(x), int(y)),
           soup_dims = '×'.join(dims.split('x'))
           )
