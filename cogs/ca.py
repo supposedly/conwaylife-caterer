@@ -1,15 +1,22 @@
-import discord
-import asyncio, concurrent
-import png, imageio
-import re, os, sys, traceback
-import random, math
-from discord.ext import commands
-from cogs.resources import cmd
+import asyncio
+import concurrent
+import math
+import os
+import random
+import re
+import sys
+import time
+import traceback
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
-
+import discord
+import imageio
+import png
+from discord.ext import commands
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+from cogs.resources import cmd
 
 # matches LtL rulestring
 rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
@@ -101,7 +108,7 @@ def makeframes(current, patlist, positions, bbox, pad):
             w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
             w.write(out, frame)    
 
-def makegif(current, gen, step):
+def savegif(current, gen, step):
     # finally, pass all created pics to imageio for conversion to gif
     # then either upload to gfycat or send directly to discord depending on presence of "g" flag
     png_dir = f'{current}_frames/'
@@ -113,30 +120,12 @@ def makegif(current, gen, step):
                 file_path = os.path.join(subdir, file)
                 writer.append_data(imageio.imread(file_path))
 
-def makesoup(rulestring, x, y):
-    """generates random soup as RLE with specified dimensions"""
-
-    rle = f'x = {x}, y = {y}, rule = {rulestring}\n' # not really needed but it looks prettier :shrug:
-                                                     # also prevents the length stuff below from erroring
-    for row in range(y):
-        pos = x
-        while pos > 0:
-            # below could also just be random.randint(1,x) but something likes this gives natural-ish-looking results
-            runlength = math.ceil(-math.log(1-random.random()))
-            if runlength > pos:
-                runlength = pos # or just `break`, no big difference qualitatively
-            # switches o/b from last occurrence of the letter
-            rle += (str(runlength) if runlength > 1 else '') + 'ob'['o' in rle[-3 if rle[-1] == '\n' else -1]]
-            pos -= runlength
-        rle += '$\n' if y > row + 1 else '!\n'
-    return rle
-
 class CA:
     def __init__(self, bot):
         self.bot = bot
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.ppe = ProcessPoolExecutor()
-        self.tpe = ThreadPoolExecutor() # also just None
+        self.tpe = ThreadPoolExecutor() # or just None
         self.loop = bot.loop
     
     @staticmethod
@@ -144,14 +133,58 @@ class CA:
         if int(gen) > 0:
             return int(gen) - 1
         raise Exception # bad step (less than or equal to zero)
+
+    @staticmethod
+    def parse_args(args: [str], regex: [re.compile], defaults: []):
+        """
+        Sorts `args` according to order in `regexes`.
+        
+        If no matches for a given regex are found in `args`, the item
+        in `defaults` with the same index is dropped in to replace it.
+        
+        Extraneous arguments in `args` are left untouched, and the
+        second item in this func's return tuple will consist of these
+        extraneous args, if there are any.
+        """
+        assert len(regex) == len(defaults)
+        args = list(args)
+        new, regex = [], [i if isinstance(i, (list, tuple)) else [i] for i in regex]
+        for ri, rgx in enumerate(regex): 
+            for ai, arg in enumerate(args):
+                if any(k.match(arg) for k in rgx):
+                    new.append(arg)
+                    args.pop(ai)
+                    break
+            else: 
+                 new.append(defaults[ri])
+        return new, args
     
-    def moreinfo(self, ctx):
-        return f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
+    @staticmethod
+    def makesoup(rulestring, x, y):
+        """generates random soup as RLE with specified dimensions"""
+
+        rle = f'x = {x}, y = {y}, rule = {rulestring}\n' # not really needed but it looks prettier :shrug:
+                                                         # also prevents the length stuff below from erroring
+        for row in range(y):
+            pos = x
+            while pos > 0:
+                # below could also just be random.randint(1,x) but something likes this gives natural-ish-looking results
+                runlength = math.ceil(-math.log(1-random.random()))
+                if runlength > pos:
+                    runlength = pos # or just `break`, no big difference qualitatively
+                # switches o/b from last occurrence of the letter
+                rle += (str(runlength) if runlength > 1 else '') + 'ob'['o' in rle[-3 if rle[-1] == '\n' else -1]]
+                pos -= runlength
+            rle += '$\n' if y > row + 1 else '!\n'
+        return rle
     
     async def run_bgolly(self, current, algo, gen, step, rule):
         # run bgolly with parameters
         preface = f'{self.dir}/resources/bgolly'
         return os.popen(f'{preface} -a "{algo}" -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
+    
+    def moreinfo(self, ctx):
+        return f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
     
     @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
     async def sim(self, ctx, *args, **kwargs):
@@ -162,7 +195,9 @@ class CA:
            x: Width of generated soup.
            y: Height.
         -h: Use HashLife instead of the default QuickLife.
-        -ppe: Use ProcessPoolExecutor instead of ThreadPoolExecutor to simulate pattern. Probably slower. Don't use.
+        -ppe: Use ProcessPoolExecutor instead of ThreadPoolExecutor to simulate pattern. Probably slower. Don't bother using.
+        -tag: When finished, tag requester. Useful for gifs that take a while.
+        -time: Include time taken to create the gif in final message.
         
         <[ARGS]>
         GEN (required): Generation to simulate up to.
@@ -171,29 +206,22 @@ class CA:
         PAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
         #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
         """
+        _ = re.compile(r'^\d+$')
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
-        executor = self.ppe if '-ppe' in args else self.tpe
-        _args = args
-        
-       # defaults =  gen, step, rule, pat 
-        defaults = '', '1', '', ''
-        _ = re.compile(r'^\d+$')
-        regs = _, _, rrulestring, re.compile(r'[\dob$]*[ob$][\dob$\n]*!?')
-
-        new = []
-        for i, j in enumerate(regs): 
-            for v in args: 
-                if j.match(v) or rLtL.match(v):
-                    new.append(v)
-                    if v.isdigit():
-                        # I don't get why (y for y in args if y != v) doesn't work
-                        args = list(args)
-                        args.pop(args.index(v))
-                    break
-            else: 
-                 new.append(defaults[i]) 
-        gen, step, rule, pat = [int(i) if i.isdigit() else i for i in new]
+        (gen, step, rule, pat), flags = self.parse_args(
+          args,
+          [_, _, (rrulestring, rLtL), re.compile(r'[\dob$]*[ob$][\dob$\n]*!?')],
+          ['', '1', '', '']
+          )
+        executor = self.ppe if '-ppe' in flags else self.tpe
+        algo = 'HashLife' if '-h' in flags else 'QuickLife'
+        try:
+            step, gen = sorted([int(step), int(gen)])
+        except ValueError:
+            return await ctx.send(f"`Error: No GEN given. {self.moreinfo(ctx)}`")
+        if gen / step > 2500:
+            return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. {self.moreinfo(ctx)}`")
         if not rule:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
@@ -204,7 +232,6 @@ class CA:
                 rule = ''
         if rand:
             pat = rand
-
         if not pat:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rxrle.search(msg.content)
@@ -218,38 +245,33 @@ class CA:
         else:
             pat = pat.strip('`')
         
-        try:
-            step, gen = sorted([int(step), int(gen)])
-        except ValueError:
-            return await ctx.send(f"`Error: No GEN given. {self.moreinfo(ctx)}`")
-        
-        if gen / step > 2500:
-            return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. {self.moreinfo(ctx)}`")
-        
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
-        
         rule = ''.join(rule.split()) or 'B3/S23'
-        algo = 'Larger than Life' if rLtL.match(rule) else 'HashLife' if '-h' in _args else 'QuickLife'
-        content = f'Running `{dims}` soup' if rand else f'Running supplied pattern'
-        content += f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
-        content += f' using `{algo}`.' if algo != 'QuickLife' else '.'
+        algo = 'Larger than Life' if rLtL.match(rule) else algo
+        content = (
+          (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
+          + f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
+          + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
+          )
         announcement = await ctx.send(content)
-        
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             return await ctx.send(f'`{bg_err}`')
-        # create gif on separate process to avoid blocking event loop
+        
+        start = time.perf_counter()
+        # create on separate process to avoid blocking event loop
         patlist, positions, bbox = await self.loop.run_in_executor(executor, parse, current)
         await self.loop.run_in_executor(executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
-        await self.loop.run_in_executor(executor, makegif, current, gen, step)
+        await self.loop.run_in_executor(executor, savegif, current, gen, step)
+        time_elapsed = round(time.perf_counter()-start, 2)
         
+        content = (ctx.message.author.mention if '-tag' in args else '') + (f' {str(time_elapsed)}s' if '-time' in args else '')
+        gif = await ctx.send(content, file=discord.File(f'{current}.gif'))
         try:
             while True:
-                gif = await ctx.send(file=discord.File(f'{current}.gif'))
-                
                 await gif.add_reaction('➕')
                 # this will error out and break the loop if no reaction
                 futures = [
@@ -268,9 +290,11 @@ class CA:
                 # as to whether it should increase at an increasing or
                 # decreasing rate tending towards gen == infinity)
                 gen += 50
-                content = f'Running `{dims}` soup' if rand else f'Running supplied pattern'
-                content += f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
-                content += f' using `{algo}`.' if algo != 'QuickLife' else '.'
+                content = (
+                  (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
+                  + f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
+                  + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
+                  )
                 await announcement.edit(content=content)
                 bg_err = await self.run_bgolly(current, algo, gen, step, rule)
                 if bg_err:
@@ -279,6 +303,7 @@ class CA:
                 patlist, positions, bbox = await self.loop.run_in_executor(executor, parse, current)
                 await self.loop.run_in_executor(executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
                 await self.loop.run_in_executor(executor, makegif, current, gen, step)
+                gif = await ctx.send(file=discord.File(f'{current}.gif'))
         except (IndexError, TypeError, ValueError):
             # will occur in the "forces-error" unpacking line above
             pass
@@ -290,24 +315,13 @@ class CA:
         
     @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
     async def rand(self, ctx, *args):
-      # defaults =  dims,   rule, gen, step 
-        defaults = '16x16', None, '300', None
+        # dims, rule, gen, step
         _ = re.compile(r'^\d+$')
-        regs = re.compile(r'^\d+x\d+$'), rrulestring, _, _
-        
-        new = []
-        for i, j in enumerate(regs): 
-            for v in args: 
-                if j.match(v) or rLtL.match(v):
-                    new.append(v)
-                    if v.isdigit():
-                        # I don't get why (y for y in args if y != v) doesn't work
-                        args = list(args)
-                        args.pop(args.index(v))
-                    break
-            else: 
-                 new.append(defaults[i]) 
-        dims, rule, *nums = new
+        (dims, rule, *nums), flags = self.parse_args(
+          args,
+          [re.compile(r'^\d+x\d+$'), (rrulestring, rLtL), _, _],
+          ['16x16', None, '300', None]
+          )
         try:
             step, gen = sorted(int(i) for i in nums)
         except TypeError:
@@ -327,7 +341,7 @@ class CA:
           str(self.genconvert(gen)),
           str(step),
           rule or 'B3/S23',
-          randpat = makesoup(rule, int(x), int(y)),
+          randpat = self.makesoup(rule, int(x), int(y)),
           soup_dims = '×'.join(dims.split('x'))
           )
     
