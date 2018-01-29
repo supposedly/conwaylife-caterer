@@ -127,15 +127,18 @@ class CA:
         self.ppe = ProcessPoolExecutor()
         self.tpe = ThreadPoolExecutor() # or just None
         self.loop = bot.loop
+        
+        self.defaults = [self.tpe, 'ThreadPoolExecutor']
+        self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
     
     @staticmethod
-    def genconvert(gen):
+    def genconvert(gen: int):
         if int(gen) > 0:
             return int(gen) - 1
         raise Exception # bad step (less than or equal to zero)
 
     @staticmethod
-    def parse_args(args: [str], regex: [re.compile], defaults: []):
+    def parse_args(args: [str], regex: [re.compile], defaults: []) -> ([str], [str]):
         """
         Sorts `args` according to order in `regexes`.
         
@@ -158,6 +161,16 @@ class CA:
             else: 
                  new.append(defaults[ri])
         return new, args
+    
+    @staticmethod
+    def parse_flags(flags: [str]) -> {str: str}:
+        new = {}
+        for i, v in enumerate(flags):
+            if not v.startswith('-'):
+                continue
+            if i+1 != len(flags):
+                new[v.lstrip('-')] = '' if flags[i+1].startswith('-') else flags[i+1]
+        return new
     
     @staticmethod
     def makesoup(rulestring, x, y):
@@ -214,36 +227,42 @@ class CA:
           [_, _, (rrulestring, rLtL), re.compile(r'[\dob$]*[ob$][\dob$\n]*!?')],
           ['', '1', '', '']
           )
-        executor = self.ppe if '-ppe' in flags else self.tpe
-        algo = 'HashLife' if '-h' in flags else 'QuickLife'
+        flags = self.parse_flags(flags)
+        if 'execs' in flags:
+            flags['execs'] = flags['execs'].split(',')
+            execs = [self.opts.get(i, self.defaults) for i in flags['execs']]
+        else:
+            execs = [self.defaults]*3
+        algo = 'HashLife' if 'h' in flags else 'QuickLife'
         try:
             step, gen = sorted([int(step), int(gen)])
         except ValueError:
             return await ctx.send(f"`Error: No GEN given. {self.moreinfo(ctx)}`")
         if gen / step > 2500:
             return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. {self.moreinfo(ctx)}`")
+        if rand:
+            pat = rand
+        if not pat:
+            async for msg in ctx.channel.history(limit=100):
+                rmatch = rxrle.search(msg.content)
+                if rmatch:
+                    pat = rmatch.group(2)
+                    if rmatch.group(1):
+                        rule = rmatch.group(1)
+                    break
+            if not pat:
+                return await ctx.send(f"`Error: No PAT given and none found in last 100 messages. {self.moreinfo(ctx)}`")
+        else:
+            pat = pat.strip('`')
+        
         if not rule:
-            async for msg in ctx.channel.history(limit=50):
+            async for msg in ctx.channel.history(limit=100):
                 rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
                 if rmatch:
                     rule = rmatch.group()
                     break
             else:
                 rule = ''
-        if rand:
-            pat = rand
-        if not pat:
-            async for msg in ctx.channel.history(limit=50):
-                rmatch = rxrle.search(msg.content)
-                if rmatch:
-                    pat = rmatch.group(2)
-                    if rmatch.group(1) and not rule:
-                        rule = rmatch.group(1)
-                    break
-            if not pat:
-                return await ctx.send(f"`Error: No PAT given and none found in channel history. {self.moreinfo(ctx)}`")
-        else:
-            pat = pat.strip('`')
         
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
@@ -262,13 +281,25 @@ class CA:
             return await ctx.send(f'`{bg_err}`')
         
         start = time.perf_counter()
-        # create on separate process to avoid blocking event loop
-        patlist, positions, bbox = await self.loop.run_in_executor(executor, parse, current)
-        await self.loop.run_in_executor(executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
-        await self.loop.run_in_executor(executor, savegif, current, gen, step)
-        time_elapsed = round(time.perf_counter()-start, 2)
+        patlist, positions, bbox = await self.loop.run_in_executor(execs[0][0], parse, current)
+        end_parse = time.perf_counter()
         
-        content = (ctx.message.author.mention if '-tag' in args else '') + (f' {str(time_elapsed)}s' if '-time' in args else '')
+        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)))
+        end_makeframes = time.perf_counter()
+        
+        await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
+        end_savegif = time.perf_counter()
+        
+        times_elapsed = str(
+          {
+            'Times': '',
+            '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
+            '**Saving frames**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
+            '**Stitching frames to GIF**': f'{round(end_savegif-end_makeframes, 2)}s ({execs[2][1]})'
+          }
+        ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
+        
+        content = (ctx.message.author.mention if '-tag' in args else '') + (f' **ID:** {flags["id"]} ' if '-id' in args else '') + (times_elapsed if '-time' in args else '')
         gif = await ctx.send(content, file=discord.File(f'{current}.gif'))
         try:
             while True:
