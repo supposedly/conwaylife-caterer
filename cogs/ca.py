@@ -44,6 +44,10 @@ def parse(current):
         patlist = [line.rstrip('\n') for line in pat]
 
     os.remove(f'{current}_out.rle')
+    # `positions` needs to be a list, not a generator
+    # because it's returned from this function, so
+    # it gets pickled by run_in_executor -- and
+    # generators can't be pickled
     positions = [eval(i) for i in patlist[::3]]
     bboxes = (eval(i) for i in patlist[1::3])
     
@@ -128,7 +132,7 @@ class CA:
         self.tpe = ThreadPoolExecutor() # or just None
         self.loop = bot.loop
         
-        self.defaults = [self.tpe, 'ThreadPoolExecutor']
+        self.defaults = *[[self.ppe, 'ProcessPoolExecutor']]*2, [self.tpe, 'ThreadPoolExecutor']
         self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
     
     @staticmethod
@@ -171,7 +175,7 @@ class CA:
         return new
     
     @staticmethod
-    def makesoup(rulestring, x, y):
+    def makesoup(rulestring: str, x: int, y: int) -> str:
         """generates random soup as RLE with specified dimensions"""
 
         rle = f'x = {x}, y = {y}, rule = {rulestring}\n' # not really needed but it looks prettier :shrug:
@@ -228,9 +232,9 @@ class CA:
         flags = self.parse_flags(flags)
         if 'execs' in flags:
             flags['execs'] = flags['execs'].split(',')
-            execs = [self.opts.get(i, self.defaults) for i in flags['execs']]
+            execs = [self.opts.get(v, self.defaults[i]) for i, v in enumerate(flags['execs'])]
         else:
-            execs = [self.defaults]*3
+            execs = self.defaults
         algo = 'HashLife' if 'h' in flags else 'QuickLife'
         try:
             step, gen = sorted([int(step), int(gen)])
@@ -266,12 +270,12 @@ class CA:
         os.mkdir(f'{current}_frames')
         rule = ''.join(rule.split()) or 'B3/S23'
         algo = 'Larger than Life' if rLtL.match(rule) else algo
-        content = (
+        details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
           + f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
           + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
           )
-        announcement = await ctx.send(content)
+        announcement = await ctx.send(details)
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat)
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
@@ -299,10 +303,13 @@ class CA:
         
         content = (
             (ctx.message.author.mention if 'tag' in flags else '')
-          + f' **{flags.get("id", " ")}** '
-          + (times_elapsed if flags.get('time') == 'all' else f'\n{round(end_savegif-start, 2)}s' if 'time' in flags else '')
+          + f' **{flags.get("id", " ")}** \n'
+          + (times_elapsed if flags.get('time') == 'all' else f'{round(end_savegif-start, 2)}s' if 'time' in flags else '')
           )
-        gif = await ctx.send(content, file=discord.File(f'{current}.gif'))
+        try:
+            gif = await ctx.send(content, file=discord.File(f'{current}.gif'))
+        except discord.errors.HTTPException as e:
+            return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         try:
             while True:
                 await gif.add_reaction('➕')
@@ -323,12 +330,12 @@ class CA:
                 # as to whether it should increase at an increasing or
                 # decreasing rate tending towards gen == infinity)
                 gen += 50
-                content = (
+                details = (
                   (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
                   + f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
                   + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
                   )
-                await announcement.edit(content=content)
+                await announcement.edit(content=details)
                 bg_err = await self.run_bgolly(current, algo, gen, step, rule)
                 if bg_err:
                     return await ctx.send(f'`{bg_err}`')
@@ -336,8 +343,11 @@ class CA:
                 patlist, positions, bbox = await self.loop.run_in_executor(execs[0][0], parse, current)
                 await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)))
                 await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
-                gif = await ctx.send(file=discord.File(f'{current}.gif'))
-        except (IndexError, TypeError, ValueError, concurrent.futures._base.TimeoutError):
+                try:
+                    gif = await ctx.send(content, file=discord.File(f'{current}.gif'))
+                except discord.errors.HTTPException as e:
+                    return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
+        except (IndexError, TypeError, ValueError, concurrent.futures.TimeoutError):
             # will occur in the "forces-error" unpacking line above
             pass
         finally:
@@ -363,7 +373,7 @@ class CA:
             except IndexError:
                 return await ctx.send(f'`Error: No GEN given. {self.moreinfo(ctx)}`')
         if not rule:
-            async for msg in ctx.channel.history(limit=50):
+            async for msg in ctx.channel.history(limit=100):
                 rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
                 if rmatch:
                     rule = rmatch.group()
