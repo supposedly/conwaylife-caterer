@@ -313,15 +313,7 @@ class CA:
         try:
             while True:
                 await gif.add_reaction('➕')
-                # this will error out and break the loop if no reaction
-                futures = [
-                  self.bot.wait_for('reaction_add', timeout=30.0, check=lambda rxn, usr: rxn.emoji == '➕' and rxn.message.id == gif.id and usr is ctx.message.author),
-                  self.bot.wait_for('message', timeout=30.0, check=lambda msg: msg.channel is gif.channel and msg.author.id != self.bot.user.id)
-                  ]
-                resp = await asyncio.wait(futures, loop=self.bot.loop, timeout=30.0, return_when=concurrent.futures.FIRST_COMPLETED)
-                [resp] = resp[0]
-                resp = resp.result()
-                resp[0].emoji # once again, this just forces error if not emoji
+                rxn = await self.bot.wait_for('reaction_add', timeout=30.0, check=lambda rxn, usr: rxn.emoji == '➕' and rxn.message.id == gif.id and usr is ctx.message.author)
                 await gif.delete()
                 os.system(f'rm -r {current}_frames/'); os.mkdir(f'{current}_frames')
                 #TODO:
@@ -347,7 +339,7 @@ class CA:
                     gif = await ctx.send(content, file=discord.File(f'{current}.gif'))
                 except discord.errors.HTTPException as e:
                     return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
-        except (IndexError, TypeError, ValueError, concurrent.futures.TimeoutError):
+        except asyncio.TimeoutError:
             # will occur in the "forces-error" unpacking line above
             pass
         finally:
