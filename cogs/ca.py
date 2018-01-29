@@ -112,7 +112,7 @@ def savegif(current, gen, step):
     # finally, pass all created pics to imageio for conversion to gif
     # then either upload to gfycat or send directly to discord depending on presence of "g" flag
     png_dir = f'{current}_frames/'
-    duration = min(0.5, max(1/60, 5/gen/step) if gen else 1)
+    duration = min(1/6, max(1/60, 5/gen/step) if gen else 1)
     for subdir, dirs, files in os.walk(png_dir):
         files.sort()
         with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as writer:
@@ -166,10 +166,8 @@ class CA:
     def parse_flags(flags: [str]) -> {str: str}:
         new = {}
         for i, v in enumerate(flags):
-            if not v.startswith('-'):
-                continue
-            if i+1 != len(flags):
-                new[v.lstrip('-')] = '' if flags[i+1].startswith('-') else flags[i+1]
+            flag, opts = (v+':'[':' in v:]).split(':', 1)
+            new[flag.lstrip('-')] = opts
         return new
     
     @staticmethod
@@ -299,7 +297,11 @@ class CA:
           }
         ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
         
-        content = (ctx.message.author.mention if '-tag' in args else '') + (f' **ID:** {flags["id"]} ' if '-id' in args else '') + (times_elapsed if '-time' in args else '')
+        content = (
+            (ctx.message.author.mention if 'tag' in flags else '')
+          + f' **{flags.get("id", " ")}** '
+          + (times_elapsed if flags.get('time') == 'all' else f'\n{round(end_savegif-start, 2)}s' if 'time' in flags else '')
+          )
         gif = await ctx.send(content, file=discord.File(f'{current}.gif'))
         try:
             while True:
@@ -331,11 +333,11 @@ class CA:
                 if bg_err:
                     return await ctx.send(f'`{bg_err}`')
                 # create gif on separate process to avoid blocking event loop
-                patlist, positions, bbox = await self.loop.run_in_executor(executor, parse, current)
-                await self.loop.run_in_executor(executor, makeframes, current, patlist, positions, bbox, len(str(gen)))
-                await self.loop.run_in_executor(executor, makegif, current, gen, step)
+                patlist, positions, bbox = await self.loop.run_in_executor(execs[0][0], parse, current)
+                await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)))
+                await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
                 gif = await ctx.send(file=discord.File(f'{current}.gif'))
-        except (IndexError, TypeError, ValueError):
+        except (IndexError, TypeError, ValueError, concurrent.futures._base.TimeoutError):
             # will occur in the "forces-error" unpacking line above
             pass
         finally:
@@ -372,6 +374,7 @@ class CA:
           str(self.genconvert(gen)),
           str(step),
           rule or 'B3/S23',
+          *flags,
           randpat = self.makesoup(rule, int(x), int(y)),
           soup_dims = '×'.join(dims.split('x'))
           )
