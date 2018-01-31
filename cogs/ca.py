@@ -245,7 +245,7 @@ class CA:
         if rand:
             pat = rand
         if not pat:
-            async for msg in ctx.channel.history(limit=100):
+            async for msg in ctx.channel.history(limit=50):
                 rmatch = rxrle.search(msg.content)
                 if rmatch:
                     pat = rmatch.group(2)
@@ -253,12 +253,12 @@ class CA:
                         rule = rmatch.group(1)
                     break
             if not pat:
-                return await ctx.send(f"`Error: No PAT given and none found in last 100 messages. {self.moreinfo(ctx)}`")
+                return await ctx.send(f"`Error: No PAT given and none found in last 50 messages. {self.moreinfo(ctx)}`")
         else:
             pat = pat.strip('`')
         
         if not rule:
-            async for msg in ctx.channel.history(limit=100):
+            async for msg in ctx.channel.history(limit=50):
                 rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
                 if rmatch:
                     rule = rmatch.group()
@@ -292,22 +292,29 @@ class CA:
         await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
         end_savegif = time.perf_counter()
         
-        times_elapsed = str(
-          {
-            'Times': '',
-            '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
-            '**Saving frames**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
-            '**Stitching frames to GIF**': f'{round(end_savegif-end_makeframes, 2)}s ({execs[2][1]})'
-          }
-        ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
-        
         content = (
             (ctx.message.author.mention if 'tag' in flags else '')
           + f' **{flags.get("id", " ")}** \n'
-          + (times_elapsed if flags.get('time') == 'all' else f'{round(end_savegif-start, 2)}s' if 'time' in flags else '')
+          + '{}'
           )
         try:
-            gif = await ctx.send(content, file=discord.File(f'{current}.gif'))
+            gif = await ctx.send(
+              content.format(
+                str(
+                  {
+                    'Times': '',
+                    '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
+                    '**Saving frames**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
+                    '**Stitching frames to GIF**': f'{round(end_savegif-end_makeframes, 2)}s ({execs[2][1]})'
+                  }
+                ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
+                if flags.get('time') == 'all'
+                  else f'{round(end_savegif-start, 2)}s'
+                  if 'time' in flags
+                    else ''
+                ),
+              file=discord.File(f'{current}.gif')
+              )
         except discord.errors.HTTPException as e:
             return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         try:
@@ -316,12 +323,7 @@ class CA:
                 rxn = await self.bot.wait_for('reaction_add', timeout=30.0, check=lambda rxn, usr: rxn.emoji == '➕' and rxn.message.id == gif.id and usr is ctx.message.author)
                 await gif.delete()
                 os.system(f'rm -r {current}_frames/'); os.mkdir(f'{current}_frames')
-                #TODO:
-                # Add to gen a dynamic amount instead of a constant 50
-                # (will be more on higher gens, although I'm undecided
-                # as to whether it should increase at an increasing or
-                # decreasing rate tending towards gen == infinity)
-                gen += 50
+                gen += int(50*math.log1p(gen)) # gives a nice increasing-at-a-decreasing-rate curve
                 details = (
                   (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
                   + f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
@@ -331,12 +333,33 @@ class CA:
                 bg_err = await self.run_bgolly(current, algo, gen, step, rule)
                 if bg_err:
                     return await ctx.send(f'`{bg_err}`')
-                # create gif on separate process to avoid blocking event loop
+                start = time.perf_counter()
                 patlist, positions, bbox = await self.loop.run_in_executor(execs[0][0], parse, current)
+                end_parse = time.perf_counter()
+                
                 await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)))
+                end_makeframes = time.perf_counter()
+                
                 await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
+                end_savegif = time.perf_counter()
                 try:
-                    gif = await ctx.send(content, file=discord.File(f'{current}.gif'))
+                    gif = await ctx.send(
+                      content.format(
+                        str(
+                          {
+                            'Times': '',
+                            '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
+                            '**Saving frames**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
+                            '**Stitching frames to GIF**': f'{round(end_savegif-end_makeframes, 2)}s ({execs[2][1]})'
+                          }
+                        ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
+                        if flags.get('time') == 'all'
+                          else f'{round(end_savegif-start, 2)}s'
+                          if 'time' in flags
+                            else ''
+                        ),
+                      file=discord.File(f'{current}.gif')
+                      )
                 except discord.errors.HTTPException as e:
                     return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         except asyncio.TimeoutError:
@@ -365,7 +388,7 @@ class CA:
             except IndexError:
                 return await ctx.send(f'`Error: No GEN given. {self.moreinfo(ctx)}`')
         if not rule:
-            async for msg in ctx.channel.history(limit=100):
+            async for msg in ctx.channel.history(limit=50):
                 rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
                 if rmatch:
                     rule = rmatch.group()
