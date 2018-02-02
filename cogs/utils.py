@@ -1,9 +1,11 @@
-import discord
 import asyncio
 import inspect
-from discord.ext import commands
-from cogs.resources import cmd
 from platform import python_version
+
+import discord
+from discord.ext import commands
+
+from cogs.resources import utils, cmd
 
 class Utils:
     def __init__(self, bot):
@@ -14,48 +16,52 @@ class Utils:
     def to_command(self, arg):
         return self.bot.get_command(arg) if arg else None
     
-    @commands.command(name='ping')
+    @utils.command('ping')
     async def ping(self, ctx):
         await ctx.send(f'Pong! That took {1000*self.bot.latency:.0f}ms.')
     
-    @commands.command(name='link', aliases=cmd.aliases['link'], brief='Post an invite link for this bot')
+    @utils.command('link', brief='Post an invite link for this bot')
     async def link(self, ctx):
         """# Produces an oauth2 invite link for this bot with necessary permissions. #"""
         em = discord.Embed(description=f'Use [this link]({self.invite}) to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=self.bot.user.avatar_url)
         await ctx.send(embed=em)
     
-    @commands.command(name='help', aliases=cmd.aliases['help'], brief='Display this message')
-    async def help(self, ctx, command=None):
+    @utils.command('help', brief='Display this message')
+    async def help(self, ctx, *, name=None):
         """
         # A prettified sort of help command — because regular HelpFormatter is for dweebs. #
         
         <[ARGS]>
         CMD: Command to display usage info for. If ommitted or invalid, displays generic help/info message.
         """
-        command = self.bot.get_command(command) if command else None
+        command = discord.utils.get(self.bot.walk_commands(), qualified_name=name) if name else None
         prefix = self.bot.command_prefix(self.bot, ctx.message)
         await ctx.channel.trigger_typing()
         if command is not None:
-            msg = f'```nginx\n{prefix}{command.name} {cmd.args[command.name]}``````apache\n{command.help}```'
+            msg = f'```nginx\n{prefix}{command.qualified_name.replace(" ", "/")} {cmd.args.get(command.qualified_name, "")}``````apache\n'
+            if isinstance(command, commands.GroupMixin):
+                msg += 'Subcommands: {}``````apache\n'.format(', '.join(i.name for i in set(command.walk_commands())))
+            msg += f'{command.help}```'
             if command.aliases:
                 msg += '```apache\nAliases: {}```'.format(', '.join(prefix+i for i in command.aliases))
             await ctx.send(msg)
         else:
             center = max(map(len, (f'{prefix}{i.name: <5}| {i.brief}' for i in self.bot.commands)))
             desc = inspect.cleandoc(
-            f"""
-            **```ini
-            {'[A cellular automata bot for Conwaylife.com]': ^{center}}```**```makefile
-            Commands:
-            """) + '\n'
+              f"""
+              **```ini
+              {'[A cellular automata bot for Conwaylife.com]': ^{center}}```**```makefile
+              Commands:
+              """
+            ) + '\n'
             for com in (i for i in self.bot.commands if i.brief is not None):
                 desc += f'{prefix}{com.name: <5}| {com.brief}\n'
             desc += '``````FORTRAN\n{1: ^{0}}\n{2: ^{0}}```'.format(center, f"'{prefix}help COMMAND' for command-specific docs", f"'{prefix}info' for credits & general information")
             em = discord.Embed(description=desc)
             await ctx.send(embed=em)
     
-    @commands.command(name='info', aliases=cmd.aliases['info'])
+    @utils.command(name='info')
     async def info(self, ctx):
         """# Displays credits, useful links, and information about this bot's dependencies. #"""
         await ctx.send(embed=discord.Embed(description=f'''**```ini

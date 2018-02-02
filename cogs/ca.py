@@ -16,7 +16,7 @@ from discord.ext import commands
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-from cogs.resources import cmd
+from cogs.resources import utils
 
 # matches LtL rulestring
 rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
@@ -201,18 +201,15 @@ class CA:
     def moreinfo(self, ctx):
         return f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
     
-    @commands.group(name='sim', aliases=cmd.aliases['sim'], invoke_without_command=True)
+    @utils.group(name='sim', invoke_without_command=True)
     async def sim(self, ctx, *args, **kwargs):
         """
         # Simulates PAT with output to animated gif. #
         <[FLAGS]>
-        r (random): Simulate a random soup in given rule, default 16x16 but can be specified. Precludes PAT.
-           x: Width of generated soup.
-           y: Height.
         -h: Use HashLife instead of the default QuickLife.
-        -ppe: Use ProcessPoolExecutor instead of ThreadPoolExecutor to simulate pattern. Probably slower. Don't bother using.
-        -tag: When finished, tag requester. Useful for gifs that take a while.
-        -time: Include time taken to create the gif in final message.
+        -tag: When finished, tag requester. Useful for time-intensive simulations.
+        -id: Use as "-id:STRING". Purely cosmetic, but appears on the final output and can be used to distinguish simultaneously-running gifs from one another.
+        -time: Include time taken to create gif in final message. "-time:all" for verbose output.
         
         <[ARGS]>
         GEN (required): Generation to simulate up to.
@@ -291,12 +288,12 @@ class CA:
         
         await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
         end_savegif = time.perf_counter()
-        
         content = (
             (ctx.message.author.mention if 'tag' in flags else '')
           + f' **{flags.get("id", " ")}** \n'
           + '{}'
           )
+        
         try:
             gif = await ctx.send(
               content.format(
@@ -371,8 +368,18 @@ class CA:
             os.remove(f'{current}_in.rle')
             os.system(f'rm -r {current}_frames/')
         
-    @sim.command(name='rand', aliases=cmd.aliases['sim.rand'])
+    @sim.command(name='rand')
     async def rand(self, ctx, *args):
+        """
+        # Simulates a random soup in given rule with output to GIF. Dims default to 16x16. #
+        <[FLAGS]>
+        See: sim
+        
+        <[ARGS]>
+        WIDTH: Width of generated soup.
+        HEIGHT: Height.
+        See: sim
+        """
         # dims, rule, gen, step
         _ = re.compile(r'^\d+$')
         (dims, rule, *nums), flags = self.parse_args(

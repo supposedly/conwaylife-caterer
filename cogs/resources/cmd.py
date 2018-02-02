@@ -8,13 +8,11 @@ args = {
 
 "dyk": '**NUM / *+SEARCH',
 
-"sim": '(rand *x *y) (gfy) (track) GEN *STEP *RULE *PAT',
+"sim": 'GEN *STEP *RULE *PAT -flags',
+
+"sim rand": 'WIDTHxHEIGHT GEN STEP RULE -flags',
 
 "link": '',
-
-"no": '',
-
-"yes": ''
 }
 
 # ---------- #
@@ -30,11 +28,7 @@ aliases = {
 
 "sim": ['gif'],
 
-"sim.rand": ['r', 'random'],
+"sim rand": ['r', 'random'],
 
 "link": ['invite', 'url'],
-
-"no": [],
-
-"yes": []
 }

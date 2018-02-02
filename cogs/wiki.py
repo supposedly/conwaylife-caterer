@@ -5,6 +5,8 @@ from cogs.resources import wiki_dyk, cmd
 from collections import namedtuple
 from random import randint
 
+from cogs.resources import utils
+
 rparens = re.compile(r' \(.+?\)')
 rbracks = re.compile(r'\[.+?\]')
 rtags = re.compile(r'<.+?>', re.S)
@@ -121,7 +123,7 @@ class Wiki:
                 data = json.loads(pgtxt)
         return pgtxt, data, msg
     
-    @commands.command(name='dyk', aliases=cmd.aliases['dyk'], brief='Provide a random Did-You-Know fact from wiki')
+    @utils.command('dyk', brief='Provide a random Did-You-Know fact from wiki')
     async def dyk(self, ctx, *num: int):
         """# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
 
@@ -164,7 +166,7 @@ To search for a number, prefix it with a single period; .12, for instance, searc
         else:
             raise error
     
-    @commands.group(name='wiki', aliases=cmd.aliases['wiki'], invoke_without_command=True, brief='Look for a page on http://conwaylife.com/wiki/')
+    @commands.group('wiki', invoke_without_command=True, brief='Look for a page on http://conwaylife.com/wiki/')
     async def wiki(self, ctx, *, query=''):
         """
         # Displays a short, nicely-formatted blurb from QUERY's page on http://conwaylife.com/wiki. #
@@ -336,7 +338,7 @@ To search for a number, prefix it with a single period; .12, for instance, searc
             else:
                 return f'Page `{query}` either has no {search[caller][1]} or its file is too large to send via Discord.'
     
-    @wiki.command(name='-pat', aliases=['-p', '-pattern'])
+    @wiki.command('-pat')
     async def pat(self, ctx, filetype: normalized_filetype, *, query=''):
         async with ctx.typing():
             if isinstance(filetype, tuple):
@@ -352,7 +354,7 @@ To search for a number, prefix it with a single period; .12, for instance, searc
             await self.send_info(ctx, pgtxt, query, 'pat', say, re.escape(filetype))
     
     
-    @wiki.command(name='-synth', aliases=['-s', '-synthesis'])
+    @wiki.command('-synth')
     async def synth(self, ctx, *, query):
         async with ctx.typing():
             try:
