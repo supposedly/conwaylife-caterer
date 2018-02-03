@@ -199,7 +199,7 @@ class CA:
         return os.popen(f'{preface} -a "{algo}" -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
     
     def moreinfo(self, ctx):
-        return f"'{self.bot.command_prefix(self.bot, ctx.message)}help sim' for more info"
+        return f"'{ctx.prefix}help sim' for more info"
     
     @utils.group(name='sim', invoke_without_command=True)
     async def sim(self, ctx, *args, **kwargs):
@@ -207,12 +207,13 @@ class CA:
         # Simulates PAT with output to animated gif. #
         <[FLAGS]>
         -h: Use HashLife instead of the default QuickLife.
+        -time: Include time taken to create gif (in seconds w/hundredths) alongside GIF.
+          all: Provide verbose output, showing time taken for each step alongside the type of executor used.
         -tag: When finished, tag requester. Useful for time-intensive simulations.
-        -id: Use as "-id:STRING". Purely cosmetic, but appears on the final output and can be used to distinguish simultaneously-running gifs from one another.
-        -time: Include time taken to create gif in final message. "-time:all" for verbose output.
+        -id: Has no function besides appearing above the final output, but can be used to tell apart simultaneously-created gifs.
         
         <[ARGS]>
-        GEN (required): Generation to simulate up to.
+        GEN: Generation to simulate up to.
         STEP: Step size. Affects simulation speed. If ommitted, defaults to 1.
         RULE: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
         PAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
@@ -373,12 +374,12 @@ class CA:
         """
         # Simulates a random soup in given rule with output to GIF. Dims default to 16x16. #
         <[FLAGS]>
-        See: sim
+        (None)
+        {inherits}
         
         <[ARGS]>
-        WIDTH: Width of generated soup.
-        HEIGHT: Height.
-        See: sim
+        DIMS: "AxB" (sans quotes), where A and B are the desired soup's width and height separated by the literal character "x".
+        {inherits}
         """
         # dims, rule, gen, step
         _ = re.compile(r'^\d+$')

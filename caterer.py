@@ -7,14 +7,14 @@ def get_prefix(bot, message):
     in_lounge = message.guild.id == 357922255553953794
     is_tester = bot.user.id == 376485072561504257
     try:
-        return ('!', ';')[is_tester] if in_lounge else 'ca.'
+        return ['ca.'] + ([('!', ';')[is_tester]] if in_lounge else [])
     except AttributeError as e: # if in DMs, message.guild is None and therefore has no attribute 'id'
-        return '!' #TODO: subclass bot or something to make this able to be ''
+        return '!' #TODO: subclass bot to make this able to be ''
 
 bot = commands.Bot(command_prefix=get_prefix, description="A 'caterer' bot for the cellular automata community's Discord server")
 bot.remove_command('help') # lul
 
-extensions = ['cogs.utils', 'cogs.wiki', 'cogs.ca', 'cogs.admin', 'cogs.role_stuffs']
+extensions = ['cogs.botutils', 'cogs.wiki', 'cogs.ca', 'cogs.admin', 'cogs.role_stuffs']
 
 @bot.event
 async def on_ready():

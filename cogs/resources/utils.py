@@ -13,7 +13,7 @@ class Group(commands.Group):
     def command(self, *args, **kwargs):
         def decorator(func):
             result = commands.command(*args, **kwargs)(func)
-            result.aliases = cmd.aliases.get(self.qualified_name + result.name) or []
+            result.aliases = cmd.aliases.get(f'{self.qualified_name} {result.name}') or []
             self.add_command(result)
             return result
         return decorator

@@ -1,4 +1,3 @@
 # src/ is created by `pip install -r requirements.txt`
 src/
-cogs/__pycache__/
-cogs/resources/__pycache__/
+__pycache__/

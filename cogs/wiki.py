@@ -105,7 +105,7 @@ class Wiki:
                 return user == ctx.message.author and rxn.emoji[0].isdigit() and rxn.message.id == msg.id
                 
             for i in range(len(links)):
-                if i <= 9:
+                if i < 9:
                     await msg.add_reaction(f'{i+1}\u20E3')
                 else:
                     await msg.clear_reactions()
@@ -130,8 +130,8 @@ class Wiki:
         <[ARGS]>
         NUM: Specific DYK(s) to display. If omitted, displays a single random DYK instead.
         [or]
-        SEARCH: Triggered automatically if input is not a number, and displays DYKs containing given text. \
-To search for a number, prefix it with a single period; .12, for instance, searches for DYKs containing "12"."""
+        SEARCH: Triggered automatically if input is not a number, and displays DYKs containing given text. To search for a number, prefix it with a single period; .12, for instance, searches for DYKs containing "12".
+        """
         if num == ():
             num = randint(0, 91),
         indices = ((91 if not i else (i - 1) % 92) for i in num)
@@ -173,16 +173,14 @@ To search for a number, prefix it with a single period; .12, for instance, searc
         # Will also display extra info and/or provide pattern files for QUERY, if specified. #
 
         <[FLAGS]>
-        type: Specifies whether to provide pattern file ("-pat", "-p") or synthesis ("-synth", "-s") from QUERY's page.
-          format (optional): Specifies file format for TYPE. Should be any of "rle" (default), "lif105", "lif106", or "plaintext", but also accepted are "r", "5", "6", and "t".
+        -type: Specifies whether to provide pattern file ("-pat", "-p") or synthesis ("-synth", "-s") from QUERY's page.
+          format: Specifies file format for TYPE. Should be any of "rle" (default if omitted), "lif105", "lif106", or "plaintext", but also accepted are "r", "5", "6", and "t".
 
         <[ARGS]>
-        QUERY: Title to search for. If omitted, shows current Pattern of the Week (PoTW) instead.
-
-        #TODO: allow subsection links
+        QUERY: Title to search for. If omitted, shows current Pattern of the Week (PoTW) from main page instead.
         """
         if '#' in query:
-            query, req_sec = query.split('#', 1)
+            query, req_sec = query.split('#', 1) # 'requested_section'
             req_sec = req_sec.lower()
         else:
             req_sec = 0
@@ -196,9 +194,8 @@ To search for a number, prefix it with a single period; .12, for instance, searc
             em.set_footer(text=f'(redirected from "{query}")')
             query = 'methusynthesae'
         if query[:1].lower() + query[1:] == 'methusynthesae':
-            gus = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they *are* patterns, and **don't** form other patterns."
             em.title = 'Methusynthesae'
-            em.description = gus
+            em.description = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they *are* patterns, and **don't** form other patterns."
             em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='attachment://methusynthesis1.png')
             return await ctx.send(file=discord.File('./cogs/resources/methusynthesis1.png', 'methusynthesis1.png'), embed=em)

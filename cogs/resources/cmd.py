@@ -1,16 +1,16 @@
 #encoding: utf-8
 args = {
-"help": '*CMD',
+"help": '>cmd',
 
 "info": '',
 
-"wiki": '(type *format) *+QUERY',
+"wiki": '?+query -type:?format',
 
-"dyk": '**NUM / *+SEARCH',
+"dyk": '+num / >search',
 
-"sim": 'GEN *STEP *RULE *PAT -flags',
+"sim": 'gen ?step ?rule ?pat -h -tag -time:?all -id:identifier',
 
-"sim rand": 'WIDTHxHEIGHT GEN STEP RULE -flags',
+"sim rand": 'dims gen ?step ?rule -flags',
 
 "link": '',
 }
