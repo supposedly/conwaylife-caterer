@@ -214,9 +214,9 @@ class CA:
         
         <[ARGS]>
         GEN: Generation to simulate up to.
-        STEP: Step size. Affects simulation speed. If ommitted, defaults to 1.
-        RULE: Rulestring to simulate PAT under. If ommitted, defaults to B3/S23 or rule specified in PAT.
-        PAT: One-line rle or .lif file to simulate. If ommitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
+        STEP: Step size. Affects simulation speed. If omitted, defaults to 1.
+        RULE: Rulestring to simulate PAT under. If omitted, defaults to B3/S23 or rule specified in PAT.
+        PAT: One-line rle or .lif file to simulate. If omitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
         #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
         """
         _ = re.compile(r'^\d+$')

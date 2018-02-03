@@ -33,7 +33,7 @@ class Utils:
         # A prettified sort of help command — because HelpFormatter is for dweebs. #
         
         <[ARGS]>
-        CMD: Command to display usage info for. If ommitted or invalid, displays generic help/info message.
+        CMD: Command to display usage info for. If omitted or invalid, displays generic help/info message.
         ``````nginx
         Arguments will display in the topmost block of a "{prefix}help COMMAND" response with the following prefixes:
           ?: Optional argument.
