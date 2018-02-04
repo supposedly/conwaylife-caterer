@@ -7,6 +7,8 @@ from discord.ext import commands
 
 from .import cmd
 
+__all__ = ['await_event_or_coro', 'command', 'group']
+
 ## wait_for that force-cancels on given coro's completion rather than on a timeout ##
 
 async def await_event_or_coro(bot, event, coro, *, ret_check=None, event_check=None, timeout=None):
@@ -24,20 +26,39 @@ async def await_event_or_coro(bot, event, coro, *, ret_check=None, event_check=N
     return {'event' if ret_check(done.result()) else 'coro': done.result()}
     
 
-## Custom command/group decos with aliases pointing to cmd.py ##
+## Custom command/group decos with info pointing to cmd.py ##
 
-class Group(commands.Group):
+class HelpPropsMixin:
+    @property
+    def helpsafe_name(self):
+        return self.qualified_name.replace(' ', '/')
     
+    @property
+    def invocation_args(self):
+        return cmd.args.get(self.qualified_name, '')
+    
+    @property
+    def aliases(self):
+        return cmd.aliases.get(self.qualified_name, [])
+    
+    @aliases.setter
+    def aliases(*_):
+        """Voids 'can't set attribute' when dpy tries assigning aliases"""
+        pass
+
+class Command(HelpPropsMixin, commands.Command):
+    def __init__(self, name, callback, **kwargs):
+        self.parent = None
+        super().__init__(name, callback, **kwargs)
+
+class Group(HelpPropsMixin, commands.Group):
     def __init__(self, **attrs):
+        self.parent = None
         super().__init__(**attrs)
     
     def command(self, *args, **kwargs):
         def decorator(func):
-            res = commands.command(*args, **kwargs)(func)
-            res.parent = self
-            res.helpsafe_name = res.qualified_name.replace(" ", "/")
-            res.aliases = cmd.aliases.get(res.qualified_name) or []
-            res.invocation_args = cmd.args.get(res.qualified_name) or ''
+            res = commands.command(cls=Command, *args, **kwargs)(func)
             self.add_command(res)
             return res
         return decorator
@@ -45,15 +66,11 @@ class Group(commands.Group):
     def group(self, *args, **kwargs):
         def decorator(func):
             res = commands.group(*args, **kwargs)(func)
-            res.parent = self
-            res.helpsafe_name = (res.qualified_name.replace(" ", "/"))
-            res.aliases = cmd.aliases.get(res.qualified_name) or []
-            res.invocation_args = cmd.args.get(res.qualified_name) or ''
             self.add_command(res)
             return res
         return decorator
 
-def command(name=None, cls=None, **attrs):
+def command(name=None, cls=Command, **attrs):
     return lambda func: commands.command(name, cls, **attrs)(func)
 
 def group(name=None, **attrs):
