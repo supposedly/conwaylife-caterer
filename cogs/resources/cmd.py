@@ -2,17 +2,13 @@
 args = {
 "help": '>cmd',
 
-"info": '',
-
-"wiki": '?+query -type:?format',
+"wiki": '?+query (-type:?format)',
 
 "dyk": '+num / >search',
 
-"sim": 'gen ?step ?rule ?pat -h -tag -time:?all -id:identifier',
+"sim": 'gen ?step ?rule ?pat (-h -tag -time:?all -id:identifier)',
 
-"sim rand": 'dims gen ?step ?rule -flags',
-
-"link": '',
+"sim rand": 'dims gen ?step ?rule (-h -tag -time:?all -id:identifier)',
 }
 
 # ---------- #

@@ -193,6 +193,22 @@ class CA:
             rle += '$\n' if y > row + 1 else '!\n'
         return rle
     
+    def cancellation_check(self, ctx, msg):
+        if msg.channel != ctx.channel or msg.author != ctx.message.author:
+            return False
+        if any(msg.content.startswith(i) for i in self.bot.command_prefix(self.bot, ctx.message)):
+            return msg.content.lower().endswith('cancel') and len(msg.content) < 10 # good enough
+
+    async def do_gif(self, execs, current, gen, step):
+        start = time.perf_counter()
+        patlist, positions, bbox = await self.loop.run_in_executor(execs[0][0], parse, current)
+        end_parse = time.perf_counter()
+        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)))
+        end_makeframes = time.perf_counter()
+        await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
+        end_savegif = time.perf_counter()
+        return start, end_parse, end_makeframes, end_savegif
+    
     async def run_bgolly(self, current, algo, gen, step, rule):
         # run bgolly with parameters
         preface = f'{self.dir}/resources/bgolly'
@@ -279,26 +295,26 @@ class CA:
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             return await ctx.send(f'`{bg_err}`')
-        
-        start = time.perf_counter()
-        patlist, positions, bbox = await self.loop.run_in_executor(execs[0][0], parse, current)
-        end_parse = time.perf_counter()
-        
-        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)))
-        end_makeframes = time.perf_counter()
-        
-        await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
-        end_savegif = time.perf_counter()
+        resp = await utils.await_event_or_coro(
+                  self.bot,
+                  event = 'message',
+                  coro = self.do_gif(execs, current, gen, step),
+                  ret_check = lambda obj: isinstance(obj, discord.Message),
+                  event_check = lambda msg: self.cancellation_check(ctx, msg)
+                  )
+        try:
+            start, end_parse, end_makeframes, end_savegif = resp['coro']
+        except KeyError:
+            return await resp['event'].add_reaction('👍')
         content = (
             (ctx.message.author.mention if 'tag' in flags else '')
-          + f' **{flags.get("id", " ")}** \n'
-          + '{}'
+          + (f' **{flags["id"]}** \n' if 'id' in flags else '')
+          + '{time}'
           )
-        
         try:
             gif = await ctx.send(
               content.format(
-                str(
+                time = str(
                   {
                     'Times': '',
                     '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
@@ -314,7 +330,7 @@ class CA:
               file=discord.File(f'{current}.gif')
               )
         except discord.errors.HTTPException as e:
-            return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
+            return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         try:
             while True:
                 await gif.add_reaction('➕')
@@ -331,15 +347,17 @@ class CA:
                 bg_err = await self.run_bgolly(current, algo, gen, step, rule)
                 if bg_err:
                     return await ctx.send(f'`{bg_err}`')
-                start = time.perf_counter()
-                patlist, positions, bbox = await self.loop.run_in_executor(execs[0][0], parse, current)
-                end_parse = time.perf_counter()
-                
-                await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)))
-                end_makeframes = time.perf_counter()
-                
-                await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
-                end_savegif = time.perf_counter()
+                resp = await utils.await_event_or_coro(
+                  self.bot,
+                  event = 'message',
+                  coro = self.do_gif(execs, current, gen, step),
+                  ret_check = lambda obj: isinstance(obj, discord.Message),
+                  event_check = lambda msg: self.cancellation_check(ctx, msg)
+                  )
+                try:
+                    start, end_parse, end_makeframes, end_savegif = resp['coro']
+                except KeyError:
+                    return await resp['event'].add_reaction('👍')
                 try:
                     gif = await ctx.send(
                       content.format(

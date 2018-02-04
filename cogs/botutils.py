@@ -5,7 +5,7 @@ from platform import python_version
 import discord
 from discord.ext import commands
 
-from cogs.resources import utils, cmd
+from cogs.resources import utils
 
 class Utils:
     def __init__(self, bot):
@@ -48,7 +48,7 @@ class Utils:
         command = self.bot.get_command(name) if name else None
         await ctx.channel.trigger_typing()
         if command is not None:
-            msg = f'```nginx\n{ctx.prefix}{command.qualified_name.replace(" ", "/")} {cmd.args.get(command.qualified_name, "")}``````apache\n'
+            msg = f'```nginx\n{ctx.prefix}{command.helpsafe_name} {command.invocation_args}``````apache\n'
             if isinstance(command, commands.GroupMixin):
                 msg += 'Subcommands: {}``````apache\n'.format(', '.join(i.name for i in set(command.walk_commands())))
             msg += command.help.format(prefix=ctx.prefix, inherits=f'[See {ctx.prefix}help {getattr(command, "parent", "")}]') + '```'
@@ -64,7 +64,7 @@ class Utils:
               {'[A cellular automata bot for Conwaylife.com]': ^{center}}```**```makefile
               Commands:
               """
-            ) + '\n'
+              ) + '\n'
             for com in (i for i in self.bot.commands if i.brief is not None):
                 desc += f'{ctx.prefix}{com.name: <5}| {com.brief}\n'
             desc += '``````FORTRAN\n{1: ^{0}}\n{2: ^{0}}```'.format(center, f"'{ctx.prefix}help COMMAND' for command-specific docs", f"'{ctx.prefix}info' for credits & general information")
