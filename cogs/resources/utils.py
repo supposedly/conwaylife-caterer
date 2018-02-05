@@ -73,5 +73,5 @@ class Group(HelpPropsMixin, commands.Group):
 def command(name=None, cls=Command, **attrs):
     return lambda func: commands.command(name, cls, **attrs)(func)
 
-def group(name=None, **attrs):
-    return command(name=name, cls=Group, **attrs)
+def group(name=None, *, invoke_without_command=True, **attrs):
+    return command(name=name, cls=Group, invoke_without_command=invoke_without_command, **attrs)

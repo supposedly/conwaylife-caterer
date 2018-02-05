@@ -7,36 +7,36 @@ from random import randint
 
 from cogs.resources import utils
 
-rparens = re.compile(r' \(.+?\)')
-rbracks = re.compile(r'\[.+?\]')
-rtags = re.compile(r'<.+?>', re.S)
-rredherring = re.compile(r'<p>.{0,10}</p>', re.S) # to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
-rctrlchars = re.compile(r'\\.') # needs to be changed maybe
-rredirect = re.compile(r'">(.+?)</a>')
-rlinks = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
-rlinksb = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
-rdisamb = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
-rnewlines = re.compile(r"\n+")
-rpgimg = re.compile(r'(?<=f=\\"|ef=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
-rpgimgfallback = re.compile(r'(?<=c=\\"|rc=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
-rthumb = re.compile(r'(?<=c=\\"|rc=")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\.(?:png|jpg|gif))/\d+px-\1') # matches thumbnail URL format
-rpotw = re.compile(r'><a href="(/wiki/(?!File:).+?)" title="(.+?)">Read more\.\.\.') # matches the URL and title of the 'Read more...' link
+rPARENS = re.compile(r' \(.+?\)')
+rBRACKS = re.compile(r'\[.+?\]')
+rTAGS = re.compile(r'<.+?>', re.S)
+rREDHERRING = re.compile(r'<p>.{0,10}</p>', re.S) # to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
+rCTRLCHARS = re.compile(r'\\.') # needs to be changed maybe
+rREDIRECT = re.compile(r'">(.+?)</a>')
+rLINKS = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
+rLINKSB = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
+rDISAMB = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
+rNEWLINES = re.compile(r"\n+")
+rPGIMG = re.compile(r'(?<=f=\\"|ef=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
+rPGIMGFALLBACK = re.compile(r'(?<=c=\\"|rc=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
+rTHUMB = re.compile(r'(?<=c=\\"|rc=")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\.(?:png|jpg|gif))/\d+px-\1') # matches thumbnail URL format
+rPOTW = re.compile(r'><a href="(/wiki/(?!File:).+?)" title="(.+?)">Read more\.\.\.') # matches the URL and title of the 'Read more...' link
 
 class Wiki:
     def __init__(self, bot):
         self.bot = bot
-        self.session = aiohttp.ClientSession()
+        self.session = aiohttp.ClientSession(loop=bot.loop)
     
     def parse(self, txt, potw=False):
         if not potw:
-            txt = rredherring.sub('', txt)
+            txt = rREDHERRING.sub('', txt)
             txt = txt.split('<p>', 1)[-1].split('</p>')[0]
         txt = txt.replace('<b>', '**').replace('</b>', '**')
-        txt = rctrlchars.sub('', txt) # likely does nothing
-        txt = rparens.sub('', txt)
-        txt = rbracks.sub('', txt)
-        txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
-        txt = rtags.sub('', txt)
+        txt = rCTRLCHARS.sub('', txt) # likely does nothing
+        txt = rPARENS.sub('', txt)
+        txt = rBRACKS.sub('', txt)
+        txt = rLINKSB.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
+        txt = rTAGS.sub('', txt)
         return html.unescape(txt)
 
     async def page_img(self, query, img_name=None):
@@ -78,11 +78,11 @@ class Wiki:
     def disambig(self, data):
         def parse_disamb(txt):
             txt = txt.replace('<b>', '').replace('</b>', '')
-            links = rdisamb.findall(txt)
-            txt = rlinks.sub(lambda m: f'**{m.group(2)}**', txt) # change to '**[{m.group(2)}](http://conwaylife.com{m.group(1)})**' for hyperlink although it looks really ugly
-            txt = rlinksb.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
-            txt = rtags.sub('', txt)
-            txt = rnewlines.sub('\n', txt)
+            links = rDISAMB.findall(txt)
+            txt = rLINKS.sub(lambda m: f'**{m.group(2)}**', txt) # change to '**[{m.group(2)}](http://conwaylife.com{m.group(1)})**' for hyperlink although it looks really ugly
+            txt = rLINKSB.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
+            txt = rTAGS.sub('', txt)
+            txt = rNEWLINES.sub('\n', txt)
             return txt, links
         
         pgtitle = data["parse"]["title"]
@@ -123,7 +123,7 @@ class Wiki:
                 data = json.loads(pgtxt)
         return pgtxt, data, msg
     
-    @utils.command('dyk', brief='Provide a random Did-You-Know fact from wiki')
+    @utils.command(name='dyk', brief='Provide a Did-You-Know fact from wiki')
     async def dyk(self, ctx, *num: int):
         """# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
 
@@ -166,7 +166,7 @@ class Wiki:
         else:
             raise error
     
-    @commands.group('wiki', invoke_without_command=True, brief='Look for a page on http://conwaylife.com/wiki/')
+    @utils.group(name='wiki', brief='Look for a page on http://conwaylife.com/wiki/')
     async def wiki(self, ctx, *, query=''):
         """
         # Displays a short, nicely-formatted blurb from QUERY's page on http://conwaylife.com/wiki. #
@@ -207,12 +207,12 @@ class Wiki:
             pgtxt = json.loads(data)["parse"]["text"]["*"]
             data = data.split('Download.')[0]
             try:
-                pgimg = (rpgimg.search(data) or rpgimgfallback.search(data) or rthumb.search(data)).group()
+                pgimg = (rPGIMG.search(data) or rPGIMGFALLBACK.search(data) or rTHUMB.search(data)).group()
             except AttributeError as e:
                 pass
             else:
                 em.set_thumbnail(url=f'http://conwaylife.com{pgimg}')
-            info = rpotw.search(pgtxt)
+            info = rPOTW.search(pgtxt)
             em.title="This week's featured article"
             em.url = f'http://conwaylife.com{info.group(1)}' # pgtitle=info.group(2)
             em.description = self.parse(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
@@ -221,7 +221,7 @@ class Wiki:
         async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
             prelim = await resp.text()
         if '>REDIRECT ' in prelim:
-            query = rredirect.search(prelim).group(1)
+            query = rREDIRECT.search(prelim).group(1)
         elif 'missingtitle' in prelim or 'invalidtitle' in prelim:
             return await ctx.send(f'Page `{query}` does not exist.') # no sanitization yeet
         async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=sections&format=json&page={query}') as resp:
@@ -238,7 +238,7 @@ class Wiki:
         seclist[num] = pgtxt, data
         
         pgtxt = pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0]
-        pgimg = rpgimg.search(pgtxt) or rpgimgfallback.search(pgtxt) or rthumb.search(pgtxt)
+        pgimg = rPGIMG.search(pgtxt) or rPGIMGFALLBACK.search(pgtxt) or rTHUMB.search(pgtxt)
         pgimg = pgimg.group() if pgimg else None
         em = await self.regpage(data, query, em, pgimg)
         

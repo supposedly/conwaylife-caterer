@@ -22,20 +22,20 @@ from cogs.resources import utils
 rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
 
 # matches B/S and if no B then either 2-state single-slash rulestring or generations rulestring
-rrulestring = re.compile(r'(B)?[0-8cekainyqjrtwz-]+(?(1)/?(S)?[0-8cekainyqjrtwz\-]*|/(S)?[0-8cekainyqjrtwz\-]*(?(2)|(?(3)|/[\d]{1,3})?))', re.I)
+rRULESTRING = re.compile(r'(B)?[0-8cekainyqjrtwz-]+(?(1)/?(S)?[0-8cekainyqjrtwz\-]*|/(S)?[0-8cekainyqjrtwz\-]*(?(2)|(?(3)|/[\d]{1,3})?))', re.I)
 
 # matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take much too many steps)
-rxrle = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\dob$]*[ob$][\dob$\n]*!?)')
+rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\dob$]*[ob$][\dob$\n]*!?)')
 
 # splits RLE into its runs
-rruns = re.compile(r'([0-9]*)([ob])')
-# [rruns.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
+rRUNS = re.compile(r'([0-9]*)([ob])')
+# [rRUNS.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
 
 # unrolls $ signs
-rdollarsigns = re.compile(r'(\d+)\$')
+rDOLLARS = re.compile(r'(\d+)\$')
 
 # determines 80% of available RAM to allow bgolly to use
-maxmem = int(os.popen('free -m').read().split()[7]) // 1.25
+MAX_MEM = int(os.popen('free -m').read().split()[7]) // 1.25
 
 # ---- #
 
@@ -64,7 +64,7 @@ def parse(current):
     
     patlist = patlist[2::3] # just RLE
     # ['4b3$o', '3o2b'] -> ['4b$$$o', '3o2b']
-    patlist = (rdollarsigns.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist) # unroll newlines
+    patlist = (rDOLLARS.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist) # unroll newlines
     # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
     patlist = [i.split('$') for i in patlist]
     return patlist, positions, bbox
@@ -93,7 +93,7 @@ def makeframes(current, patlist, positions, bbox, pad):
         int_pattern = []
         for row in pat:
             int_row = []
-            for runs, chars in rruns.findall(row):
+            for runs, chars in rRUNS.findall(row):
                 runs = int(runs) if runs else 1
                 state = 1 if chars == 'b' else 0
                 int_row.extend([state] * runs)
@@ -217,7 +217,7 @@ class CA:
     def moreinfo(self, ctx):
         return f"'{ctx.prefix}help sim' for more info"
     
-    @utils.group(name='sim', invoke_without_command=True)
+    @utils.group(name='sim')
     async def sim(self, ctx, *args, **kwargs):
         """
         # Simulates PAT with output to animated gif. #
@@ -240,7 +240,7 @@ class CA:
         dims = kwargs.pop('soup_dims', None)
         (gen, step, rule, pat), flags = self.parse_args(
           args,
-          [_, _, (rrulestring, rLtL), re.compile(r'[\dob$]*[ob$][\dob$\n]*!?')],
+          [_, _, (rRULESTRING, rLtL), re.compile(r'[\dob$]*[ob$][\dob$\n]*!?')],
           ['', '1', '', '']
           )
         flags = self.parse_flags(flags)
@@ -260,7 +260,7 @@ class CA:
             pat = rand
         if not pat:
             async for msg in ctx.channel.history(limit=50):
-                rmatch = rxrle.search(msg.content)
+                rmatch = rXRLE.search(msg.content)
                 if rmatch:
                     pat = rmatch.group(2)
                     if rmatch.group(1):
@@ -273,7 +273,7 @@ class CA:
         
         if not rule:
             async for msg in ctx.channel.history(limit=50):
-                rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
+                rmatch = rLtL.search(msg.content) or rRULESTRING.search(msg.content)
                 if rmatch:
                     rule = rmatch.group()
                     break
@@ -334,10 +334,14 @@ class CA:
         try:
             while True:
                 await gif.add_reaction('➕')
-                rxn = await self.bot.wait_for('reaction_add', timeout=30.0, check=lambda rxn, usr: rxn.emoji == '➕' and rxn.message.id == gif.id and usr is ctx.message.author)
+                await gif.add_reaction('⏩')
+                rxn, _ = await self.bot.wait_for('reaction_add', timeout=30.0, check=lambda rxn, usr: rxn.emoji in '➕⏩' and rxn.message.id == gif.id and usr is ctx.message.author)
                 await gif.delete()
-                os.system(f'rm -r {current}_frames/'); os.mkdir(f'{current}_frames')
-                gen += int(50*math.log1p(gen)) # gives a nice increasing-at-a-decreasing-rate curve
+                os.system(f'rm -rf {current}_frames/'); os.mkdir(f'{current}_frames')
+                if rxn.emoji == '➕':
+                    gen += int(50*math.log1p(gen)) # gives a nice increasing-at-a-decreasing-rate curve
+                else:
+                    step *= 2
                 details = (
                   (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
                   + f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
@@ -403,7 +407,7 @@ class CA:
         _ = re.compile(r'^\d+$')
         (dims, rule, *nums), flags = self.parse_args(
           args,
-          [re.compile(r'^\d+x\d+$'), (rrulestring, rLtL), _, _],
+          [re.compile(r'^\d+x\d+$'), (rRULESTRING, rLtL), _, _],
           ['16x16', None, '300', None]
           )
         try:
@@ -415,7 +419,7 @@ class CA:
                 return await ctx.send(f'`Error: No GEN given. {self.moreinfo(ctx)}`')
         if not rule:
             async for msg in ctx.channel.history(limit=50):
-                rmatch = rLtL.search(msg.content) or rrulestring.search(msg.content)
+                rmatch = rLtL.search(msg.content) or rRULESTRING.search(msg.content)
                 if rmatch:
                     rule = rmatch.group()
                     break
