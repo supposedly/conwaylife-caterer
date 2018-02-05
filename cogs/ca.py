@@ -361,7 +361,7 @@ class CA:
                 try:
                     gif = await ctx.send(
                       content.format(
-                        str(
+                        time = str(
                           {
                             'Times': '',
                             '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
@@ -385,7 +385,7 @@ class CA:
             await gif.clear_reactions()
             os.remove(f'{current}.gif')
             os.remove(f'{current}_in.rle')
-            os.system(f'rm -r {current}_frames/')
+            os.system(f'rm -rf {current}_frames/')
         
     @sim.command(name='rand')
     async def rand(self, ctx, *args):
@@ -450,7 +450,6 @@ class CA:
             try:
                 print('Ignoring exception in on_message', exc[0].split('"""')[1], *exc[1:end])
             except Exception as e:
-                print(f'{e.__class__.__name__}: {e}\n--------\n')
                 raise error
         else:
             raise error
