@@ -1,4 +1,5 @@
 import asyncio
+import datetime as dt
 import inspect
 import pkg_resources
 import platform
@@ -20,13 +21,18 @@ class Utils:
       # https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
         self.bot.todos = None
     
+    @staticmethod
+    def lgst(dt_obj):
+        """Returns a string representing the date in the largest applicable unit"""
+        d = (dt.datetime.utcnow().date() - dt_obj).days
+        return f'{d//365.25}y' if d >= 365.25 else f'{d//30}m' if d >= 30 else f'{d//7}w' if d >= 7 else f'{d}d'
+        
     async def _set_todos(self):
         if self.bot.todos is None:
             async with self.pool.acquire() as conn:
-                names = {i['cmd'] for i in await conn.fetch('''SELECT DISTINCT cmd FROM todo''')}
                 self.bot.todos = {
-                  name: sorted([(i+1, v['value']) for i, v in enumerate(await conn.fetch('''SELECT value FROM todo WHERE cmd = $1::text ORDER BY id''', name))], key=lambda x: x[0])
-                  for name in names
+                  name: sorted([(i+1, self.lgst(v['date']), v['value']) for i, v in enumerate(await conn.fetch('''SELECT date, value FROM todo WHERE cmd = $1::text ORDER BY id''', name))], key=lambda x: x[0])
+                  for name in {i['cmd'] for i in await conn.fetch('''SELECT DISTINCT cmd FROM todo ORDER BY cmd''')}
                   }
     
     @utils.group(name='todo', brief='List what Wright needs to implement')
@@ -38,12 +44,12 @@ class Utils:
         CMD: Command names (without any invocation prefix) to show todos for. If omitted, displays all todos, and if supplied but invalid, displays 'general' todos not tied to any one command.
         """
         desc = ''
-        await self._set_todos()
         all_names = set(i.qualified_name for i in self.bot.walk_commands())
+        await self._set_todos()
         desc = ( # FIXME: Why in the fresh hell did I one-line these
-          ''.join(f'\n**{cmd[0]}{cmd[1]}**\n' + ''.join(f'  {val[0]}. {val[1].format(pre=ctx.prefix)}\n' for val in self.bot.todos[cmd[1]]) for cmd in {(ctx.prefix if cmd in all_names else '', cmd if cmd in all_names else 'general') for cmd in cmds})
+          ''.join(f'\n**{cmd[0]}{cmd[1]}**\n' + ''.join(f'  {val[0]}. ({val[1]}) {val[2].format(pre=ctx.prefix)}\n' for val in self.bot.todos[cmd[1]]) for cmd in {(ctx.prefix if cmd in all_names else '', cmd if cmd in all_names else 'general') for cmd in cmds})
         if cmds else
-          ''.join(f'\n**{"" if key.lower() == "general" else ctx.prefix}{key}**\n' + ''.join(f'  {val[0]}. {val[1].format(pre=ctx.prefix)}\n' for val in ls) for key, ls in self.bot.todos.items())
+          ''.join(f'\n**{"" if key.lower() == "general" else ctx.prefix}{key}**\n' + ''.join(f'  {val[0]}. ({val[1]}) {val[2].format(pre=ctx.prefix)}\n' for val in ls) for key, ls in self.bot.todos.items())
         )
         await ctx.send(embed=discord.Embed(title='To-Dos', description=desc))
     
@@ -53,7 +59,7 @@ class Utils:
         if cmd not in (i.qualified_name.lower() for i in self.bot.walk_commands()):
             cmd = 'general'
         try:
-            await self.pool.execute('''INSERT INTO todo (cmd, value) SELECT $1::text, $2::text''', cmd, value)
+            await self.pool.execute('''INSERT INTO todo (cmd, value, date) SELECT $1::text, $2::text, current_date''', cmd, value)
         except Exception as e:
             await ctx.send(f'`{e.__class__.__name__}: {e}`')
         else:
@@ -141,7 +147,7 @@ class Utils:
         desc = f'''**```ini
         {'[A cellular automata bot for Conwaylife.com]': ^57}```**
          **Version numbers:**
-           python {python_version()}
+           python {platform.python_version()}
            discord.py {DISCORD_PUBLIC_VERSION} (rewrite)
         
          **Thanks to:**
