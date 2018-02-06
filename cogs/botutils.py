@@ -23,16 +23,16 @@ class Utils:
     
     @staticmethod
     def lgst(dt_obj):
-        """Returns a string representing the date in the largest applicable unit"""
+        """Returns a string abbreviating the date to the largest applicable unit"""
         d = (dt.datetime.utcnow().date() - dt_obj).days
-        return f'{d//365.25}y' if d >= 365.25 else f'{d//30}m' if d >= 30 else f'{d//7}w' if d >= 7 else f'{d}d'
+        return f'{d//365.25}y' if d > 365.25 else f'{d//30}m' if d >= 30 else f'{d//7}w' if d >= 7 else f'{d}d'
         
     async def _set_todos(self):
         if self.bot.todos is None:
             async with self.pool.acquire() as conn:
                 self.bot.todos = {
-                  name: sorted([(i+1, self.lgst(v['date']), v['value']) for i, v in enumerate(await conn.fetch('''SELECT date, value FROM todo WHERE cmd = $1::text ORDER BY id''', name))], key=lambda x: x[0])
-                  for name in {i['cmd'] for i in await conn.fetch('''SELECT DISTINCT cmd FROM todo ORDER BY cmd''')}
+                  cmd: sorted([(i+1, v['date'], v['value']) for i, v in enumerate(await conn.fetch('''SELECT date, value FROM todo WHERE cmd = $1::text ORDER BY id''', cmd))], key=lambda x: x[0])
+                  for cmd in {i['cmd'] for i in await conn.fetch('''SELECT DISTINCT cmd FROM todo ORDER BY cmd''')}
                   }
     
     @utils.group(name='todo', brief='List what Wright needs to implement')
@@ -46,10 +46,10 @@ class Utils:
         desc = ''
         all_names = set(i.qualified_name for i in self.bot.walk_commands())
         await self._set_todos()
-        desc = ( # FIXME: Why in the fresh hell did I one-line these
-          ''.join(f'\n**{cmd[0]}{cmd[1]}**\n' + ''.join(f'  {val[0]}. ({val[1]}) {val[2].format(pre=ctx.prefix)}\n' for val in self.bot.todos[cmd[1]]) for cmd in {(ctx.prefix if cmd in all_names else '', cmd if cmd in all_names else 'general') for cmd in cmds})
+        desc = ''.join( # FIXME: Why in the fresh hell did I one-line these
+          (f'\n**{cmd[0]}{cmd[1]}**\n' + ''.join(f'  {val[0]}. ({self.lgst(val[1])}) {val[2].format(pre=ctx.prefix)}\n' for val in self.bot.todos[cmd[1]]) for cmd in {(ctx.prefix if cmd in all_names else '', cmd if cmd in all_names else 'general') for cmd in cmds})
         if cmds else
-          ''.join(f'\n**{"" if key.lower() == "general" else ctx.prefix}{key}**\n' + ''.join(f'  {val[0]}. ({val[1]}) {val[2].format(pre=ctx.prefix)}\n' for val in ls) for key, ls in self.bot.todos.items())
+          (f'\n**{"" if key.lower() == "general" else ctx.prefix}{key}**\n' + ''.join(f'  {val[0]}. ({self.lgst(val[1])}) {val[2].format(pre=ctx.prefix)}\n' for val in ls) for key, ls in self.bot.todos.items())
         )
         await ctx.send(embed=discord.Embed(title='To-Dos', description=desc))
     
@@ -88,7 +88,7 @@ class Utils:
     
     @utils.command(name='ping')
     async def ping(self, ctx):
-        await ctx.send(f'Pong! That took {1000*self.bot.latency:.0f}ms.')
+        await ctx.send(f'Pong! Loading...')
     
     @utils.command(name='link', brief='Post an invite link for this bot')
     async def link(self, ctx):

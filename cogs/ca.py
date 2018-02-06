@@ -116,13 +116,19 @@ def savegif(current, gen, step):
     # finally, pass all created pics to imageio for conversion to gif
     # then either upload to gfycat or send directly to discord depending on presence of "g" flag
     png_dir = f'{current}_frames/'
+    total = 0
     duration = min(1/6, max(1/60, 5/gen/step) if gen else 1)
     for subdir, dirs, files in os.walk(png_dir):
         files.sort()
         with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as writer:
             for file in files:
                 file_path = os.path.join(subdir, file)
+                total += os.stat(file_path).st_size
+                if total > 7600000:
+                    return True
                 writer.append_data(imageio.imread(file_path))
+    print('total:', total)
+    return False
 
 class CA:
     def __init__(self, bot):
@@ -205,9 +211,9 @@ class CA:
         end_parse = time.perf_counter()
         await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)))
         end_makeframes = time.perf_counter()
-        await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
+        oversized = await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
         end_savegif = time.perf_counter()
-        return start, end_parse, end_makeframes, end_savegif
+        return start, end_parse, end_makeframes, end_savegif, oversized
     
     async def run_bgolly(self, current, algo, gen, step, rule):
         # run bgolly with parameters
@@ -303,7 +309,7 @@ class CA:
                   event_check = lambda msg: self.cancellation_check(ctx, msg)
                   )
         try:
-            start, end_parse, end_makeframes, end_savegif = resp['coro']
+            start, end_parse, end_makeframes, end_savegif, oversized = resp['coro']
         except KeyError:
             return await resp['event'].add_reaction('👍')
         content = (
@@ -311,6 +317,7 @@ class CA:
           + (f' **{flags["id"]}** \n' if 'id' in flags else '')
           + '{time}'
           )
+        print('oversized:', oversized)
         try:
             gif = await ctx.send(
               content.format(
@@ -326,22 +333,24 @@ class CA:
                   else f'{round(end_savegif-start, 2)}s'
                   if 'time' in flags
                     else ''
-                ),
+                ) + ('\n`(truncated to fit under 8mb)`' if oversized else ''),
               file=discord.File(f'{current}.gif')
               )
         except discord.errors.HTTPException as e:
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         try:
             while True:
-                await gif.add_reaction('➕')
+                if gen < 2500*step and not oversized:
+                    await gif.add_reaction('➕')
                 await gif.add_reaction('⏩')
                 rxn, _ = await self.bot.wait_for('reaction_add', timeout=30.0, check=lambda rxn, usr: rxn.emoji in '➕⏩' and rxn.message.id == gif.id and usr is ctx.message.author)
                 await gif.delete()
                 os.system(f'rm -rf {current}_frames/'); os.mkdir(f'{current}_frames')
                 if rxn.emoji == '➕':
-                    gen += int(50*math.log1p(gen)) # gives a nice increasing-at-a-decreasing-rate curve
+                    gen += min(2500*step-gen, int(50*math.log1p(gen))) # gives a nice increasing-at-a-decreasing-rate curve
                 else:
                     step *= 2
+                    oversized = False
                 details = (
                   (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
                   + f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
@@ -359,7 +368,7 @@ class CA:
                   event_check = lambda msg: self.cancellation_check(ctx, msg)
                   )
                 try:
-                    start, end_parse, end_makeframes, end_savegif = resp['coro']
+                    start, end_parse, end_makeframes, end_savegif, oversized = resp['coro']
                 except KeyError:
                     return await resp['event'].add_reaction('👍')
                 try:
@@ -377,7 +386,7 @@ class CA:
                           else f'{round(end_savegif-start, 2)}s'
                           if 'time' in flags
                             else ''
-                        ),
+                        ) + ('\n`(truncated to fit under 8mb)`' if oversized else ''),
                       file=discord.File(f'{current}.gif')
                       )
                 except discord.errors.HTTPException as e:
