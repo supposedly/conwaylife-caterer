@@ -25,7 +25,7 @@ class Utils:
     def lgst(dt_obj):
         """Returns a string abbreviating the date to the largest applicable unit"""
         d = (dt.datetime.utcnow().date() - dt_obj).days
-        return f'{d//365.25}y' if d > 365.25 else f'{d//30}m' if d >= 30 else f'{d//7}w' if d >= 7 else f'{d}d'
+        return f'{d//365.25}y' if d >= 365 else f'{d//30}m' if d >= 30 else f'{d//7}w' if d >= 7 else f'{d}d'
         
     async def _set_todos(self):
         if self.bot.todos is None:
@@ -74,7 +74,7 @@ class Utils:
         await self._set_todos()
         for ls in self.bot.todos[cmd]:
             if ls[0] == num:
-                value = ls[1]
+                value = ls[2]
                 break
         else:
             return await ctx.message.add_reaction('👎')
@@ -88,7 +88,9 @@ class Utils:
     
     @utils.command(name='ping')
     async def ping(self, ctx):
-        await ctx.send(f'Pong! Loading...')
+        resp = await ctx.send(f'Pong! Loading...')
+        diff = dt.datetime.now() - ctx.message.created_at
+        await resp.edit(content=f'Pong! That took {1000*diff.total_seconds():.1f}ms. (Discord websocket latency: {1000*self.bot.latency:.1f}ms)')
     
     @utils.command(name='link', brief='Post an invite link for this bot')
     async def link(self, ctx):
