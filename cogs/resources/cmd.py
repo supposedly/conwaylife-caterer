@@ -17,17 +17,23 @@ args = {
 # ---------- #
 
 aliases = {
+"new": ['changes', 'changelog', 'whatsnew'],
+
 "info": ['about', 'what'],
+
+"link": ['invite', 'url'],
 
 "sim": ['gif'],
 
 "sim rand": ['r', 'random'],
 
-"link": ['invite', 'url'],
-
 "todo": ['todos'],
 
 "todo add": ['new'],
 
-"todo rm": ['remove', 'del', 'delete']
+"todo del": ['rm', 'remove', 'delete'],
+
+"todo move": ['mv', 'mov'],
+
+"todo complete": ['fi', 'finish']
 }

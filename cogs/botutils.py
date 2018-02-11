@@ -11,7 +11,6 @@ from discord.ext import commands
 from cogs.resources import utils
 
 DISCORD_PUBLIC_VERSION = pkg_resources.get_distribution('discord.py').parsed_version.public
-_lower = lambda x: x.lower()
 
 class Utils:
     def __init__(self, bot):
@@ -19,24 +18,49 @@ class Utils:
         self.pool = bot.pool
         self.invite = discord.utils.oauth_url(bot.user.id, permissions=discord.Permissions(permissions=388160))
       # https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
-        self.bot.todos = None
+        self.bot.changelog = self.bot.changelog_last_updated = self.bot.todos = None
     
     @staticmethod
     def lgst(dt_obj):
-        """Returns a string abbreviating the date to the largest applicable unit"""
+        """Return a string abbreviating given date to the largest appropriate unit"""
         d = (dt.datetime.utcnow().date() - dt_obj).days
         return f'{d//365.25}y' if d >= 365 else f'{d//30}m' if d >= 30 else f'{d//7}w' if d >= 7 else f'{d}d'
-        
+    
     async def _set_todos(self):
         if self.bot.todos is None:
             async with self.pool.acquire() as conn:
                 self.bot.todos = {
-                  cmd: sorted([(i+1, v['date'], v['value']) for i, v in enumerate(await conn.fetch('''SELECT date, value FROM todo WHERE cmd = $1::text ORDER BY id''', cmd))], key=lambda x: x[0])
-                  for cmd in {i['cmd'] for i in await conn.fetch('''SELECT DISTINCT cmd FROM todo ORDER BY cmd''')}
+                  cmd: [(i, v['date'], v['value']) for i, v in enumerate(await conn.fetch('''SELECT date, value FROM todo WHERE cmd = $1::text ORDER BY id''', cmd), 1)]
+                  for cmd in {j['cmd'] for j in await conn.fetch('''SELECT DISTINCT cmd FROM todo ORDER BY cmd''')}
                   }
     
-    @utils.group(name='todo', brief='List what Wright needs to implement')
-    async def todo(self, ctx, *cmds: _lower):
+    async def _set_changelog(self):
+        if self.bot.changelog is None:
+            async with self.pool.acquire() as conn:
+                # Delete old entries first
+                await conn.execute('''DELETE FROM changes WHERE (current_date - changes.date) > 30''')
+                # Then set changelog in order of date -> command -> days in progress: todo text
+                self.bot.changelog = {
+                  date: {
+                    cmd: [(i['date_created'], i['value']) for i in await conn.fetch('''SELECT date_created, value FROM changes WHERE cmd = $1::text ORDER BY date_created DESC''', cmd)]
+                    for cmd in {j['cmd'] for j in await conn.fetch('''SELECT DISTINCT cmd FROM changes WHERE date = $1::date ORDER BY cmd''', date)}
+                    }
+                  for date in {k['date'] for k in await conn.fetch('''SELECT DISTINCT date FROM changes ORDER BY date DESC''')} # desc puts 'larger', aka more recent, dates first
+                  }
+
+    async def _find_todo(self, cmd, num):
+        await self._set_todos()
+        if cmd not in {i.qualified_name.lower() for i in self.bot.walk_commands()}:
+            cmd = 'general'
+        for idx, _, value in self.bot.todos[cmd]:
+            if idx == num:
+                break
+        else:
+            return None
+        return cmd, value
+    
+    @utils.group(brief='List what Wright needs to implement')
+    async def todo(self, ctx, *cmds: str.lower):
         """
         # Shows an embedded list of features I plan to implement. #
         
@@ -46,17 +70,31 @@ class Utils:
         desc = ''
         all_names = set(i.qualified_name for i in self.bot.walk_commands())
         await self._set_todos()
-        desc = ''.join( # FIXME: Why in the fresh hell did I one-line these
-          (f'\n**{cmd[0]}{cmd[1]}**\n' + ''.join(f'  {val[0]}. ({self.lgst(val[1])}) {val[2].format(pre=ctx.prefix)}\n' for val in self.bot.todos[cmd[1]]) for cmd in {(ctx.prefix if cmd in all_names else '', cmd if cmd in all_names else 'general') for cmd in cmds})
-        if cmds else
-          (f'\n**{"" if key.lower() == "general" else ctx.prefix}{key}**\n' + ''.join(f'  {val[0]}. ({self.lgst(val[1])}) {val[2].format(pre=ctx.prefix)}\n' for val in ls) for key, ls in self.bot.todos.items())
+        desc = ''.join(
+          (
+            f'\n**{pre}{name}**\n'
+            + ''.join(
+              f'  {idx}. ({self.lgst(date)}) {val.format(pre=ctx.prefix)}\n'
+            for idx, date, val in self.bot.todos[cmd[1]]
+            )
+          for pre, name in {(ctx.prefix if cmd in all_names else '', cmd if cmd in all_names else 'general') for cmd in cmds}
+          )
+          if cmds else
+          (
+            f'\n**{"" if cmd.lower() == "general" else ctx.prefix}{cmd}**\n'
+            + ''.join(
+              f'  {idx}. ({self.lgst(date)}) {val.format(pre=ctx.prefix)}\n'
+            for idx, date, val in ls
+            )
+          for cmd, ls in self.bot.todos.items()
+          )
         )
         await ctx.send(embed=discord.Embed(title='To-Dos', description=desc))
     
-    @todo.command(name='add')
+    @todo.command('add')
     @commands.is_owner()
-    async def add_todo(self, ctx, cmd: _lower, *, value):
-        if cmd not in (i.qualified_name.lower() for i in self.bot.walk_commands()):
+    async def add_todo(self, ctx, cmd: str.lower, *, value):
+        if cmd not in {i.qualified_name.lower() for i in self.bot.walk_commands()}:
             cmd = 'general'
         try:
             await self.pool.execute('''INSERT INTO todo (cmd, value, date) SELECT $1::text, $2::text, current_date''', cmd, value)
@@ -64,42 +102,100 @@ class Utils:
             await ctx.send(f'`{e.__class__.__name__}: {e}`')
         else:
             self.bot.todos = None # TODO: Maybe just append the newly-added todo with a calculated num 
-            await ctx.message.add_reaction('👍')
+            await ctx.thumbsup()
     
-    @todo.command(name='rm')
+    @todo.command('del')
     @commands.is_owner()
-    async def rm_todo(self, ctx, cmd: _lower, num: int):
-        if cmd not in (i.qualified_name.lower() for i in self.bot.walk_commands()):
-            cmd = 'general'
-        await self._set_todos()
-        for ls in self.bot.todos[cmd]:
-            if ls[0] == num:
-                value = ls[2]
-                break
-        else:
-            return await ctx.message.add_reaction('👎')
+    async def guillermo_del_todo(self, ctx, cmd: str.lower, num: int):
         try:
-            await self.pool.execute('''DELETE FROM todo WHERE cmd = $1::text AND value = $2::text''', cmd, value)
+            cmd, value = await self._find_todo(cmd, num)
+        except TypeError:
+            return await ctx.thumbsdown()
+        try:
+            await self.pool.execute('''DELETE FROM todo WHERE value = $2::text AND cmd = $1::text''', cmd, value)
         except Exception as e:
             await ctx.send(f'`{e.__class__.__name__}: {e}`')
         else:
             self.bot.todos = None # TODO: Maybe just pop the newly-removed todo and recalculate nums
-            await ctx.message.add_reaction('👍')
+            await ctx.thumbsup()
     
-    @utils.command(name='ping')
+    @todo.command('complete')
+    @commands.is_owner()
+    async def complete_todo(self, ctx, cmd: str.lower, num: int):
+        try:
+            cmd, value = await self._find_todo(cmd, num)
+        except TypeError:
+            return await ctx.thumbsdown()
+        try:
+            await self.pool.execute('''
+            INSERT INTO changes
+              (cmd, value, date, date_created)
+            SELECT
+              $1::text,
+              $2::text,
+              current_date,
+              todo.date
+            FROM todo
+            WHERE todo.cmd = $1::text AND todo.value = $2::text''', cmd, value)
+            await self.pool.execute('''DELETE FROM todo WHERE value = $2::text AND cmd = $1::text''', cmd, value)
+        except Exception as e:
+            await ctx.send(f'`{e.__class__.__name__}: {e}`')
+        else:
+            self.bot.changelog_last_updated = dt.date.today()
+            self.bot.changelog = None # TODO: Maybe (???) just append the new change
+            await ctx.thumbsup()
+    
+    @todo.command('move')
+    @commands.is_owner()
+    async def move_todo(self, ctx, old: str.lower, num: int, new: str.lower):
+        try:
+            old, value = await self._find_todo(old, num)
+        except TypeError:
+            return await ctx.thumbsdown()
+        if new not in {i.qualified_name.lower() for i in self.bot.walk_commands()}:
+            new = 'general'
+        try:
+            await self.pool.execute('''UPDATE todo SET cmd = $3::text WHERE value = $2::text AND cmd = $1::text''', old, value, new)
+        except Exception as e:
+            await ctx.send(f'`{e.__class__.__name__}: {e}`')
+        else:
+            self.bot.todos = None # TODO: Maybe just pop the newly-removed todo and recalculate nums
+            await ctx.thumbsup()
+    
+    @utils.command(brief='Show a 30-day changelog')
+    async def new(self, ctx):
+        desc = ''
+        await self._set_changelog()
+        desc = '\n'.join(
+          f'__{date}__\n'
+          + '\n'.join(
+            f'  **{"" if cmd.lower() == "general" else ctx.prefix}{cmd}**\n'
+            + ''.join(
+              f'    ({self.lgst(date_created)}) {val.format(pre=ctx.prefix)}\n'
+            for date_created, val in ls
+            )
+          for cmd, ls in cmd_data.items()
+          )
+        for date, cmd_data in self.bot.changelog.items()
+        )
+        em = discord.Embed(title='Changelog', description=desc)
+        em.set_footer(text=f'Last updated: {self.bot.changelog_last_updated or "Not since bot was last restarted"}')
+        await ctx.send(embed=em)
+    
+    @utils.command()
     async def ping(self, ctx):
         resp = await ctx.send(f'Pong! Loading...')
-        diff = dt.datetime.now() - ctx.message.created_at
-        await resp.edit(content=f'Pong! That took {1000*diff.total_seconds():.1f}ms. (Discord websocket latency: {1000*self.bot.latency:.1f}ms)')
+        diff = resp.created_at - ctx.message.created_at
+        await resp.edit(content=f'Pong! That took {1000*diff.total_seconds():.1f}ms.\n(Discord websocket latency: {1000*self.bot.latency:.1f}ms)')
     
-    @utils.command(name='link', brief='Post an invite link for this bot')
+    @utils.command(brief='Post an invite link for this bot')
     async def link(self, ctx):
-        """# Produces an oauth2 invite link for this bot with necessary permissions. #"""
+        """# Procures an oauth2 invite link for this bot with necessary permissions. #"""
         em = discord.Embed(description=f'Use [this link]({self.invite}) to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=self.bot.user.avatar_url)
         await ctx.send(embed=em)
     
-    @utils.command(name='help', brief='Display this message')
+    @utils.command(brief='Display this message')
     async def help(self, ctx, *, name=None):
         """
         # A prettified sort of help command — because HelpFormatter is for dweebs. #
@@ -129,7 +225,8 @@ class Utils:
                 msg += '```apache\nAliases: {}```'.format(', '.join(map(prep.__add__, command.aliases)))
             await ctx.send(msg)
         else:
-            center = max(map(len, (f'{ctx.prefix}{i.name: <5}| {i.brief}' for i in self.bot.commands)))
+            # FIXME: Spacing below is hardcoded when it should be a function of the longest command name
+            center = max(map(len, (f'{ctx.prefix}{i.name: <{self.bot.help_padding}}| {i.brief}' for i in self.bot.commands)))
             desc = inspect.cleandoc(
               f"""
               **```ini
@@ -137,13 +234,12 @@ class Utils:
               Commands:
               """
               ) + '\n'
-            for com in (i for i in self.bot.commands if i.brief is not None):
-                desc += f'{ctx.prefix}{com.name: <5}| {com.brief}\n'
+            desc += ''.join(f'{ctx.prefix}{cmd.name: <{self.bot.help_padding}}| {cmd.brief}\n' for cmd in self.bot.sorted_commands if cmd.brief is not None)
             desc += '``````FORTRAN\n{1: ^{0}}\n{2: ^{0}}```'.format(center, f"'{ctx.prefix}help COMMAND' for command-specific docs", f"'{ctx.prefix}info' for credits & general information")
             em = discord.Embed(description=desc)
             await ctx.send(embed=em)
     
-    @utils.command(name='info')
+    @utils.command()
     async def info(self, ctx):
         """# Displays credits, useful links, and information about this bot's dependencies. #"""
         desc = f'''**```ini

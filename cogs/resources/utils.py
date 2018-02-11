@@ -1,17 +1,15 @@
+__all__ = ['await_event_or_coro', 'attrify', 'command', 'group']
+
+# ----------------------------------------------------------------------------------- #
+
 import asyncio
 import concurrent
-import inspect
-
-import discord
-from discord.ext import commands
-
-from .import cmd
-
-__all__ = ['await_event_or_coro', 'command', 'group']
-
-## wait_for that force-cancels on given coro's completion rather than on a timeout ##
 
 async def await_event_or_coro(bot, event, coro, *, ret_check=None, event_check=None, timeout=None):
+    """
+    discord.Client.wait_for, but force-cancels on completion of
+    :param:coro rather than on a timeout
+    """
     future = bot.loop.create_future()
     event_check = event_check or (lambda _: True)
     try:
@@ -26,7 +24,35 @@ async def await_event_or_coro(bot, event, coro, *, ret_check=None, event_check=N
     return {'event' if ret_check(done.result()) else 'coro': done.result()}
     
 
-## Custom command/group decos with info pointing to cmd.py ##
+# ----------------------------------------------------------------------------------- #
+
+import dis
+import types
+
+CODE_TYPE = type((lambda: None).__code__)
+
+def attrify(func):
+    """Assign nested callables to attributes of their enclosing function"""
+    for nest in (types.FunctionType(i.argval, globals()) for i in dis.get_instructions(func) if type(i.argval) is CODE_TYPE):
+        setattr(func, nest.__name__, nest)
+    return func
+
+# ----------------------------------------------------------------------------------- #
+
+def chain(nested):
+    """itertools.chain() but leave strings untouched"""
+    for i in nested:
+        if isinstance(i, (list, tuple)):
+            yield from chain(i)
+        else:
+            yield i
+
+# ------------- Custom command/group decos with info pointing to cmd.py ------------- #
+
+import discord
+from discord.ext import commands
+
+from .import cmd
 
 class HelpPropsMixin:
     @property
@@ -43,8 +69,7 @@ class HelpPropsMixin:
     
     @aliases.setter
     def aliases(*_):
-        """Voids 'can't set attribute' when dpy tries assigning aliases"""
-        pass
+        """Eliminates "can't set attribute" when dpy tries assigning aliases"""
 
 class Command(HelpPropsMixin, commands.Command):
     def __init__(self, name, callback, **kwargs):
@@ -70,8 +95,8 @@ class Group(HelpPropsMixin, commands.Group):
             return res
         return decorator
 
-def command(name=None, cls=Command, **attrs):
-    return lambda func: commands.command(name, cls, **attrs)(func)
+def command(name=None, brief=None, cls=Command, **attrs):
+    return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(func)
 
-def group(name=None, *, invoke_without_command=True, **attrs):
-    return command(name=name, cls=Group, invoke_without_command=invoke_without_command, **attrs)
+def group(name=None, brief=None, *, invoke_without_command=True, **attrs):
+    return command(name=name, brief=brief, cls=Group, invoke_without_command=invoke_without_command, **attrs)

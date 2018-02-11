@@ -223,7 +223,7 @@ class CA:
     def moreinfo(self, ctx):
         return f"'{ctx.prefix}help sim' for more info"
     
-    @utils.group(name='sim')
+    @utils.group('sim', 'Simulate an RLE and output to GIF')
     async def sim(self, ctx, *args, **kwargs):
         """
         # Simulates PAT with output to animated gif. #
@@ -400,7 +400,7 @@ class CA:
             os.remove(f'{current}_in.rle')
             os.system(f'rm -rf {current}_frames/')
         
-    @sim.command(name='rand')
+    @sim.command('rand')
     async def rand(self, ctx, *args):
         """
         # Simulates a random soup in given rule with output to GIF. Dims default to 16x16. #
@@ -459,12 +459,13 @@ class CA:
             # extract relevant traceback only (not whatever led up to CommandInvokeError)
             end = '\nThe above exception was the direct cause of the following exception:\n\n'
             end = len(exc) - next(i for i, j in enumerate(reversed(exc), 1) if j == end)
-            
+            await ctx.send(f'{error.__class__.__name}: {error}')
             try:
                 print('Ignoring exception in on_message', exc[0].split('"""')[1], *exc[1:end])
             except Exception as e:
                 raise error
         else:
+            await ctx.send(f'{error.__class__.__name}: {error}')
             raise error
         
         

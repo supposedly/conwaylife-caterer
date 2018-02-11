@@ -39,7 +39,7 @@ class Wiki:
         txt = rTAGS.sub('', txt)
         return html.unescape(txt)
 
-    async def page_img(self, query, img_name=None):
+    async def page_img(self, query, img_None):
         if img_name is None:
             async with self.session.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as resp:
                 images = await resp.json()
@@ -123,7 +123,7 @@ class Wiki:
                 data = json.loads(pgtxt)
         return pgtxt, data, msg
     
-    @utils.command(name='dyk', brief='Provide a Did-You-Know fact from wiki')
+    @utils.command('dyk', 'Provide a Did-You-Know fact from wiki')
     async def dyk(self, ctx, *num: int):
         """# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
 
@@ -166,7 +166,7 @@ class Wiki:
         else:
             raise error
     
-    @utils.group(name='wiki', brief='Look for a page on http://conwaylife.com/wiki/')
+    @utils.group('wiki', 'Look for a page on conwaylife wiki')
     async def wiki(self, ctx, *, query=''):
         """
         # Displays a short, nicely-formatted blurb from QUERY's page on http://conwaylife.com/wiki. #
