@@ -1,4 +1,4 @@
-__all__ = ['await_event_or_coro', 'attrify', 'command', 'group']
+__all__ = ['await_event_or_coro', 'wait_for_any', 'attrify', 'command', 'group']
 
 # ----------------------------------------------------------------------------------- #
 
@@ -20,9 +20,31 @@ async def await_event_or_coro(bot, event, coro, *, ret_check=None, event_check=N
     listeners.append((future, event_check))
     [done], pending = await asyncio.wait([future, coro], timeout=timeout, return_when=concurrent.futures.FIRST_COMPLETED)
     for task in pending:
-        task.cancel()
+        task.cancel() # does this even work???
     return {'event' if ret_check(done.result()) else 'coro': done.result()}
     
+
+async def wait_for_any(ctx, events, checks, *, timeout=15.0):
+    """
+    ctx: Context instance
+    events: Sequence of events as outlined in dpy's event reference
+    checks: Sequence of check functions as outlined in dpy's docs
+    timeout: asyncio.wait timeout
+    
+    events and checks must be of the same length.
+    """
+    mapped = dict(zip(events, checks)).items()
+    futures = [ctx.bot.wait_for(event, timeout=timeout, check=check) for event, check in mapped]
+    [done], pending = await asyncio.wait(futures, loop=ctx.bot.loop, timeout=timeout, return_when=concurrent.futures.FIRST_COMPLETED)
+    result = done.result()
+    for event, check in mapped:
+        try:
+            valid = check(result)
+        except TypeError: # too many/few arguments
+            continue
+        if valid:
+            return {event: result}
+    return None
 
 # ----------------------------------------------------------------------------------- #
 

@@ -1,5 +1,9 @@
+import asyncio
+import collections
 import os
 import re
+import select
+import subprocess
 import traceback
 
 import asyncpg
@@ -36,6 +40,7 @@ extensions = ['cogs.botutils', 'cogs.wiki', 'cogs.ca', 'cogs.admin']
 @bot.event
 async def on_ready():
     bot.pool = await asyncpg.create_pool(dsn=os.getenv('DATABASE_URL'), max_size=15, loop=bot.loop)
+    
     for cog in extensions:
         try:
             bot.load_extension(cog)
@@ -43,10 +48,27 @@ async def on_ready():
             exc = traceback.format_exception(type(e), e, e.__traceback__)
             line = rNUM.search(exc[-2]).group(1)
             print(f'{e.__class__.__name__} in {cog}, line {line}: {e}')
+    
     bot.help_padding = 1 + max(len(i.name) for i in bot.commands)
     bot.sorted_commands = sorted(bot.commands, key=lambda x: x.name)
+    
+    bot.logs = collections.deque(maxlen=100)
+    bot.logtask = bot.loop.create_task(get_heroku_logs())
+    
     print(f'Logged in as\n{bot.user.name}\n{bot.user.id}')
-    print('Guilds:', ', '.join(f'{i.id} "{i.name}"' for i in bot.guilds) if len(bot.guilds) < 10 else len(bot.guilds))
+    print('Guilds:', len(bot.guilds))
     print('------')
+
+async def get_heroku_logs():
+    with subprocess.Popen('./open-logs.sh', stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as proc:
+        print('Received logs!')
+        while not bot.is_closed():
+            readables, _, _ = select.select([proc.stdout], [], [], 2.0)
+            if not readables: # []
+                await asyncio.sleep(2)
+                continue
+            line = proc.stdout.readline()
+            if 'app[api]' not in line.split(': ')[0]:
+                bot.logs.appendleft(f':{line.split(" ")[1].split("[")[0]} {line.split(": ", 1)[1]}')
 
 bot.run(os.getenv('DISCORD_TOKEN'))

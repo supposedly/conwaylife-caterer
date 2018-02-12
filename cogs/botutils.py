@@ -1,8 +1,9 @@
 import asyncio
-import datetime as dt
 import inspect
+import itertools
 import pkg_resources
 import platform
+import datetime as dt
 
 import asyncpg
 import discord
@@ -75,9 +76,9 @@ class Utils:
             f'\n**{pre}{name}**\n'
             + ''.join(
               f'  {idx}. ({self.lgst(date)}) {val.format(pre=ctx.prefix)}\n'
-            for idx, date, val in self.bot.todos[cmd[1]]
+            for idx, date, val in self.bot.todos[cmd]
             )
-          for pre, name in {(ctx.prefix if cmd in all_names else '', cmd if cmd in all_names else 'general') for cmd in cmds}
+          for pre, cmd in {(ctx.prefix if name in all_names else '', name if name in all_names else 'general') for name in cmds}
           )
           if cmds else
           (
@@ -265,5 +266,37 @@ class Utils:
         '''
         await ctx.send(embed=discord.Embed(description=inspect.cleandoc(desc)))
     
+    @utils.command()
+    async def logs(self, ctx, start=0):
+        """# Displays recent logs for debugging #"""
+        start = max(0, min(len(self.bot.logs)-20, start))
+        log = await ctx.send(
+          f'**{len(self.bot.logs)-start-20}..{len(self.bot.logs)-start} of {len(self.bot.logs)} log entries**\n'
+          '```css\n'
+          + ''.join(reversed(list((itertools.islice(self.bot.logs, start, 20+start)))))
+          + '```'
+        )
+        while True:
+            available = '⬆⬇'[start >= len(self.bot.logs)-20 : 1 + bool(start)]
+            [await log.add_reaction(i) for i in available]
+            try:
+                rxn, usr = await self.bot.wait_for(
+                  'reaction_add',
+                  timeout = 10.0,
+                  check = lambda rxn, usr: all((rxn.emoji in available, usr is ctx.message.author, rxn.message.id == log.id))
+                  )
+            except asyncio.TimeoutError:
+                return await log.clear_reactions()
+            await log.clear_reactions()
+            start = max(0, min(len(self.bot.logs)-20, start + 10*((rxn.emoji == '⬆') - (rxn.emoji == '⬇'))))
+            await log.edit(content =
+              f'**{len(self.bot.logs)-start-20}..{len(self.bot.logs)-start} of {len(self.bot.logs)} log entries**\n'
+              '```css\n'
+              + ''.join(reversed(list(itertools.islice(self.bot.logs, start, 20+start))))
+              + '```'
+            )
+            
+
+
 def setup(bot):
     bot.add_cog(Utils(bot))

@@ -122,12 +122,11 @@ def savegif(current, gen, step):
         files.sort()
         with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as writer:
             for file in files:
-                file_path = os.path.join(subdir, file)
-                total += os.stat(file_path).st_size
+                frame = imageio.imread(os.path.join(subdir, file))
+                total += frame.ndbytes
                 if total > 7600000:
                     return True
-                writer.append_data(imageio.imread(file_path))
-    print('total:', total)
+                writer.append_data(frame)
     return False
 
 class CA:
@@ -317,7 +316,6 @@ class CA:
           + (f' **{flags["id"]}** \n' if 'id' in flags else '')
           + '{time}'
           )
-        print('oversized:', oversized)
         try:
             gif = await ctx.send(
               content.format(
