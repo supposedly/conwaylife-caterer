@@ -16,7 +16,7 @@ from discord.ext import commands
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-from cogs.resources import utils
+from cogs.resources import mutils
 
 # matches LtL rulestring
 rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
@@ -123,10 +123,9 @@ def savegif(current, gen, step):
         with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as writer:
             for file in files:
                 frame = imageio.imread(os.path.join(subdir, file))
-                total += frame.ndbytes
-                if total > 7600000:
-                    return True
                 writer.append_data(frame)
+                if os.stat(f'{current}.gif').st_size > 7600000:
+                    return True
     return False
 
 class CA:
@@ -145,39 +144,6 @@ class CA:
         if int(gen) > 0:
             return int(gen) - 1
         raise Exception # bad step (less than or equal to zero)
-
-    @staticmethod
-    def parse_args(args: [str], regex: [re.compile], defaults: []) -> ([str], [str]):
-        """
-        Sorts `args` according to order in `regexes`.
-        
-        If no matches for a given regex are found in `args`, the item
-        in `defaults` with the same index is dropped in to replace it.
-        
-        Extraneous arguments in `args` are left untouched, and the
-        second item in this func's return tuple will consist of these
-        extraneous args, if there are any.
-        """
-        assert len(regex) == len(defaults)
-        args = list(args)
-        new, regex = [], [i if isinstance(i, (list, tuple)) else [i] for i in regex]
-        for ri, rgx in enumerate(regex): 
-            for ai, arg in enumerate(args):
-                if any(k.match(arg) for k in rgx):
-                    new.append(arg)
-                    args.pop(ai)
-                    break
-            else: 
-                 new.append(defaults[ri])
-        return new, args
-    
-    @staticmethod
-    def parse_flags(flags: [str]) -> {str: str}:
-        new = {}
-        for i, v in enumerate(flags):
-            flag, opts = (v+':'[':' in v:]).split(':', 1)
-            new[flag.lstrip('-')] = opts
-        return new
     
     @staticmethod
     def makesoup(rulestring: str, x: int, y: int) -> str:
@@ -222,7 +188,7 @@ class CA:
     def moreinfo(self, ctx):
         return f"'{ctx.prefix}help sim' for more info"
     
-    @utils.group('sim', 'Simulate an RLE and output to GIF')
+    @mutils.group('sim', 'Simulate an RLE and output to GIF')
     async def sim(self, ctx, *args, **kwargs):
         """
         # Simulates PAT with output to animated gif. #
@@ -243,12 +209,12 @@ class CA:
         _ = re.compile(r'^\d+$')
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
-        (gen, step, rule, pat), flags = self.parse_args(
+        (gen, step, rule, pat), flags = mutils.parse_args(
           args,
           [_, _, (rRULESTRING, rLtL), re.compile(r'[\dob$]*[ob$][\dob$\n]*!?')],
           ['', '1', '', '']
           )
-        flags = self.parse_flags(flags)
+        flags = mutils.parse_flags(flags)
         if 'execs' in flags:
             flags['execs'] = flags['execs'].split(',')
             execs = [self.opts.get(v, self.defaults[i]) for i, v in enumerate(flags['execs'])]
@@ -300,7 +266,7 @@ class CA:
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             return await ctx.send(f'`{bg_err}`')
-        resp = await utils.await_event_or_coro(
+        resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'message',
                   coro = self.do_gif(execs, current, gen, step),
@@ -358,7 +324,7 @@ class CA:
                 bg_err = await self.run_bgolly(current, algo, gen, step, rule)
                 if bg_err:
                     return await ctx.send(f'`{bg_err}`')
-                resp = await utils.await_event_or_coro(
+                resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'message',
                   coro = self.do_gif(execs, current, gen, step),
@@ -412,7 +378,7 @@ class CA:
         """
         # dims, rule, gen, step
         _ = re.compile(r'^\d+$')
-        (dims, rule, *nums), flags = self.parse_args(
+        (dims, rule, *nums), flags = mutils.parse_args(
           args,
           [re.compile(r'^\d+x\d+$'), (rRULESTRING, rLtL), _, _],
           ['16x16', None, '300', None]
@@ -453,11 +419,10 @@ class CA:
         # Something went wrong in the command itself:
         elif isinstance(error, commands.CommandInvokeError):
             exc = traceback.format_exception(type(error), error, error.__traceback__)
-            
             # extract relevant traceback only (not whatever led up to CommandInvokeError)
             end = '\nThe above exception was the direct cause of the following exception:\n\n'
             end = len(exc) - next(i for i, j in enumerate(reversed(exc), 1) if j == end)
-            await ctx.send(f'{error.__class__.__name}: {error}')
+            await ctx.send(f'{error.__class__.__name__}: {error}')
             try:
                 print('Ignoring exception in on_message', exc[0].split('"""')[1], *exc[1:end])
             except Exception as e:

@@ -5,7 +5,7 @@ from cogs.resources import wiki_dyk, cmd
 from collections import namedtuple
 from random import randint
 
-from cogs.resources import utils
+from cogs.resources import mutils
 
 rPARENS = re.compile(r' \(.+?\)')
 rBRACKS = re.compile(r'\[.+?\]')
@@ -123,7 +123,7 @@ class Wiki:
                 data = json.loads(pgtxt)
         return pgtxt, data, msg
     
-    @utils.command('dyk', 'Provide a Did-You-Know fact from wiki')
+    @mutils.command('dyk', 'Provide a Did-You-Know fact from wiki')
     async def dyk(self, ctx, *num: int):
         """# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
 
@@ -166,7 +166,7 @@ class Wiki:
         else:
             raise error
     
-    @utils.group('wiki', 'Look for a page on conwaylife wiki')
+    @mutils.group('wiki', 'Look for a page on conwaylife wiki')
     async def wiki(self, ctx, *, query=''):
         """
         # Displays a short, nicely-formatted blurb from QUERY's page on http://conwaylife.com/wiki. #

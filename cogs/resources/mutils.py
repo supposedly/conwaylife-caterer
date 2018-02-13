@@ -48,6 +48,39 @@ async def wait_for_any(ctx, events, checks, *, timeout=15.0):
 
 # ----------------------------------------------------------------------------------- #
 
+def parse_args(args: [str], regex: [compile], defaults: []) -> ([str], [str]):
+    """
+    Sorts `args` according to order in `regexes`.
+    
+    If no matches for a given regex are found in `args`, the item
+    in `defaults` with the same index is dropped in to replace it.
+    
+    Extraneous arguments in `args` are left untouched, and the
+    second item in this func's return tuple will consist of these
+    extraneous args, if there are any.
+    """
+    assert len(regex) == len(defaults)
+    args = list(args)
+    new, regex = [], [i if isinstance(i, (list, tuple)) else [i] for i in regex]
+    for ri, rgx in enumerate(regex): 
+        for ai, arg in enumerate(args):
+            if any(k.match(arg) for k in rgx):
+                new.append(arg)
+                args.pop(ai)
+                break
+        else: 
+             new.append(defaults[ri])
+    return new, args
+    
+def parse_flags(flags: [str]) -> {str: str}:
+    new = {}
+    for v in (i.lstrip('-') for i in flags if i.startswith('-')):
+        flag, opts = (v+':'[':' in v:]).split(':', 1)
+        new[flag] = opts
+    return new
+
+# ----------------------------------------------------------------------------------- #
+
 import dis
 import types
 

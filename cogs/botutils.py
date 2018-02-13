@@ -9,7 +9,7 @@ import asyncpg
 import discord
 from discord.ext import commands
 
-from cogs.resources import utils
+from cogs.resources import mutils
 
 DISCORD_PUBLIC_VERSION = pkg_resources.get_distribution('discord.py').parsed_version.public
 
@@ -60,7 +60,7 @@ class Utils:
             return None
         return cmd, value
     
-    @utils.group(brief='List what Wright needs to implement')
+    @mutils.group(brief='List what Wright needs to implement')
     async def todo(self, ctx, *cmds: str.lower):
         """
         # Shows an embedded list of features I plan to implement. #
@@ -73,9 +73,9 @@ class Utils:
         await self._set_todos()
         desc = ''.join(
           (
-            f'\n**{pre}{name}**\n'
+            f'\n**{pre}{cmd}**\n'
             + ''.join(
-              f'  {idx}. ({self.lgst(date)}) {val.format(pre=ctx.prefix)}\n'
+              f'  {idx}. ({self.lgst(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
             for idx, date, val in self.bot.todos[cmd]
             )
           for pre, cmd in {(ctx.prefix if name in all_names else '', name if name in all_names else 'general') for name in cmds}
@@ -84,7 +84,7 @@ class Utils:
           (
             f'\n**{"" if cmd.lower() == "general" else ctx.prefix}{cmd}**\n'
             + ''.join(
-              f'  {idx}. ({self.lgst(date)}) {val.format(pre=ctx.prefix)}\n'
+              f'  {idx}. ({self.lgst(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
             for idx, date, val in ls
             )
           for cmd, ls in self.bot.todos.items()
@@ -122,28 +122,32 @@ class Utils:
     
     @todo.command('complete')
     @commands.is_owner()
-    async def complete_todo(self, ctx, cmd: str.lower, num: int):
+    async def finish_todo(self, ctx, cmd: str.lower, num: int, *flags):
+        flags = mutils.parse_flags(flags)
         try:
             cmd, value = await self._find_todo(cmd, num)
         except TypeError:
             return await ctx.thumbsdown()
+        pre = f'{flags["pre"]} ' if 'pre' in flags else ''
+        note = f'{flags["note"]} ' if 'note' in flags else ''
         try:
             await self.pool.execute('''
             INSERT INTO changes
               (cmd, value, date, date_created)
             SELECT
               $1::text,
-              $2::text,
+              $3::text,
               current_date,
               todo.date
             FROM todo
-            WHERE todo.cmd = $1::text AND todo.value = $2::text''', cmd, value)
+            WHERE todo.cmd = $1::text AND todo.value = $2::text''', cmd, value, pre+value+note)
             await self.pool.execute('''DELETE FROM todo WHERE value = $2::text AND cmd = $1::text''', cmd, value)
         except Exception as e:
             await ctx.send(f'`{e.__class__.__name__}: {e}`')
         else:
             self.bot.changelog_last_updated = dt.date.today()
             self.bot.changelog = None # TODO: Maybe (???) just append the new change
+            self.bot.todos = None
             await ctx.thumbsup()
     
     @todo.command('move')
@@ -163,7 +167,7 @@ class Utils:
             self.bot.todos = None # TODO: Maybe just pop the newly-removed todo and recalculate nums
             await ctx.thumbsup()
     
-    @utils.command(brief='Show a 30-day changelog')
+    @mutils.command(brief='Show a 30-day changelog')
     async def new(self, ctx):
         desc = ''
         await self._set_changelog()
@@ -172,7 +176,7 @@ class Utils:
           + '\n'.join(
             f'  **{"" if cmd.lower() == "general" else ctx.prefix}{cmd}**\n'
             + ''.join(
-              f'    ({self.lgst(date_created)}) {val.format(pre=ctx.prefix)}\n'
+              f'    ({self.lgst(date_created)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
             for date_created, val in ls
             )
           for cmd, ls in cmd_data.items()
@@ -183,20 +187,20 @@ class Utils:
         em.set_footer(text=f'Last updated: {self.bot.changelog_last_updated or "Not since bot was last restarted"}')
         await ctx.send(embed=em)
     
-    @utils.command()
+    @mutils.command()
     async def ping(self, ctx):
         resp = await ctx.send(f'Pong! Loading...')
         diff = resp.created_at - ctx.message.created_at
         await resp.edit(content=f'Pong! That took {1000*diff.total_seconds():.1f}ms.\n(Discord websocket latency: {1000*self.bot.latency:.1f}ms)')
     
-    @utils.command(brief='Post an invite link for this bot')
+    @mutils.command(brief='Post an invite link for this bot')
     async def link(self, ctx):
         """# Procures an oauth2 invite link for this bot with necessary permissions. #"""
         em = discord.Embed(description=f'Use [this link]({self.invite}) to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=self.bot.user.avatar_url)
         await ctx.send(embed=em)
     
-    @utils.command(brief='Display this message')
+    @mutils.command(brief='Display this message')
     async def help(self, ctx, *, name=None):
         """
         # A prettified sort of help command — because HelpFormatter is for dweebs. #
@@ -240,7 +244,7 @@ class Utils:
             em = discord.Embed(description=desc)
             await ctx.send(embed=em)
     
-    @utils.command()
+    @mutils.command()
     async def info(self, ctx):
         """# Displays credits, useful links, and information about this bot's dependencies. #"""
         desc = f'''**```ini
@@ -266,7 +270,7 @@ class Utils:
         '''
         await ctx.send(embed=discord.Embed(description=inspect.cleandoc(desc)))
     
-    @utils.command()
+    @mutils.command()
     async def logs(self, ctx, start=0):
         """# Displays recent logs for debugging #"""
         start = max(0, min(len(self.bot.logs)-20, start))
@@ -282,7 +286,7 @@ class Utils:
             try:
                 rxn, usr = await self.bot.wait_for(
                   'reaction_add',
-                  timeout = 10.0,
+                  timeout = 30.0,
                   check = lambda rxn, usr: all((rxn.emoji in available, usr is ctx.message.author, rxn.message.id == log.id))
                   )
             except asyncio.TimeoutError:
