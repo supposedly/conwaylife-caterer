@@ -1,4 +1,32 @@
-__all__ = ['await_event_or_coro', 'wait_for_any', 'attrify', 'command', 'group']
+__all__ = ['attrify', 'await_event_or_coro', 'command', 'group', 'parse_args', 'parse_flags', 'typecasted', 'wait_for_any',]
+# ----------------------------------------------------------------------------------- #
+
+import inspect
+from functools import wraps
+from itertools import zip_longest as zipln
+
+def typecasted(func):
+    """Decorator that casts a func's arg to its type hint if possible"""
+    #TODO: Allow (callable, callable, ..., callable) sequences to apply
+    # each callable in order on the last's return value
+    params = inspect.signature(func).parameters.items()
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # Prepare list/dict of all positional/keyword args of annotation or None
+        pannot, kwannot = (
+          [func.__annotations__.get(p.name) for _, p in params if p.kind < 3],
+          {None if p.kind - 3 else p.name: func.__annotations__.get(p.name) for _, p in params if p.kind >= 3}
+          )
+        # Assign default to handle **kwargs annotation if not given/callable
+        if not callable(kwannot.get(None)):
+            kwannot[None] = lambda x: x
+        ret = func(
+            *(hint(val) if callable(hint) else val for hint, val in zipln(pannot, args, fillvalue=pannot[-1])),
+            **{a: kwannot[a](b) if a in kwannot and callable(kwannot[a]) else kwannot[None](b) for a, b in kwargs.items()}
+            )
+        conv = func.__annotations__.get('return')
+        return conv(ret) if callable(conv) else ret
+    return wrapper
 
 # ----------------------------------------------------------------------------------- #
 
@@ -31,7 +59,7 @@ async def wait_for_any(ctx, events, checks, *, timeout=15.0):
     checks: Sequence of check functions as outlined in dpy's docs
     timeout: asyncio.wait timeout
     
-    events and checks must be of the same length.
+    Params events and checks must be of equal length.
     """
     mapped = dict(zip(events, checks)).items()
     futures = [ctx.bot.wait_for(event, timeout=timeout, check=check) for event, check in mapped]
@@ -48,7 +76,12 @@ async def wait_for_any(ctx, events, checks, *, timeout=15.0):
 
 # ----------------------------------------------------------------------------------- #
 
-def parse_args(args: [str], regex: [compile], defaults: []) -> ([str], [str]):
+# Typehint converter; truncates seq.
+TRUNC = lambda end: lambda seq: seq[:end]
+# TRUNC(end)(seq) -> seq[0:end]
+
+@typecasted
+def parse_args(args: list, regex: [compile], defaults: [object]) -> ([str], [str]):
     """
     Sorts `args` according to order in `regexes`.
     
@@ -60,25 +93,23 @@ def parse_args(args: [str], regex: [compile], defaults: []) -> ([str], [str]):
     extraneous args, if there are any.
     """
     assert len(regex) == len(defaults)
-    args = list(args)
     new, regex = [], [i if isinstance(i, (list, tuple)) else [i] for i in regex]
-    for ri, rgx in enumerate(regex): 
-        for ai, arg in enumerate(args):
+    for ridx, rgx in enumerate(regex): 
+        for aidx, arg in enumerate(args):
             if any(k.match(arg) for k in rgx):
                 new.append(arg)
-                args.pop(ai)
+                args.pop(aidx)
                 break
         else: 
-             new.append(defaults[ri])
+             new.append(defaults[ridx])
     return new, args
-    
-def parse_flags(flags: [str], *, prefix='-', delim=':') -> {str: str}:
-    """len(delim) == len(prefix) == 1"""
+
+@typecasted
+def parse_flags(flags: list, *, prefix: TRUNC(1) = '-', delim: TRUNC(1) = ':') -> {str: str}:
     # I don't remember why or how the generators below work
     # but they do.
     # except when you have an opening quote with a space directly after
     # but who cares about those cases? (aaaagh)
-    flags = [i.lstrip(prefix) for i in flags if i.startswith(prefix)]
     openers = (i for i, v in enumerate(flags) if f"{delim}'" in v)
     closers = (i for i, v in enumerate(flags) if v.endswith("'"))
     while True:
@@ -92,7 +123,7 @@ def parse_flags(flags: [str], *, prefix='-', delim=':') -> {str: str}:
         flags[begin] = new.rstrip("'").replace(f"{delim}'", delim)
     # now just get 'em into a dict
     new = {}
-    for v in flags:
+    for v in (i.lstrip(prefix) for i in flags if i.startswith(prefix)):
         flag, opts = (v+delim[delim in v:]).split(delim, 1)
         new[flag] = opts
     return new
