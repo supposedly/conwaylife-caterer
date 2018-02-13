@@ -72,10 +72,28 @@ def parse_args(args: [str], regex: [compile], defaults: []) -> ([str], [str]):
              new.append(defaults[ri])
     return new, args
     
-def parse_flags(flags: [str]) -> {str: str}:
+def parse_flags(flags: [str], *, prefix='-', delim=':') -> {str: str}:
+    """len(delim) == len(prefix) == 1"""
+    # I don't remember why or how the generators below work
+    # but they do.
+    # except when you have an opening quote with a space directly after
+    # but who cares about those cases? (aaaagh)
+    flags = [i.lstrip(prefix) for i in flags if i.startswith(prefix)]
+    openers = (i for i, v in enumerate(flags) if f"{delim}'" in v)
+    closers = (i for i, v in enumerate(flags) if v.endswith("'"))
+    while True:
+        try:
+            begin = next(openers)
+        except (IndexError, StopIteration):
+            break # as if returning flags
+        end = begin if flags[begin].endswith("'") else next(closers)
+        new = ' '.join(flags[begin:1+end])
+        flags[begin:end] = ''
+        flags[begin] = new.rstrip("'").replace(f"{delim}'", delim)
+    # now just get 'em into a dict
     new = {}
-    for v in (i.lstrip('-') for i in flags if i.startswith('-')):
-        flag, opts = (v+':'[':' in v:]).split(':', 1)
+    for v in flags:
+        flag, opts = (v+delim[delim in v:]).split(delim, 1)
         new[flag] = opts
     return new
 
