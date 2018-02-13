@@ -43,7 +43,7 @@ class Utils:
                 # Then set changelog in order of date -> command -> days in progress: todo text
                 self.bot.changelog = {
                   date: {
-                    cmd: [(i['date_created'], i['value']) for i in await conn.fetch('''SELECT date_created, value FROM changes WHERE cmd = $1::text ORDER BY date_created DESC''', cmd)]
+                    cmd: [(i['date_created'], i['value']) for i in await conn.fetch('''SELECT date_created, value FROM changes WHERE cmd = $1::text AND date = $2::date ORDER BY date_created DESC''', cmd, date)]
                     for cmd in {j['cmd'] for j in await conn.fetch('''SELECT DISTINCT cmd FROM changes WHERE date = $1::date ORDER BY cmd''', date)}
                     }
                   for date in {k['date'] for k in await conn.fetch('''SELECT DISTINCT date FROM changes ORDER BY date DESC''')} # desc puts 'larger', aka more recent, dates first
@@ -129,7 +129,7 @@ class Utils:
         except TypeError:
             return await ctx.thumbsdown()
         pre = f'{flags["pre"]} ' if 'pre' in flags else ''
-        note = f'{flags["note"]} ' if 'note' in flags else ''
+        note = f' ({flags["note"]})' if 'note' in flags else ''
         try:
             await self.pool.execute('''
             INSERT INTO changes
