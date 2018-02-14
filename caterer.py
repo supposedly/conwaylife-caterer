@@ -35,7 +35,7 @@ def get_prefix(bot, message):
 bot = Bot(command_prefix=get_prefix, description="A 'caterer' bot for the cellular automata community's Discord server")
 bot.remove_command('help')
 
-extensions = ['cogs.botutils', 'cogs.wiki', 'cogs.ca', 'cogs.admin']
+extensions = ['cogs.meta', 'cogs.wiki', 'cogs.ca', 'cogs.admin']
 
 @bot.event
 async def on_ready():
@@ -52,23 +52,8 @@ async def on_ready():
     bot.help_padding = 1 + max(len(i.name) for i in bot.commands)
     bot.sorted_commands = sorted(bot.commands, key=lambda x: x.name)
     
-    bot.logs = collections.deque(maxlen=100)
-    bot.logtask = bot.loop.create_task(get_heroku_logs())
-    
     print(f'Logged in as\n{bot.user.name}\n{bot.user.id}')
     print('Guilds:', len(bot.guilds))
     print('------')
-
-async def get_heroku_logs():
-    with subprocess.Popen('./open-logs.sh', stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as proc:
-        print('Received logs!')
-        while not bot.is_closed():
-            readables, _, _ = select.select([proc.stdout], [], [], 2.0)
-            if not readables: # []
-                await asyncio.sleep(2)
-                continue
-            line = proc.stdout.readline()
-            if 'app[api]' not in line.split(': ')[0]:
-                bot.logs.appendleft(f':{line.split(" ")[1].split("[")[0]} {line.split(": ", 1)[1]}')
 
 bot.run(os.getenv('DISCORD_TOKEN'))

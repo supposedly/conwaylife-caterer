@@ -153,12 +153,15 @@ def chain(nested):
 
 # ------------- Custom command/group decos with info pointing to cmd.py ------------- #
 
+import dis
+import types
+
 import discord
 from discord.ext import commands
 
 from .import cmd
 
-class HelpPropsMixin:
+class HelpAttrsMixin:
     @property
     def helpsafe_name(self):
         return self.qualified_name.replace(' ', '/')
@@ -175,15 +178,28 @@ class HelpPropsMixin:
     def aliases(*_):
         """Eliminates "can't set attribute" when dpy tries assigning aliases"""
 
-class Command(HelpPropsMixin, commands.Command):
+class Command(HelpAttrsMixin, commands.Command):
     def __init__(self, name, callback, **kwargs):
         self.parent = None
+        self.loc = types.SimpleNamespace(
+          file = callback.__code__.co_filename,
+          start = callback.__code__.co_firstlineno - 1,
+          end = max(i[1] for i in dis.findlinestarts(callback.__code__))
+          )
+        self.loc.len = self.loc.end - self.loc.start
         super().__init__(name, callback, **kwargs)
 
-class Group(HelpPropsMixin, commands.Group):
+class Group(HelpAttrsMixin, commands.Group):
     def __init__(self, **attrs):
         self.parent = None
-        super().__init__(**attrs)
+        cbc = attrs['callback'].__code__
+        self.loc = types.SimpleNamespace(
+          file = cbc.co_filename,
+          start = cbc.co_firstlineno,
+          end = max(i[1] for i in dis.findlinestarts(cbc))
+          )
+        self.loc.len = self.loc.end - self.loc.start
+        super().__init__( **attrs)
     
     def command(self, *args, **kwargs):
         def decorator(func):
@@ -199,8 +215,8 @@ class Group(HelpPropsMixin, commands.Group):
             return res
         return decorator
 
-def command(name=None, brief=None, cls=Command, **attrs):
+def command(brief=None, name=None, cls=Command, **attrs):
     return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(func)
 
-def group(name=None, brief=None, *, invoke_without_command=True, **attrs):
-    return command(name=name, brief=brief, cls=Group, invoke_without_command=invoke_without_command, **attrs)
+def group(brief=None, name=None, *, invoke_without_command=True, **attrs):
+    return command(brief, name, cls=Group, invoke_without_command=invoke_without_command, **attrs)

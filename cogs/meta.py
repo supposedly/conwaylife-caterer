@@ -1,9 +1,10 @@
 import asyncio
-import inspect
-import itertools
 import pkg_resources
 import platform
+import re
 import datetime as dt
+from inspect import cleandoc
+from itertools import islice
 
 import asyncpg
 import discord
@@ -11,7 +12,9 @@ from discord.ext import commands
 
 from cogs.resources import mutils
 
+rDOC = re.compile(r'""".*?"""\n\s+', re.S)
 DISCORD_PUBLIC_VERSION = pkg_resources.get_distribution('discord.py').parsed_version.public
+ZWSP = '\u200b'
 
 class Utils:
     def __init__(self, bot):
@@ -60,7 +63,7 @@ class Utils:
             return None
         return cmd, value
     
-    @mutils.group(brief='List what Wright needs to implement')
+    @mutils.group('List what Wright needs to implement')
     async def todo(self, ctx, *cmds: str.lower):
         """
         # Shows an embedded list of features I plan to implement. #
@@ -92,7 +95,7 @@ class Utils:
         )
         await ctx.send(embed=discord.Embed(title='To-Dos', description=desc))
     
-    @todo.command('add')
+    @todo.command(name='add')
     @commands.is_owner()
     async def add_todo(self, ctx, cmd: str.lower, *, value):
         if cmd not in {i.qualified_name.lower() for i in self.bot.walk_commands()}:
@@ -105,7 +108,7 @@ class Utils:
             self.bot.todos = None # TODO: Maybe just append the newly-added todo with a calculated num 
             await ctx.thumbsup()
     
-    @todo.command('del')
+    @todo.command(name='del')
     @commands.is_owner()
     async def guillermo_del_todo(self, ctx, cmd: str.lower, num: int):
         try:
@@ -120,7 +123,7 @@ class Utils:
             self.bot.todos = None # TODO: Maybe just pop the newly-removed todo and recalculate nums
             await ctx.thumbsup()
     
-    @todo.command('complete')
+    @todo.command(name='complete')
     @commands.is_owner()
     async def finish_todo(self, ctx, cmd: str.lower, num: int, *flags):
         flags = mutils.parse_flags(flags)
@@ -150,7 +153,7 @@ class Utils:
             self.bot.todos = None
             await ctx.thumbsup()
     
-    @todo.command('move')
+    @todo.command(name='move')
     @commands.is_owner()
     async def move_todo(self, ctx, old: str.lower, num: int, new: str.lower):
         try:
@@ -167,7 +170,7 @@ class Utils:
             self.bot.todos = None # TODO: Maybe just pop the newly-removed todo and recalculate nums
             await ctx.thumbsup()
     
-    @mutils.command(brief='Show a 30-day changelog')
+    @mutils.command('Show a 30-day changelog')
     async def new(self, ctx):
         desc = ''
         await self._set_changelog()
@@ -188,19 +191,37 @@ class Utils:
         await ctx.send(embed=em)
     
     @mutils.command()
-    async def ping(self, ctx):
-        resp = await ctx.send(f'Pong! Loading...')
-        diff = resp.created_at - ctx.message.created_at
-        await resp.edit(content=f'Pong! That took {1000*diff.total_seconds():.1f}ms.\n(Discord websocket latency: {1000*self.bot.latency:.1f}ms)')
+    async def source(self, ctx, cmd, start: int = 0):
+        cmd = self.bot.get_command(cmd)
+        with open(cmd.loc.file) as fp:
+            src = list(islice(fp, cmd.loc.start, cmd.loc.end))
+            if cmd.help:
+                src = rDOC.sub('', ''.join(src)).splitlines(True)
+        pre = ''.join(src[0:2]) + '@'*6 + 'py\n' if start else ''
+        msg = await ctx.send(f'```py\n{cleandoc(pre+"".join(src[start:15+start])).replace("`", f"`{ZWSP}").replace("@"*6, "`"*6)}\n```')
+        while True:
+            available = '⬆⬇'[not start:1+(start<cmd.loc.len-15)]
+            [await msg.add_reaction(i) for i in available]
+            try:
+                rxn, usr = await self.bot.wait_for(
+                  'reaction_add',
+                  timeout = 30.0,
+                  check = lambda rxn, usr: all((rxn.emoji in available, usr is ctx.message.author, rxn.message.id == msg.id))
+                  )
+            except asyncio.TimeoutError:
+                return await msg.clear_reactions()
+            await msg.clear_reactions()
+            start = max(0, min(cmd.loc.len-15, start+10*((rxn.emoji=='⬇')-(rxn.emoji=='⬆'))))
+            pre = ''.join(src[0:2]) + '@'*6 + 'py\n' if start else ''
+            await msg.edit(content=f'```py\n{cleandoc(pre+"".join(src[start:15+start])).replace("`", f"`{ZWSP}").replace("@"*6, "`"*6)}\n```')
+
+    @mutils.command()
+    async def logs(self, ctx, start: int = 0):
+        """# Displays recent logs for debugging #"""
+        # see ./logging-minibot.py
+        pass
     
-    @mutils.command(brief='Post an invite link for this bot')
-    async def link(self, ctx):
-        """# Procures an oauth2 invite link for this bot with necessary permissions. #"""
-        em = discord.Embed(description=f'Use [this link]({self.invite}) to add me to your server!', color=0x000000)
-        em.set_author(name='Add me!', icon_url=self.bot.user.avatar_url)
-        await ctx.send(embed=em)
-    
-    @mutils.command(brief='Display this message')
+    @mutils.command('Display this message')
     async def help(self, ctx, *, name=None):
         """
         # A prettified sort of help command — because HelpFormatter is for dweebs. #
@@ -230,14 +251,14 @@ class Utils:
                 msg += '```apache\nAliases: {}```'.format(', '.join(map(prep.__add__, command.aliases)))
             await ctx.send(msg)
         else:
-            # FIXME: Spacing below is hardcoded when it should be a function of the longest command name
+            # FIXME: Gets spaced too far for whatever reason
             center = max(map(len, (f'{ctx.prefix}{i.name: <{self.bot.help_padding}}| {i.brief}' for i in self.bot.commands)))
-            desc = inspect.cleandoc(
-              f"""
+            desc = cleandoc(
+              f'''
               **```ini
               {'[A cellular automata bot for Conwaylife.com]': ^{center}}```**```makefile
               Commands:
-              """
+              '''
               ) + '\n'
             desc += ''.join(f'{ctx.prefix}{cmd.name: <{self.bot.help_padding}}| {cmd.brief}\n' for cmd in self.bot.sorted_commands if cmd.brief is not None)
             desc += '``````FORTRAN\n{1: ^{0}}\n{2: ^{0}}```'.format(center, f"'{ctx.prefix}help COMMAND' for command-specific docs", f"'{ctx.prefix}info' for credits & general information")
@@ -268,39 +289,21 @@ class Utils:
         ```FORTRAN
         {f"'{ctx.prefix}help' for command info": ^57}```
         '''
-        await ctx.send(embed=discord.Embed(description=inspect.cleandoc(desc)))
-    
+        await ctx.send(embed=discord.Embed(description=cleandoc(desc)))
+        
     @mutils.command()
-    async def logs(self, ctx, start=0):
-        """# Displays recent logs for debugging #"""
-        start = max(0, min(len(self.bot.logs)-20, start))
-        log = await ctx.send(
-          f'**{len(self.bot.logs)-start-20}..{len(self.bot.logs)-start} of {len(self.bot.logs)} log entries**\n'
-          '```css\n'
-          + ''.join(reversed(list((itertools.islice(self.bot.logs, start, 20+start)))))
-          + '```'
-        )
-        while True:
-            available = '⬆⬇'[start >= len(self.bot.logs)-20 : 1 + bool(start)]
-            [await log.add_reaction(i) for i in available]
-            try:
-                rxn, usr = await self.bot.wait_for(
-                  'reaction_add',
-                  timeout = 30.0,
-                  check = lambda rxn, usr: all((rxn.emoji in available, usr is ctx.message.author, rxn.message.id == log.id))
-                  )
-            except asyncio.TimeoutError:
-                return await log.clear_reactions()
-            await log.clear_reactions()
-            start = max(0, min(len(self.bot.logs)-20, start + 10*((rxn.emoji == '⬆') - (rxn.emoji == '⬇'))))
-            await log.edit(content =
-              f'**{len(self.bot.logs)-start-20}..{len(self.bot.logs)-start} of {len(self.bot.logs)} log entries**\n'
-              '```css\n'
-              + ''.join(reversed(list(itertools.islice(self.bot.logs, start, 20+start))))
-              + '```'
-            )
-            
-
+    async def ping(self, ctx):
+        resp = await ctx.send(f'Pong! Loading...')
+        diff = resp.created_at - ctx.message.created_at
+        await resp.edit(content=f'Pong! That took {1000*diff.total_seconds():.1f}ms.\n(Discord websocket latency: {1000*self.bot.latency:.1f}ms)')
+    
+    @mutils.command('Post an invite link for this bot')
+    async def link(self, ctx):
+        """# Procures an oauth2 invite link for this bot with necessary permissions. #"""
+        em = discord.Embed(description=f'Use [this link]({self.invite}) to add me to your server!', color=0x000000)
+        em.set_author(name='Add me!', icon_url=self.bot.user.avatar_url)
+        await ctx.send(embed=em)
+    
 
 def setup(bot):
     bot.add_cog(Utils(bot))

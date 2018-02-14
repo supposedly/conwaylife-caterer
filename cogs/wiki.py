@@ -123,7 +123,7 @@ class Wiki:
                 data = json.loads(pgtxt)
         return pgtxt, data, msg
     
-    @mutils.command('dyk', 'Provide a Did-You-Know fact from wiki')
+    @mutils.command('Provide a Did-You-Know fact from wiki')
     async def dyk(self, ctx, *num: int):
         """# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
 
@@ -166,7 +166,7 @@ class Wiki:
         else:
             raise error
     
-    @mutils.group('wiki', 'Look for a page on conwaylife wiki')
+    @mutils.group('Look for a page on conwaylife wiki')
     async def wiki(self, ctx, *, query=''):
         """
         # Displays a short, nicely-formatted blurb from QUERY's page on http://conwaylife.com/wiki. #
@@ -335,7 +335,7 @@ class Wiki:
             else:
                 return f'Page `{query}` either has no {search[caller][1]} or its file is too large to send via Discord.'
     
-    @wiki.command('-pat')
+    @wiki.command(name='-pat')
     async def pat(self, ctx, filetype: normalized_filetype, *, query=''):
         async with ctx.typing():
             if isinstance(filetype, tuple):
@@ -351,7 +351,7 @@ class Wiki:
             await self.send_info(ctx, pgtxt, query, 'pat', say, re.escape(filetype))
     
     
-    @wiki.command('-synth')
+    @wiki.command(name='-synth')
     async def synth(self, ctx, *, query):
         async with ctx.typing():
             try:

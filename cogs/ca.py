@@ -188,7 +188,7 @@ class CA:
     def moreinfo(self, ctx):
         return f"'{ctx.prefix}help sim' for more info"
     
-    @mutils.group('sim', 'Simulate an RLE and output to GIF')
+    @mutils.group('Simulate an RLE and output to GIF')
     async def sim(self, ctx, *args, **kwargs):
         """
         # Simulates PAT with output to animated gif. #
@@ -364,7 +364,7 @@ class CA:
             os.remove(f'{current}_in.rle')
             os.system(f'rm -rf {current}_frames/')
         
-    @sim.command('rand')
+    @sim.command()
     async def rand(self, ctx, *args):
         """
         # Simulates a random soup in given rule with output to GIF. Dims default to 16x16. #
