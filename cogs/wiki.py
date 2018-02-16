@@ -1,11 +1,14 @@
-import discord, aiohttp, asyncio
-import re, json, html
-from discord.ext import commands
-from cogs.resources import wiki_dyk, cmd
-from collections import namedtuple
-from random import randint
+import asyncio
+import json
+import html
+import random
+import re
 
-from cogs.resources import mutils
+import aiohttp
+import discord
+from discord.ext import commands
+
+from cogs.resources import cmd, wiki_dyk, mutils
 
 rPARENS = re.compile(r' \(.+?\)')
 rBRACKS = re.compile(r'\[.+?\]')
@@ -39,7 +42,7 @@ class Wiki:
         txt = rTAGS.sub('', txt)
         return html.unescape(txt)
 
-    async def page_img(self, query, img_name: None):
+    async def page_img(self, query, img_name=None):
         if img_name is None:
             async with self.session.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as resp:
                 images = await resp.json()
@@ -132,10 +135,9 @@ class Wiki:
         [or]
         SEARCH: Triggered automatically if input is not a number, and displays DYKs containing given text. To search for a number, prefix it with a single period; .12, for instance, searches for DYKs containing "12".
         """
-        num = num or [random.randint(0, 91)]
-        indices = ((91 if not i else (i - 1) % 92) for i in nums)
+        nums = nums or [random.randint(0, 91)]
         em = discord.Embed(title='Did you know...\n', description='', color=0xffffff)
-        for item in indices:
+        for item in ((n-1) % 92 if n else 91 for n in nums):
             em.description += f'**#{item + 1}:** {wiki_dyk.trivia[item]}\n'
         await ctx.send(embed=em)
     
