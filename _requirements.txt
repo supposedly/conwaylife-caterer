@@ -1,0 +1,6 @@
+# Can't get asyncpg from pypi until they publish the serverversion fix (which is just on master for now)
+imageio
+pypng
+
+git+https://github.com/Rapptz/discord.py@rewrite
+git+https://github.com/MagicStack/asyncpg@master

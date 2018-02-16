@@ -1,0 +1,14 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+
+[packages]
+cython = "*"
+pypng = "*"
+imageio = "*"
+
+asyncpg = {git = 'https://github.com/MagicStack/asyncpg.git'}
+"discord.py" = {git = 'https://github.com/Rapptz/discord.py@rewrite'}
+
+[requires]
+python_version = "3.6.4"

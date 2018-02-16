@@ -70,5 +70,5 @@ async def logs(ctx, start: int = 0):
           + ''.join(reversed(list(islice(bot.logs, start, 20+start))))
           + '```'
         )
-
+        
 bot.run(os.getenv('DISCORD_TOKEN'))
