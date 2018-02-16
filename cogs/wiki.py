@@ -39,7 +39,7 @@ class Wiki:
         txt = rTAGS.sub('', txt)
         return html.unescape(txt)
 
-    async def page_img(self, query, img_None):
+    async def page_img(self, query, img_name: None):
         if img_name is None:
             async with self.session.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as resp:
                 images = await resp.json()
@@ -124,7 +124,7 @@ class Wiki:
         return pgtxt, data, msg
     
     @mutils.command('Provide a Did-You-Know fact from wiki')
-    async def dyk(self, ctx, *num: int):
+    async def dyk(self, ctx, *nums: int):
         """# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
 
         <[ARGS]>
@@ -132,13 +132,9 @@ class Wiki:
         [or]
         SEARCH: Triggered automatically if input is not a number, and displays DYKs containing given text. To search for a number, prefix it with a single period; .12, for instance, searches for DYKs containing "12".
         """
-        if num == ():
-            num = randint(0, 91),
-        indices = ((91 if not i else (i - 1) % 92) for i in num)
-        em = discord.Embed()
-        em.color = 0xffffff
-        em.title = 'Did you know...\n'
-        em.description = ''
+        num = num or [random.randint(0, 91)]
+        indices = ((91 if not i else (i - 1) % 92) for i in nums)
+        em = discord.Embed(title='Did you know...\n', description='', color=0xffffff)
         for item in indices:
             em.description += f'**#{item + 1}:** {wiki_dyk.trivia[item]}\n'
         await ctx.send(embed=em)
@@ -147,10 +143,7 @@ class Wiki:
     async def dyk_search(self, ctx, error):
         # is it bad practice to abuse the error handler like this? ...probably
         if isinstance(error, commands.BadArgument):
-            em = discord.Embed()
-            em.color = 0xffffff
-            em.title = 'Did you know...\n'
-            
+            em = discord.Embed(title='Did you know...\n', description='', color=0xffffff)
             # remove invocation from message and keep query, since we can't do ctx.args here
             query = ctx.message.content.split(' ', 1)[1].rstrip()
             query = query[len(query) > 1 and query[0] == '.' and query[1:].isdigit():] # allow searching for numbers by prepending a period
@@ -158,13 +151,11 @@ class Wiki:
             matches = [wiki_dyk.plaintext.index(i) for i in wiki_dyk.plaintext if rquery.search(i)]
             if not matches:
                 return await ctx.send(f'No results found for `{query}`.')
-            em.description = ''
             for item in matches[:3]:
                 em.description += f'**#{item + 1}:** {wiki_dyk.trivia[item]}\n'
             em.set_footer(text=f'Showing first three or fewer DYK results for "{query}"')
-            await ctx.send(embed=em)
-        else:
-            raise error
+            return await ctx.send(embed=em)
+        raise error
     
     @mutils.group('Look for a page on conwaylife wiki')
     async def wiki(self, ctx, *, query=''):

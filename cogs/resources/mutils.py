@@ -106,21 +106,28 @@ def parse_args(args: list, regex: [compile], defaults: [object]) -> ([str], [str
 
 @typecasted
 def parse_flags(flags: list, *, prefix: TRUNC(1) = '-', delim: TRUNC(1) = ':') -> {str: str}:
-    # I don't remember why or how the generators below work
-    # but they do.
-    # except when you have an opening quote with a space directly after
-    # but who cares about those cases? (aaaagh)
-    openers = (i for i, v in enumerate(flags) if f"{delim}'" in v)
-    closers = (i for i, v in enumerate(flags) if v.endswith("'"))
+    # FIXME: This ALMOST works perfectly. Fails when flags ==
+    # ['-test', "-a:'", "bb", "'", "-bb:'aaa", "'", "-one:'", "two", "three", "four'"]
+    # AKA "-test -a:' bb ' -bb:'aaa ' -one:' two three four'".split()
+    # in case I screwed up transcribing to list
+    op = f"{delim}'"
+    openers = (i for i, v in enumerate(flags) if op in v)
+    closers = (i for i, v in enumerate(flags) if v.endswith("'") and op not in v)
     while True:
         try:
             begin = next(openers)
         except (IndexError, StopIteration):
-            break # as if returning flags
-        end = begin if flags[begin].endswith("'") else next(closers)
+            break
+        end = (
+          next(closers)
+            if flags[begin].endswith(op) and flags[begin].count(op) == 1
+          else begin
+            if flags[begin].endswith("'")
+          else next(closers)
+          )
         new = ' '.join(flags[begin:1+end])
         flags[begin:end] = ''
-        flags[begin] = new.rstrip("'").replace(f"{delim}'", delim)
+        flags[begin] = new.rstrip("'").replace(op, delim)
     # now just get 'em into a dict
     new = {}
     for v in (i.lstrip(prefix) for i in flags if i.startswith(prefix)):
