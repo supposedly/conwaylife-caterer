@@ -135,7 +135,6 @@ class CA:
         self.ppe = ProcessPoolExecutor()
         self.tpe = ThreadPoolExecutor() # or just None
         self.loop = bot.loop
-        
         self.defaults = *[[self.ppe, 'ProcessPoolExecutor']]*2, [self.tpe, 'ThreadPoolExecutor']
         self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
     
@@ -143,7 +142,7 @@ class CA:
     def genconvert(gen: int):
         if int(gen) > 0:
             return int(gen) - 1
-        raise Exception # bad step (less than or equal to zero)
+        raise Exception # bad gen (less than or equal to zero)
     
     @staticmethod
     def makesoup(rulestring: str, x: int, y: int) -> str:
@@ -215,6 +214,7 @@ class CA:
           ['', '1', '', '']
           )
         flags = mutils.parse_flags(flags)
+        gen = self.genconvert(gen)
         if 'execs' in flags:
             flags['execs'] = flags['execs'].split(',')
             execs = [self.opts.get(v, self.defaults[i]) for i, v in enumerate(flags['execs'])]
@@ -257,7 +257,7 @@ class CA:
         algo = 'Larger than Life' if rLtL.match(rule) else algo
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
-          + f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
+          + f' in rule `{rule}` with step `{step}` for `{1+gen}` generation(s)'
           + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
           )
         announcement = await ctx.send(details)
@@ -304,7 +304,7 @@ class CA:
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         try:
             while True:
-                if gen < 2500*step and not oversized:
+                if gen < 2500 * step and not oversized:
                     await gif.add_reaction('➕')
                 await gif.add_reaction('⏩')
                 rxn, _ = await self.bot.wait_for('reaction_add', timeout=30.0, check=lambda rxn, usr: rxn.emoji in '➕⏩' and rxn.message.id == gif.id and usr is ctx.message.author)
@@ -422,13 +422,13 @@ class CA:
             # extract relevant traceback only (not whatever led up to CommandInvokeError)
             end = '\nThe above exception was the direct cause of the following exception:\n\n'
             end = len(exc) - next(i for i, j in enumerate(reversed(exc), 1) if j == end)
-            await ctx.send(f'{error.__class__.__name__}: {error}')
+            await ctx.send(f'`{error.__class__.__name__}: {error}`')
             try:
                 print('Ignoring exception in on_message', exc[0].split('"""')[1], *exc[1:end])
             except Exception as e:
                 raise error
         else:
-            await ctx.send(f'{error.__class__.__name}: {error}')
+            await ctx.send(f'`{error.__class__.__name}: {error}`')
             raise error
         
         

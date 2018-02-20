@@ -1,4 +1,5 @@
 __all__ = ['attrify', 'await_event_or_coro', 'command', 'group', 'parse_args', 'parse_flags', 'typecasted', 'wait_for_any',]
+
 # ----------------------------------------------------------------------------------- #
 
 import inspect
@@ -61,14 +62,15 @@ async def wait_for_any(ctx, events, checks, *, timeout=15.0):
     
     Params events and checks must be of equal length.
     """
-    mapped = dict(zip(events, checks)).items()
+    mapped = list(zip(events, checks))
     futures = [ctx.bot.wait_for(event, timeout=timeout, check=check) for event, check in mapped]
     [done], pending = await asyncio.wait(futures, loop=ctx.bot.loop, timeout=timeout, return_when=concurrent.futures.FIRST_COMPLETED)
     result = done.result()
     for event, check in mapped:
         try:
-            valid = check(result)
-        except TypeError: # too many/few arguments
+            # maybe just check(result) and force multi-param checks to unpack?
+            valid = check(*result) if isinstance(result, tuple) else check(result)
+        except (TypeError, AttributeError, ValueError): # maybe just except Exception
             continue
         if valid:
             return {event: result}
@@ -188,10 +190,11 @@ class HelpAttrsMixin:
 class Command(HelpAttrsMixin, commands.Command):
     def __init__(self, name, callback, **kwargs):
         self.parent = None
+        cbc = callback.__code__
         self.loc = types.SimpleNamespace(
-          file = callback.__code__.co_filename,
-          start = callback.__code__.co_firstlineno - 1,
-          end = max(i[1] for i in dis.findlinestarts(callback.__code__))
+          file = cbc.co_filename,
+          start = cbc.co_firstlineno - 1,
+          end = max(i for _, i in dis.findlinestarts(cbc))
           )
         self.loc.len = self.loc.end - self.loc.start
         super().__init__(name, callback, **kwargs)
@@ -202,8 +205,8 @@ class Group(HelpAttrsMixin, commands.Group):
         cbc = attrs['callback'].__code__
         self.loc = types.SimpleNamespace(
           file = cbc.co_filename,
-          start = cbc.co_firstlineno,
-          end = max(i[1] for i in dis.findlinestarts(cbc))
+          start = cbc.co_firstlineno - 1,
+          end = max(i for _, i in dis.findlinestarts(cbc))
           )
         self.loc.len = self.loc.end - self.loc.start
         super().__init__( **attrs)

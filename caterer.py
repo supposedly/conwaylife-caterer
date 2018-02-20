@@ -45,13 +45,12 @@ async def on_ready():
         try:
             bot.load_extension(cog)
         except Exception as e:
+            raise
             exc = traceback.format_exception(type(e), e, e.__traceback__)
             line = rNUM.search(exc[-2]).group(1)
             print(f'{e.__class__.__name__} in {cog}, line {line}: {e}')
-    
     bot.help_padding = 1 + max(len(i.name) for i in bot.commands)
     bot.sorted_commands = sorted(bot.commands, key=lambda x: x.name)
-    
     print(f'Logged in as\n{bot.user.name}\n{bot.user.id}')
     print('Guilds:', len(bot.guilds))
     print('------')
