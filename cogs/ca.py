@@ -222,7 +222,7 @@ class CA:
             execs = self.defaults
         algo = 'HashLife' if 'h' in flags else 'QuickLife'
         try:
-            step, gen = sorted([int(step), int(gen)])
+            step, gen = sorted([int(step), int(gen)]) if gen else [int(step), int(gen)]
         except ValueError:
             return await ctx.send(f"`Error: No GEN given. {self.moreinfo(ctx)}`")
         if gen / step > 2500:
@@ -297,7 +297,7 @@ class CA:
                   else f'{round(end_savegif-start, 2)}s'
                   if 'time' in flags
                     else ''
-                ) + ('\n`(truncated to fit under 8mb)`' if oversized else ''),
+                ) + ('\n(Truncated to fit under 8MB)' if oversized else ''),
               file=discord.File(f'{current}.gif')
               )
         except discord.errors.HTTPException as e:
@@ -399,7 +399,7 @@ class CA:
         x, y = dims.split('x')
         await ctx.invoke(
           self.sim,
-          str(self.genconvert(gen)),
+          str(gen), # will this ever be int?
           str(step),
           rule or 'B3/S23',
           *flags,
