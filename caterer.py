@@ -37,6 +37,10 @@ bot.remove_command('help')
 
 extensions = ['cogs.meta', 'cogs.wiki', 'cogs.ca', 'cogs.admin']
 
+@bot.check
+def ignore_bots(ctx):
+    return not ctx.author.bot
+
 @bot.event
 async def on_ready():
     bot.pool = await asyncpg.create_pool(dsn=os.getenv('DATABASE_URL'), max_size=15, loop=bot.loop)
