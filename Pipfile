@@ -3,9 +3,10 @@ url = "https://pypi.python.org/simple"
 verify_ssl = true
 
 [packages]
+aiofiles = "*"
 cython = "*"
-pypng = "*"
 imageio = "*"
+pypng = "*"
 
 asyncpg = {git = 'https://github.com/MagicStack/asyncpg.git'}
 "discord.py" = {git = 'https://github.com/Rapptz/discord.py@rewrite'}

@@ -251,17 +251,25 @@ class Utils:
                 msg += '```apache\nAliases: {}```'.format(', '.join(map(prep.__add__, command.aliases)))
             await ctx.send(msg)
         else:
-            # FIXME: Gets spaced too far for whatever reason
+            # FIXME: Gets spaced too far out for whatever reason
             center = max(map(len, (f'{ctx.prefix}{i.name: <{self.bot.help_padding}}| {i.brief}' for i in self.bot.commands)))
             desc = cleandoc(
               f'''
               **```ini
-              {'[A cellular automata bot for Conwaylife.com]': ^{center}}```**```makefile
+              {f'[{self.bot.description}]': ^{center}}```**```makefile
               Commands:
               '''
               ) + '\n'
-            desc += ''.join(f'{ctx.prefix}{cmd.name: <{self.bot.help_padding}}| {cmd.brief}\n' for cmd in self.bot.sorted_commands if cmd.brief is not None)
-            desc += '``````FORTRAN\n{1: ^{0}}\n{2: ^{0}}```'.format(center, f"'{ctx.prefix}help COMMAND' for command-specific docs", f"'{ctx.prefix}info' for credits & general information")
+            desc += ''.join(
+              f'{ctx.prefix}{cmd.name: <{self.bot.help_padding}}| {cmd.brief}\n'
+              for cmd in self.bot.sorted_commands
+              if cmd.brief is not None
+              )
+            desc += '``````FORTRAN\n{1: ^{0}}\n{2: ^{0}}```'.format(
+              center,
+              f"'{ctx.prefix}help COMMAND' for command-specific docs",
+              f"'{ctx.prefix}info' for credits & general information"
+              )
             em = discord.Embed(description=desc)
             await ctx.send(embed=em)
     

@@ -1,4 +1,10 @@
-__all__ = ['attrify', 'await_event_or_coro', 'command', 'group', 'parse_args', 'parse_flags', 'typecasted', 'wait_for_any',]
+# ----------------------------------------------------------------------------------- #
+
+from itertools import islice
+
+def nth(iterable, n, default=None):
+    temp = iterable
+    return next(islice(temp, n, None), default)
 
 # ----------------------------------------------------------------------------------- #
 
@@ -230,3 +236,64 @@ def command(brief=None, name=None, cls=Command, **attrs):
 
 def group(brief=None, name=None, *, invoke_without_command=True, **attrs):
     return command(brief, name, cls=Group, invoke_without_command=invoke_without_command, **attrs)
+
+# ----------------------------- For uploading assets -------------------------------- #
+
+import json
+
+def extract_rule_info(fp):
+    """
+    Extract rulename and colors from a ruletable file.
+    """
+    fp.seek(0)
+    in_colors = False
+    name, n_states, colors  = None, 0, {}
+    for line in map(str.strip, fp):
+        line, *_ = line.split('#')
+        if not line:
+            continue
+        if line.startswith('n_states:'):
+            n_states = int(line.split(':')[1].strip())
+            if n_states > 24:
+                raise NotImplementedError('Rules with greater than 24 states not supported yet')
+        if line.startswith('@RULE'):
+            name = line.partition(' ')[-1]
+            continue
+        if name == '':
+            # Captures rulename if on own line after @RULE
+            name = line
+            continue
+        if line.startswith('@'):
+            # makeshift state flag (inside @COLORS vs outside)
+            in_colors = line.startswith('@COLORS')
+            continue
+        if in_colors:
+            # '0    255 255 255' ->
+            # {0: (255, 255, 255)}
+            state, rgb = line.split(None, 1)
+            colors[state] = rgb.split()
+    return name, n_states, json.dumps(colors)
+
+# ------------------------- For rule-color shenanigans ------------------------------ #
+class ColorRange:
+    def __init__(self, n_states: int, start=(255,255,0), end=(255,0,0)):
+        self.n_states = n_states
+        self.start = start
+        self.end = end
+        self.avgs = [(final-initial)//n_states for initial, final in zip(start, end)]
+    
+    def at(self, state):
+        if not 0 < state < self.n_states:
+            raise ValueError('Requested state out of range')
+        state -= 1
+        return tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
+    
+    def __iter__(self):
+        for state in range(self.n_states):
+            yield tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
+
+def colorpatch(states: dict, n_states: int, start=(255,255,0), end=(255,0,0)):
+    # FIXME: Fails on rules with > 24 states because of ord() and min()/max()
+    crange = ColorRange(len(states), start, end)
+    return [states.get(65+chr(i), crange.at(i)) for i in range(n_states)]
+

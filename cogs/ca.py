@@ -1,5 +1,7 @@
 import asyncio
 import concurrent
+import copy
+import io
 import math
 import os
 import random
@@ -9,6 +11,7 @@ import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
+import aiofiles
 import discord
 import imageio
 import png
@@ -18,17 +21,18 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 from cogs.resources import mutils
 
+
 # matches LtL rulestring
 rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
 
 # matches B/S and if no B then either 2-state single-slash rulestring or generations rulestring
-rRULESTRING = re.compile(r'(B)?[0-8cekainyqjrtwz-]+(?(1)/?(S)?[0-8cekainyqjrtwz\-]*|/(S)?[0-8cekainyqjrtwz\-]*(?(2)|(?(3)|/[\d]{1,3})?))', re.I)
+rRULESTRING = re.compile(r'(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?))', re.I)
 
 # matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take much too many steps)
 rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\dob$]*[ob$][\dob$\n]*!?)')
 
 # splits RLE into its runs
-rRUNS = re.compile(r'([0-9]*)([ob])')
+rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[obA-Z])')
 # [rRUNS.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
 
 # unrolls $ signs
@@ -69,45 +73,37 @@ def parse(current):
     patlist = [i.split('$') for i in patlist]
     return patlist, positions, bbox
 
-def makeframes(current, patlist, positions, bbox, pad):
+def makeframes(current, patlist, positions, bbox, pad, colors=None):
     
     assert len(patlist) == len(positions), (patlist, positions)
     xmin, ymin, width, height = bbox
     
     # Used in doubling the frame size
     def scale_list(li, mult):
-        """(li=[a, b, c], mult=2) => [a, a, b, b, c, c]
-        Changes in one copy(ex. c) will affect the other (c)."""
+        """scale_list([a, b, c], 2) => [a, a, b, b, c, c]"""
         return [i for i in li for _ in range(mult)]
     
     for index in range(len(patlist)):
         pat = patlist[index]
         xpos, ypos = positions[index]
-        dx, dy = (xpos - xmin) + 1, (ypos - ymin) + 1 #+1 for one-cell padding
-        
-        # Create a blank frame of off cells
-        # Colors: on=0, off=1
-        frame = [[1] * (width+2) for _ in range(height+2)] #+2 for one-cell padding
-        
-        # unroll RLE and convert to list of ints, 1=off and 0=on
-        int_pattern = []
-        for row in pat:
-            int_row = []
-            for runs, chars in rRUNS.findall(row):
-                runs = int(runs) if runs else 1
-                state = 1 if chars == 'b' else 0
-                int_row.extend([state] * runs)
-            int_pattern.append(int_row)
-        
+        dx, dy = (xpos - xmin) + 1, (ypos - ymin) + 1 # +1 for one-cell padding
+        frame = [(0,0,0) * (2+width) for _ in range(2+height)] # +2 for one-cell padding
+        # FIXME: Fails on rules with > 24 states because of ord()
+        int_pattern = [
+          [
+            [colors[65+ord(char)]] * int(run or 1)
+            for run, char in rRUNS.findall(row)
+          ]
+          for row in pat
+          ]
         # Draw the pattern onto the frame
         for i, int_row in enumerate(int_pattern):
             # replace this row of frame with int_row
             frame[dy+i][dx:dx+len(int_row)] = int_row
-        
         anchor = min(height, width)
-        mult = -(-75 // anchor) if anchor <= 75 else 1
-        frame = scale_list([scale_list(row, mult) for row in frame], mult)
-        
+        mult = -(-75 // anchor) if anchor <= 75 else 0
+        if mult:
+            frame = scale_list([scale_list(row, mult) for row in frame], mult)
         with open(f'{current}_frames/{index:0{pad}}.png', 'wb') as out:
             w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
             w.write(out, frame)    
@@ -169,11 +165,11 @@ class CA:
         if any(msg.content.startswith(i) for i in self.bot.command_prefix(self.bot, ctx.message)):
             return msg.content.lower().endswith('cancel') and len(msg.content) < 10 # good enough
 
-    async def do_gif(self, execs, current, gen, step):
+    async def do_gif(self, execs, current, gen, step, colors=None):
         start = time.perf_counter()
         patlist, positions, bbox = await self.loop.run_in_executor(execs[0][0], parse, current)
         end_parse = time.perf_counter()
-        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)))
+        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)), colors)
         end_makeframes = time.perf_counter()
         oversized = await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
         end_savegif = time.perf_counter()
@@ -182,7 +178,8 @@ class CA:
     async def run_bgolly(self, current, algo, gen, step, rule):
         # run bgolly with parameters
         preface = f'{self.dir}/resources/bgolly'
-        return os.popen(f'{preface} -a "{algo}" -m {gen} -i {step} -r {rule} -o {current}_out.rle {current}_in.rle').read()
+        ruleflag = f's {self.dir}' if algo == 'RuleLoader' else f'r {rule}'
+        return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
     
     def moreinfo(self, ctx):
         return f"'{ctx.prefix}help sim' for more info"
@@ -254,7 +251,15 @@ class CA:
         current = f'{self.dir}/{ctx.message.id}'
         os.mkdir(f'{current}_frames')
         rule = ''.join(rule.split()) or 'B3/S23'
-        algo = 'Larger than Life' if rLtL.match(rule) else algo
+        algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.match(rule) else 'RuleLoader'
+        if algo == 'RuleLoader':
+            try:
+                file, n_states, colors = await self.bot.pool.fetchrow('''
+                SELECT file, n_states, colors FROM rules WHERE name = $1::text
+                ''', rule)
+            except ValueError: # not enough values to unpack
+                return await ctx.send('`Error: Rule not found`')
+            colors = mutils.colorpatch(colors, n_states)
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
           + f' in rule `{rule}` with step `{step}` for `{1+gen}` generation(s)'
@@ -269,7 +274,7 @@ class CA:
         resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'message',
-                  coro = self.do_gif(execs, current, gen, step),
+                  coro = self.do_gif(execs, current, gen, step, colors),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
                   event_check = lambda msg: self.cancellation_check(ctx, msg)
                   )
@@ -327,7 +332,7 @@ class CA:
                 resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'message',
-                  coro = self.do_gif(execs, current, gen, step),
+                  coro = self.do_gif(execs, current, gen, step, colors),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
                   event_check = lambda msg: self.cancellation_check(ctx, msg)
                   )
@@ -429,7 +434,33 @@ class CA:
         else:
             raise error
         
-        
+    @mutils.command('Upload an asset (just ruletables for now)')
+    async def upload(self, ctx):
+        """
+        # Attach a ruletable file to this command to have it be reviewed by Wright. #
+        # If valid, it will be added to Caterer and be usable in !sim. #
+        """
+        msg = None
+        attachment, *_ = ctx.message.attachments
+        with io.BytesIO() as f:
+            temp = copy.copy(f)
+            f.seek(0)
+            msg = await self.bot.assets_chn.send(file=discord.File(temp, attachment.filename))
+            
+            emoji = '✅', '❌'
+            [await msg.add_reaction(i) for i in emoji]
+            def check(rxn, usr):
+                return usr == self.bot.owner and rxn.message.id == msg.id and rxn.emoji in emoji
+            rxn, usr = await self.bot.wait_for('reaction_add', check=check) # no timeout
+            if rxn.emoji == '✅':
+                query = '''
+                INSERT INTO rules (
+                  file, name, n_states, colors
+                )
+                SELECT $1::bytea, $2::text, $3::int, $4::text
+                '''
+                await self.bot.pool.execute(query, f.read(), *mutils.extract_rule_info(f))
+            return await msg.delete()   
 
 def setup(bot):
     bot.add_cog(CA(bot))
