@@ -422,13 +422,11 @@ class CA:
             # extract relevant traceback only (not whatever led up to CommandInvokeError)
             end = '\nThe above exception was the direct cause of the following exception:\n\n'
             end = len(exc) - next(i for i, j in enumerate(reversed(exc), 1) if j == end)
-            await ctx.send(f'`{error.__class__.__name__}: {error}`')
             try:
                 print('Ignoring exception in on_message', exc[0].split('"""')[1], *exc[1:end])
             except Exception as e:
                 raise error
         else:
-            await ctx.send(f'`{error.__class__.__name}: {error}`')
             raise error
         
         
