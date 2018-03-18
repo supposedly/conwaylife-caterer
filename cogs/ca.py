@@ -56,16 +56,16 @@ def parse(current):
     # it gets pickled by run_in_executor -- and
     # generators can't be pickled
     positions = [eval(i) for i in patlist[::3]]
-    bboxes = (eval(i) for i in patlist[1::3])
+    bboxes = [eval(i) for i in patlist[1::3]]
     
     # Determine the bounding box to make gifs from
     # The rectangle: xmin <= x <= xmax, ymin <= y <= ymax
     # where (x|y)(min|max) is the min/max coordinate across all gens.
     xmins, ymins = zip(*positions)
-    widths, heights = zip(*bboxes)
-    xmaxs = (xm+w for xm, w in zip(xmins, widths))
-    ymaxs = (ym+h for ym, h in zip(ymins, heights))
-    xmin, ymin, xmax, ymax = min(xmins), min(ymins), max(xmaxs), max(ymaxs)
+    (widths, heights), maxwidth, maxheight = zip(*bboxes), max(w for w, h in bboxes), max(h for w, h in bboxes)
+    xmaxes = (xm+w for xm, w in zip(xmins, widths))
+    ymaxes = (ym+h for ym, h in zip(ymins, heights))
+    xmin, ymin, xmax, ymax = min(xmins), min(ymins), max(xmaxes), max(ymaxes)
     # Bounding box: top-left x and y, width and height
     bbox = xmin, ymin, xmax-xmin, ymax-ymin
     
@@ -74,13 +74,12 @@ def parse(current):
     patlist = (rDOLLARS.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist) # unroll newlines
     # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
     patlist = [i.split('$') for i in patlist]
-    return patlist, positions, bbox
+    return patlist, positions, bbox, (maxwidth, maxheight)
 
-def makeframes(current, patlist, positions, bbox, pad, colors=None):
-    
+def makeframes(current, patlist, positions, bbox, pad, colors=None, track=False, trackmaxes=None):
     assert len(patlist) == len(positions), (patlist, positions)
     xmin, ymin, width, height = bbox
-    
+    width, height = trackmaxes if track else (width, height)
     # Used in doubling the frame size
     def scale_list(li, mult):
         """scale_list([a, b, c], 2) => (a, a, b, b, c, c)"""
@@ -89,7 +88,7 @@ def makeframes(current, patlist, positions, bbox, pad, colors=None):
     for index in range(len(patlist)):
         pat = patlist[index]
         xpos, ypos = positions[index]
-        dx, dy = 1+(xpos-xmin), 1+(ypos-ymin)
+        dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
         frame = [[255,255,255] * (2+width) for _ in range(2+height)]
         flat_pat = [
           list(itertools.chain(*[
@@ -101,7 +100,7 @@ def makeframes(current, patlist, positions, bbox, pad, colors=None):
         # Draw the pattern onto the frame
         for i, flat_row in enumerate(flat_pat):
         # replace this row of frame with int_row
-            frame[dy+i][dx:dx+len(flat_row)] = flat_row
+            frame[dy+i][3*dx:3*dx+len(flat_row)] = flat_row
         anchor = min(height, width)
         mult = -(-75 // anchor) if anchor <= 75 else 1
         frame = scale_list(tuple(scale_list(row, mult) for row in frame), mult)
@@ -166,11 +165,11 @@ class CA:
         if any(msg.content.startswith(i) for i in self.bot.command_prefix(self.bot, ctx.message)):
             return msg.content.lower().endswith('cancel') and len(msg.content) < 10 # good enough
 
-    async def do_gif(self, execs, current, gen, step, colors=None):
+    async def do_gif(self, execs, current, gen, step, colors=None, track=False):
         start = time.perf_counter()
-        patlist, positions, bbox = await self.loop.run_in_executor(execs[0][0], parse, current)
+        patlist, positions, bbox, trackmaxes = await self.loop.run_in_executor(execs[0][0], parse, current)
         end_parse = time.perf_counter()
-        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)), colors)
+        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)), colors, track, trackmaxes)
         end_makeframes = time.perf_counter()
         oversized = await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
         end_savegif = time.perf_counter()
@@ -220,6 +219,7 @@ class CA:
         else:
             execs = self.defaults
         algo = 'HashLife' if 'h' in flags else 'QuickLife'
+        track = 'track' in flags or 't' in flags
         try:
             step, gen = sorted([int(step), int(gen)]) if gen else [int(step), int(gen)]
         except ValueError:
@@ -278,7 +278,7 @@ class CA:
         resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'message',
-                  coro = self.do_gif(execs, current, gen, step, colors),
+                  coro = self.do_gif(execs, current, gen, step, colors, track),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
                   event_check = lambda msg: self.cancellation_check(ctx, msg)
                   )
@@ -336,7 +336,7 @@ class CA:
                 resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'message',
-                  coro = self.do_gif(execs, current, gen, step, colors),
+                  coro = self.do_gif(execs, current, gen, step, colors, track),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
                   event_check = lambda msg: self.cancellation_check(ctx, msg)
                   )
