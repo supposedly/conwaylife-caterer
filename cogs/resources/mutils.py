@@ -279,7 +279,8 @@ def extract_rule_info(fp):
             colors[state] = tuple(map(int, rgb.split()[:3]))
     return name, n_states, json.dumps(colors or {'1': (0,0,0), '0': (255,255,255)})
 
-# ------------------------- For rule-color shenanigans ------------------------------ #
+# --------------------------- For rule-color shenanigans ---------------------------- #
+
 class ColorRange:
     def __init__(self, n_states: int, start=(255,255,0), end=(255,0,0)):
         self.n_states = n_states
@@ -296,7 +297,7 @@ class ColorRange:
         for state in range(self.n_states):
             yield tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
 
-def colorpatch(states: dict, n_states: int, start=(255,255,0), end=(255,0,0)):
+def colorpatch(states: dict, n_states: int, bg, start=(255,255,0), end=(255,0,0)):
     # FIXME: Fails on rules with > 24 states because of min()/max() and chr()
     if n_states < 3:
         return {
@@ -304,5 +305,14 @@ def colorpatch(states: dict, n_states: int, start=(255,255,0), end=(255,0,0)):
           'b': states.get('0', (255,255,255))
           }
     crange = ColorRange(n_states, start, end)
-    return {'.' if i == '.' else chr(65+i): states.get(str(i), crange.at(i)) for i in range(n_states)}
+    return {'.' if i == '.' else chr(64+i): states.get(str(i), crange.at(i) if i else bg) for i in range(n_states)}
+
+# -------------------------------------- Misc --------------------------------------- #
+
+def scale(li, mul, chunk=1):
+    """
+    scale([a, b, c], 2) => (a, a, b, b, c, c)
+    scale([a, b, c], 2, 3) => (a, b, c, a, b, c)
+    """
+    return tuple(j for i in zip(*[iter(li)]*chunk) for _ in range(mul) for j in i)
 

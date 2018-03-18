@@ -35,7 +35,7 @@ rRULESTRING = re.compile(r'(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?
 rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\dob$]*[ob$][\dob$\n]*!?|[\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?)')
 
 # splits RLE into its runs
-rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[obA-Z])')
+rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[ob.A-Z])')
 # [rRUNS.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
 
 # unrolls $ signs
@@ -77,41 +77,29 @@ def parse(current):
     return patlist, positions, bbox, (maxwidth, maxheight)
 
 def makeframes(current, patlist, positions, bbox, pad, colors, bg, track, trackmaxes):
-    assert len(patlist) == len(positions), (patlist, positions)
     xmin, ymin, width, height = bbox
     width, height = trackmaxes if track else (width, height)
-    def scale_list(li, mult, grouplen=1):
-        """
-        scale_list([a, b, c], 2) => (a, a, b, b, c, c)
-        scale_list([a, b, c], 2, 3) => (a, b, c, a, b, c)
-        (takes tripling caused by rgb data into account)
-        """
-        if grouplen > 1:
-            return tuple(itertools.chain(*(
-              li[i:i+grouplen]
-              for i in range(0, len(li), grouplen)
-              for _ in range(mult)
-            )))
-        return tuple(i for i in li for _ in range(mult))
     
     for index in range(len(patlist)):
         pat = patlist[index]
         xpos, ypos = positions[index]
         dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
-        frame = [list(bg) * (2+width) for _ in range(2+height)]
+        frame = [bg * (2+width) for _ in range(2+height)]
         flat_pat = [
-          list(itertools.chain(*(
+          [
+            j for run, char in rRUNS.findall(row) for j in
             (bg if char in '.b' else colors[char]) * int(run or 1)
-            for run, char in rRUNS.findall(row)
-          )))
-          for row in pat
           ]
+        for row in pat
+        ]
         # Draw the pattern onto the frame by replacing segments of prerendered rows
         for i, flat_row in enumerate(flat_pat):
             frame[dy+i][3*dx:3*dx+len(flat_row)] = flat_row
+        
         anchor = min(height, width)
-        mult = -(-75 // anchor) if anchor <= 75 else 1
-        frame = scale_list(tuple(scale_list(row, mult, 3) for row in frame), mult)
+        mul = -(-75 // anchor) if anchor <= 75 else 1
+        frame = mutils.scale(tuple(mutils.scale(row, mul, 3) for row in frame), mul)
+        
         with open(f'{current}_frames/{index:0{pad}}.png', 'wb') as out:
             w = png.Writer(len(frame[0])//3, len(frame))
             w.write(out, frame)
@@ -222,7 +210,7 @@ class CA:
           )
         flags = mutils.parse_flags(flags)
         gen = self.genconvert(gen)
-        bg = flags.get('bg', '255,255,255').split(',')
+        bg = list(map(int, flags.get('bg', '255,255,255').split(',')))
         colors = {'o': (0,0,0), 'b': bg}
         if 'execs' in flags:
             flags['execs'] = flags['execs'].split(',')
@@ -272,7 +260,8 @@ class CA:
                 ''', rule)
             except ValueError: # not enough values to unpack
                 return await ctx.send('`Error: Rule not found`')
-            colors = mutils.colorpatch(json.loads(colors), n_states)
+            
+            colors = mutils.colorpatch(json.loads(colors), n_states, bg)
             with open(f'{self.dir}/{rulename}.rule', 'wb') as ruleout:
                 ruleout.write(rulefile)
         details = (
@@ -348,7 +337,7 @@ class CA:
                 resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'reaction_add',
-                  coro = self.do_gif(execs, current, gen, step, colors, track),
+                  coro = self.do_gif(execs, current, gen, step, colors, track, bg),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
                   event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
                   )
