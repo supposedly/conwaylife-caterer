@@ -80,9 +80,18 @@ def makeframes(current, patlist, positions, bbox, pad, colors=None, track=False,
     assert len(patlist) == len(positions), (patlist, positions)
     xmin, ymin, width, height = bbox
     width, height = trackmaxes if track else (width, height)
-    # Used in doubling the frame size
-    def scale_list(li, mult):
-        """scale_list([a, b, c], 2) => (a, a, b, b, c, c)"""
+    def scale_list(li, mult, grouplen=1):
+        """
+        scale_list([a, b, c], 2) => (a, a, b, b, c, c)
+        scale_list([a, b, c], 2, 3) => (a, b, c, a, b, c)
+        (takes tripling caused by rgb data into account)
+        """
+        if grouplen > 1:
+            return tuple(itertools.chain(*(
+              li[i:i+grouplen]
+              for i in range(0, len(li), grouplen)
+              for _ in range(mult)
+            )))
         return tuple(i for i in li for _ in range(mult))
     
     for index in range(len(patlist)):
@@ -91,22 +100,21 @@ def makeframes(current, patlist, positions, bbox, pad, colors=None, track=False,
         dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
         frame = [[255,255,255] * (2+width) for _ in range(2+height)]
         flat_pat = [
-          list(itertools.chain(*[
+          list(itertools.chain(*(
             colors[char] * int(run or 1)
             for run, char in rRUNS.findall(row)
-          ]))
+          )))
           for row in pat
           ]
-        # Draw the pattern onto the frame
+        # Draw the pattern onto the frame by replacing segments of prerendered rows
         for i, flat_row in enumerate(flat_pat):
-        # replace this row of frame with int_row
             frame[dy+i][3*dx:3*dx+len(flat_row)] = flat_row
         anchor = min(height, width)
         mult = -(-75 // anchor) if anchor <= 75 else 1
-        frame = scale_list(tuple(scale_list(row, mult) for row in frame), mult)
+        frame = scale_list(tuple(scale_list(row, mult, 3) for row in frame), mult)
         with open(f'{current}_frames/{index:0{pad}}.png', 'wb') as out:
             w = png.Writer(len(frame[0])//3, len(frame))
-            w.write(out, frame)    
+            w.write(out, frame)
 
 def savegif(current, gen, step):
     # finally, pass all created pics to imageio for conversion to gif
@@ -205,7 +213,6 @@ class CA:
         #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
         """
         _ = re.compile(r'^\d+$')
-        colors = {'o': (0,0,0), 'b': (255,255,255)}
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
         (gen, step, rule, pat), flags = mutils.parse_args(
@@ -451,10 +458,9 @@ class CA:
         attachment, *_ = ctx.message.attachments
         with io.BytesIO() as f:
             await attachment.save(f)
-            temp = copy.deepcopy(f)
+            temp = copy.copy(f)
             f.seek(0)
             msg = await self.bot.assets_chn.send(file=discord.File(temp, attachment.filename))
-            
             emoji = '✅', '❌'
             [await msg.add_reaction(i) for i in emoji]
             def check(rxn, usr):
@@ -466,6 +472,9 @@ class CA:
                   file, name, n_states, colors
                 )
                 SELECT $1::bytea, $2::text, $3::int, $4::text
+                    ON CONFLICT (name)
+                    DO UPDATE
+                   SET file=$1::bytea, name=$2::text, n_states=$3::int, colors=$4::text
                 '''
                 await self.bot.pool.execute(query, f.read(), *mutils.extract_rule_info(f))
             return await msg.delete()   
