@@ -76,7 +76,7 @@ def parse(current):
     patlist = [i.split('$') for i in patlist]
     return patlist, positions, bbox, (maxwidth, maxheight)
 
-def makeframes(current, patlist, positions, bbox, pad, colors=None, track=False, trackmaxes=None):
+def makeframes(current, patlist, positions, bbox, pad, colors, bg, track, trackmaxes):
     assert len(patlist) == len(positions), (patlist, positions)
     xmin, ymin, width, height = bbox
     width, height = trackmaxes if track else (width, height)
@@ -98,10 +98,10 @@ def makeframes(current, patlist, positions, bbox, pad, colors=None, track=False,
         pat = patlist[index]
         xpos, ypos = positions[index]
         dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
-        frame = [[255,255,255] * (2+width) for _ in range(2+height)]
+        frame = [list(bg) * (2+width) for _ in range(2+height)]
         flat_pat = [
           list(itertools.chain(*(
-            colors[char] * int(run or 1)
+            (bg if char in '.b' else colors[char]) * int(run or 1)
             for run, char in rRUNS.findall(row)
           )))
           for row in pat
@@ -175,11 +175,11 @@ class CA:
             return x_emoji and rxn.count > 4
         return x_emoji
 
-    async def do_gif(self, execs, current, gen, step, colors=None, track=False):
+    async def do_gif(self, execs, current, gen, step, colors, track, bg):
         start = time.perf_counter()
         patlist, positions, bbox, trackmaxes = await self.loop.run_in_executor(execs[0][0], parse, current)
         end_parse = time.perf_counter()
-        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)), colors, track, trackmaxes)
+        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)), colors, bg, track, trackmaxes)
         end_makeframes = time.perf_counter()
         oversized = await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
         end_savegif = time.perf_counter()
@@ -222,6 +222,8 @@ class CA:
           )
         flags = mutils.parse_flags(flags)
         gen = self.genconvert(gen)
+        bg = flags.get('bg', '255,255,255').split(',')
+        colors = {'o': (0,0,0), 'b': bg}
         if 'execs' in flags:
             flags['execs'] = flags['execs'].split(',')
             execs = [self.opts.get(v, self.defaults[i]) for i, v in enumerate(flags['execs'])]
@@ -288,7 +290,7 @@ class CA:
         resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'reaction_add',
-                  coro = self.do_gif(execs, current, gen, step, colors, track),
+                  coro = self.do_gif(execs, current, gen, step, colors, track, bg),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
                   event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
                   )

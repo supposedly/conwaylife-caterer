@@ -273,10 +273,10 @@ def extract_rule_info(fp):
             in_colors = line.startswith('@COLORS')
             continue
         if in_colors:
-            # '0    255 255 255' ->
+            # '0    255 255 255   random comments' ->
             # {0: (255, 255, 255)}
             state, rgb = line.split(None, 1)
-            colors[state] = tuple(map(int, rgb.split()))
+            colors[state] = tuple(map(int, rgb.split()[:3]))
     return name, n_states, json.dumps(colors or {'1': (0,0,0), '0': (255,255,255)})
 
 # ------------------------- For rule-color shenanigans ------------------------------ #
@@ -304,5 +304,5 @@ def colorpatch(states: dict, n_states: int, start=(255,255,0), end=(255,0,0)):
           'b': states.get('0', (255,255,255))
           }
     crange = ColorRange(n_states, start, end)
-    return {0 if i == '.' else chr(65+i): states.get(i, crange.at(i)) for i in range(n_states)}
+    return {'.' if i == '.' else chr(65+i): states.get(str(i), crange.at(i)) for i in range(n_states)}
 
