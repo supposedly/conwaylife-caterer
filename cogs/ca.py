@@ -271,7 +271,7 @@ class CA:
           )
         announcement = await ctx.send(details)
         with open(f'{current}_in.rle', 'w') as infile:
-            infile.write(pat if algo != 'RuleLoader' else f'x=0,y=0,rule={rule}\n{pat}')
+            infile.write(pat if algo != 'RuleLoader' else f'x=0,y=0,rule={rule}_{ctx.message.id}\n{pat}')
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             return await ctx.send(f'`{bg_err}`')
