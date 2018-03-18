@@ -307,7 +307,7 @@ class Utils:
     
     @mutils.command('Post an invite link for this bot')
     async def link(self, ctx):
-        """# Procures an oauth2 invite link for this bot with necessary permissions. #"""
+        """# Returns an oauth2 invite link for this bot with necessary permissions. #"""
         em = discord.Embed(description=f'Use [this link]({self.invite}) to add me to your server!', color=0x000000)
         em.set_author(name='Add me!', icon_url=self.bot.user.avatar_url)
         await ctx.send(embed=em)

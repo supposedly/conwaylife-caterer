@@ -2,6 +2,8 @@ import asyncio
 import concurrent
 import copy
 import io
+import itertools
+import json
 import math
 import os
 import random
@@ -29,7 +31,8 @@ rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I
 rRULESTRING = re.compile(r'(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?))', re.I)
 
 # matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take much too many steps)
-rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\dob$]*[ob$][\dob$\n]*!?)')
+# does not match rules with >24 states
+rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\dob$]*[ob$][\dob$\n]*!?|[\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?)')
 
 # splits RLE into its runs
 rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[obA-Z])')
@@ -80,32 +83,30 @@ def makeframes(current, patlist, positions, bbox, pad, colors=None):
     
     # Used in doubling the frame size
     def scale_list(li, mult):
-        """scale_list([a, b, c], 2) => [a, a, b, b, c, c]"""
-        return [i for i in li for _ in range(mult)]
+        """scale_list([a, b, c], 2) => (a, a, b, b, c, c)"""
+        return tuple(i for i in li for _ in range(mult))
     
     for index in range(len(patlist)):
         pat = patlist[index]
         xpos, ypos = positions[index]
-        dx, dy = (xpos - xmin) + 1, (ypos - ymin) + 1 # +1 for one-cell padding
-        frame = [(0,0,0) * (2+width) for _ in range(2+height)] # +2 for one-cell padding
-        # FIXME: Fails on rules with > 24 states because of ord()
-        int_pattern = [
-          [
-            [colors[65+ord(char)]] * int(run or 1)
+        dx, dy = 1+(xpos-xmin), 1+(ypos-ymin)
+        frame = [[255,255,255] * (2+width) for _ in range(2+height)]
+        flat_pat = [
+          list(itertools.chain(*[
+            colors[char] * int(run or 1)
             for run, char in rRUNS.findall(row)
-          ]
+          ]))
           for row in pat
           ]
         # Draw the pattern onto the frame
-        for i, int_row in enumerate(int_pattern):
-            # replace this row of frame with int_row
-            frame[dy+i][dx:dx+len(int_row)] = int_row
+        for i, flat_row in enumerate(flat_pat):
+        # replace this row of frame with int_row
+            frame[dy+i][dx:dx+len(flat_row)] = flat_row
         anchor = min(height, width)
-        mult = -(-75 // anchor) if anchor <= 75 else 0
-        if mult:
-            frame = scale_list([scale_list(row, mult) for row in frame], mult)
+        mult = -(-75 // anchor) if anchor <= 75 else 1
+        frame = scale_list(tuple(scale_list(row, mult) for row in frame), mult)
         with open(f'{current}_frames/{index:0{pad}}.png', 'wb') as out:
-            w = png.Writer(len(frame[0]), len(frame), greyscale=True, bitdepth=1)
+            w = png.Writer(len(frame[0])//3, len(frame))
             w.write(out, frame)    
 
 def savegif(current, gen, step):
@@ -178,7 +179,7 @@ class CA:
     async def run_bgolly(self, current, algo, gen, step, rule):
         # run bgolly with parameters
         preface = f'{self.dir}/resources/bgolly'
-        ruleflag = f's {self.dir}' if algo == 'RuleLoader' else f'r {rule}'
+        ruleflag = f's {self.dir}/' if algo == 'RuleLoader' else f'r {rule}'
         return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
     
     def moreinfo(self, ctx):
@@ -203,6 +204,7 @@ class CA:
         #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
         """
         _ = re.compile(r'^\d+$')
+        colors = {'o': (0,0,0), 'b': (255,255,255)}
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
         (gen, step, rule, pat), flags = mutils.parse_args(
@@ -254,12 +256,14 @@ class CA:
         algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.match(rule) else 'RuleLoader'
         if algo == 'RuleLoader':
             try:
-                file, n_states, colors = await self.bot.pool.fetchrow('''
-                SELECT file, n_states, colors FROM rules WHERE name = $1::text
+                rulename, rulefile, n_states, colors = await self.bot.pool.fetchrow('''
+                SELECT name, file, n_states, colors FROM rules WHERE name = $1::text
                 ''', rule)
             except ValueError: # not enough values to unpack
                 return await ctx.send('`Error: Rule not found`')
-            colors = mutils.colorpatch(colors, n_states)
+            colors = mutils.colorpatch(json.loads(colors), n_states)
+            with open(f'{self.dir}/{rulename}.rule', 'wb') as ruleout:
+                ruleout.write(rulefile)
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
           + f' in rule `{rule}` with step `{step}` for `{1+gen}` generation(s)'
@@ -267,7 +271,7 @@ class CA:
           )
         announcement = await ctx.send(details)
         with open(f'{current}_in.rle', 'w') as infile:
-            infile.write(pat)
+            infile.write(pat if algo != 'RuleLoader' else f'x=0,y=0,rule={rule}\n{pat}')
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             return await ctx.send(f'`{bg_err}`')
@@ -290,7 +294,7 @@ class CA:
         try:
             gif = await ctx.send(
               content.format(
-                time = str(
+                time=str(
                   {
                     'Times': '',
                     '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
@@ -443,7 +447,8 @@ class CA:
         msg = None
         attachment, *_ = ctx.message.attachments
         with io.BytesIO() as f:
-            temp = copy.copy(f)
+            await attachment.save(f)
+            temp = copy.deepcopy(f)
             f.seek(0)
             msg = await self.bot.assets_chn.send(file=discord.File(temp, attachment.filename))
             

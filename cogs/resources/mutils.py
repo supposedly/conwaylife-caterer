@@ -248,14 +248,15 @@ def extract_rule_info(fp):
     fp.seek(0)
     in_colors = False
     name, n_states, colors  = None, 0, {}
-    for line in map(str.strip, fp):
+    for line in (i.decode().strip() for i in fp):
         line, *_ = line.split('#')
         if not line:
             continue
-        if line.startswith('n_states:'):
-            n_states = int(line.split(':')[1].strip())
+        if line.startswith(('n_states:', 'num_states=')):
+            n_states = int(line.split('=')[-1].split(':')[-1].strip())
             if n_states > 24:
                 raise NotImplementedError('Rules with greater than 24 states not supported yet')
+            continue
         if line.startswith('@RULE'):
             name = line.partition(' ')[-1]
             continue
@@ -264,7 +265,7 @@ def extract_rule_info(fp):
             name = line
             continue
         if line.startswith('@'):
-            # makeshift state flag (inside @COLORS vs outside)
+            # makeshift state flag (indicates whether inside @COLORS declaration)
             in_colors = line.startswith('@COLORS')
             continue
         if in_colors:
@@ -283,9 +284,8 @@ class ColorRange:
         self.avgs = [(final-initial)//n_states for initial, final in zip(start, end)]
     
     def at(self, state):
-        if not 0 < state < self.n_states:
+        if not 0 <= state <= self.n_states:
             raise ValueError('Requested state out of range')
-        state -= 1
         return tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
     
     def __iter__(self):
@@ -293,7 +293,7 @@ class ColorRange:
             yield tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
 
 def colorpatch(states: dict, n_states: int, start=(255,255,0), end=(255,0,0)):
-    # FIXME: Fails on rules with > 24 states because of ord() and min()/max()
-    crange = ColorRange(len(states), start, end)
-    return [states.get(65+chr(i), crange.at(i)) for i in range(n_states)]
+    # FIXME: Fails on rules with > 24 states because of min()/max() and chr()
+    crange = ColorRange(n_states, start, end)
+    return {chr(65+i): states.get(i, crange.at(i)) for i in range(n_states)}
 
