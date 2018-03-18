@@ -262,7 +262,7 @@ class CA:
                 return await ctx.send('`Error: Rule not found`')
             
             colors = mutils.colorpatch(json.loads(colors), n_states, bg)
-            with open(f'{self.dir}/{rulename}.rule', 'wb') as ruleout:
+            with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
                 ruleout.write(rulefile)
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
@@ -321,7 +321,7 @@ class CA:
                 await gif.delete()
                 os.system(f'rm -rf {current}_frames/'); os.mkdir(f'{current}_frames')
                 if rxn.emoji == '➕':
-                    gen += min(2500*step-gen, int(50*math.log1p(gen))) # gives a nice increasing-at-a-decreasing-rate curve
+                    gen += min(2500*step-gen, int(50*math.log1p(gen))) # gives an increasing-at-a-decreasing-rate curve
                 else:
                     step *= 2
                     oversized = False
@@ -369,10 +369,12 @@ class CA:
             # will occur in the "forces-error" unpacking line above
             pass
         finally:
-            await gif.clear_reactions()
+            [await gif.remove_reaction(rxn, ctx.guild.me) for rxn in gif.reactions if rxn.me]
             os.remove(f'{current}.gif')
             os.remove(f'{current}_in.rle')
             os.system(f'rm -rf {current}_frames/')
+            if algo == 'RuleLoader':
+                os.remove(f'{self.dir}/{rule}_{ctx.message.id}.rule')
         
     @sim.command()
     async def rand(self, ctx, *args):
