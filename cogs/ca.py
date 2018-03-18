@@ -159,11 +159,13 @@ class CA:
             rle += '$\n' if y > row + 1 else '!\n'
         return rle
     
-    def cancellation_check(self, ctx, msg):
-        if msg.channel != ctx.channel or msg.author != ctx.message.author:
+    def cancellation_check(self, ctx, og_msg, rxn, usr):
+        if rxn.message.id != og_msg.id:
             return False
-        if any(msg.content.startswith(i) for i in self.bot.command_prefix(self.bot, ctx.message)):
-            return msg.content.lower().endswith('cancel') and len(msg.content) < 10 # good enough
+        x_emoji = rxn.emoji == '❌'
+        if usr != ctx.message.author:
+            return x_emoji and rxn.count > 4
+        return x_emoji
 
     async def do_gif(self, execs, current, gen, step, colors=None, track=False):
         start = time.perf_counter()
@@ -275,17 +277,18 @@ class CA:
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             return await ctx.send(f'`{bg_err}`')
+        await announcement.add_reaction('❌')
         resp = await mutils.await_event_or_coro(
                   self.bot,
-                  event = 'message',
+                  event = 'reaction_add',
                   coro = self.do_gif(execs, current, gen, step, colors, track),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
-                  event_check = lambda msg: self.cancellation_check(ctx, msg)
+                  event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
                   )
         try:
             start, end_parse, end_makeframes, end_savegif, oversized = resp['coro']
-        except KeyError:
-            return await resp['event'].add_reaction('👍')
+        except (KeyError, ValueError):
+            return await resp['event'][0].message.delete()
         content = (
             (ctx.message.author.mention if 'tag' in flags else '')
           + (f' **{flags["id"]}** \n' if 'id' in flags else '')
@@ -335,10 +338,10 @@ class CA:
                     return await ctx.send(f'`{bg_err}`')
                 resp = await mutils.await_event_or_coro(
                   self.bot,
-                  event = 'message',
+                  event = 'reaction_add',
                   coro = self.do_gif(execs, current, gen, step, colors, track),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
-                  event_check = lambda msg: self.cancellation_check(ctx, msg)
+                  event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
                   )
                 try:
                     start, end_parse, end_makeframes, end_savegif, oversized = resp['coro']

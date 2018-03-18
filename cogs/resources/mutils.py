@@ -46,7 +46,7 @@ async def await_event_or_coro(bot, event, coro, *, ret_check=None, event_check=N
     :param:coro rather than on a timeout
     """
     future = bot.loop.create_future()
-    event_check = event_check or (lambda _: True)
+    event_check = event_check or (lambda *_, **__: True)
     try:
         listeners = bot._listeners[event.lower()]
     except KeyError:
@@ -55,8 +55,12 @@ async def await_event_or_coro(bot, event, coro, *, ret_check=None, event_check=N
     listeners.append((future, event_check))
     [done], pending = await asyncio.wait([future, coro], timeout=timeout, return_when=concurrent.futures.FIRST_COMPLETED)
     for task in pending:
-        task.cancel() # does this even work???
-    return {'event' if ret_check(done.result()) else 'coro': done.result()}
+        task.cancel() # does this even do anything???
+    try:
+        which = 'coro' if event_check(*done.result()) else 'event'
+    except TypeError:
+        which = 'coro'
+    return {which: done.result()}
     
 
 async def wait_for_any(ctx, events, checks, *, timeout=15.0):
