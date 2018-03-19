@@ -97,16 +97,32 @@ class Utils:
     
     @todo.command(name='add')
     @commands.is_owner()
-    async def add_todo(self, ctx, cmd: str.lower, *, value):
+    async def add_todo(self, ctx, cmd: str.lower, *, content: str):
         if cmd not in {i.qualified_name.lower() for i in self.bot.walk_commands()}:
             cmd = 'general'
         try:
-            await self.pool.execute('''INSERT INTO todo (cmd, value, date) SELECT $1::text, $2::text, current_date''', cmd, value)
+            await self.pool.execute('''INSERT INTO todo (cmd, value, date) SELECT $1::text, $2::text, current_date''', cmd, content)
         except Exception as e:
             await ctx.send(f'`{e.__class__.__name__}: {e}`')
         else:
             self.bot.todos = None # TODO: Maybe just append the newly-added todo with a calculated num 
             await ctx.thumbsup()
+    
+    @todo.command(name='edit')
+    @commands.is_owner()
+    async def edit_todo(self, ctx, cmd: str.lower, num: int, *, new: str):
+        try:
+            cmd, value = await self._find_todo(cmd, num)
+        except TypeError:
+            return await ctx.thumbsdown()
+        try:
+            await self.pool.execute('''UPDATE todo SET value = $3::text WHERE cmd = $1::text AND value = $2::text''', cmd, value, new)
+        except Exception as e:
+            await ctx.send(f'`{e.__class__.__name__}: {e}`')
+        else:
+            self.bot.todos = None # TODO: Maybe just pop the newly-removed todo and recalculate nums
+            await ctx.thumbsup()
+        
     
     @todo.command(name='del')
     @commands.is_owner()

@@ -57,7 +57,7 @@ async def await_event_or_coro(bot, event, coro, *, ret_check=None, event_check=N
     for task in pending:
         task.cancel() # does this even do anything???
     try:
-        which = 'coro' if event_check(*done.result()) else 'event'
+        which = 'event' if event_check(*done.result()) else 'coro'
     except TypeError:
         which = 'coro'
     return {which: done.result()}
@@ -282,20 +282,23 @@ def extract_rule_info(fp):
 # --------------------------- For rule-color shenanigans ---------------------------- #
 
 class ColorRange:
-    def __init__(self, n_states: int, start=(255,255,0), end=(255,0,0)):
+    def __init__(self, n_states, start=(255,0,0), end=(255,255,0)):
         self.n_states = n_states
         self.start = start
         self.end = end
         self.avgs = [(final-initial)//n_states for initial, final in zip(start, end)]
+    
+    def __iter__(self):
+        for state in range(self.n_states):
+            yield tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
     
     def at(self, state):
         if not 0 <= state <= self.n_states:
             raise ValueError('Requested state out of range')
         return tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
     
-    def __iter__(self):
-        for state in range(self.n_states):
-            yield tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
+    def to_dict(self):
+        return dict(zip((chr(64+i) for i in range(self.n_states)), self))
 
 def colorpatch(states: dict, n_states: int, bg, start=(255,255,0), end=(255,0,0)):
     # FIXME: Fails on rules with > 24 states because of min()/max() and chr()
@@ -305,7 +308,7 @@ def colorpatch(states: dict, n_states: int, bg, start=(255,255,0), end=(255,0,0)
           'b': states.get('0', (255,255,255))
           }
     crange = ColorRange(n_states, start, end)
-    return {'.' if i == '.' else chr(64+i): states.get(str(i), crange.at(i) if i else bg) for i in range(n_states)}
+    return  states.get('0', bg), {'.' if i == 0 else chr(64+i): states.get(str(i), crange.at(i) if i else bg) for i in range(n_states)}
 
 # -------------------------------------- Misc --------------------------------------- #
 

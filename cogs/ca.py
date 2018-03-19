@@ -25,10 +25,10 @@ from cogs.resources import mutils
 
 
 # matches LtL rulestring
-rLtL = re.compile(r'R\d{1,3},C\d{1,3},M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
+rLtL = re.compile(r'R\d{1,3},C(\d{1,3}),M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
 
-# matches B/S and if no B then either 2-state single-slash rulestring or generations rulestring
-rRULESTRING = re.compile(r'(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?))', re.I)
+# matches either W\d{3} or B/S, and then if no B then either 2-state single-slash rulestring or generations rulestring
+rRULESTRING = re.compile(r'W\d{3}|/?(?:(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?)))[HV]?', re.I)
 
 # matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take much too many steps)
 # does not match rules with >24 states
@@ -40,9 +40,6 @@ rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[ob.A-Z])')
 
 # unrolls $ signs
 rDOLLARS = re.compile(r'(\d+)\$')
-
-# determines 80% of available RAM to allow bgolly to use
-MAX_MEM = int(os.popen('free -m').read().split()[7]) // 1.25
 
 # ---- #
 
@@ -175,6 +172,7 @@ class CA:
     
     async def run_bgolly(self, current, algo, gen, step, rule):
         # run bgolly with parameters
+        max_mem = int(os.popen('free -m').read().split()[7]) // 1.25 # TODO: use
         preface = f'{self.dir}/resources/bgolly'
         ruleflag = f's {self.dir}/' if algo == 'RuleLoader' else f'r {rule}'
         return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
@@ -260,18 +258,25 @@ class CA:
                 ''', rule)
             except ValueError: # not enough values to unpack
                 return await ctx.send('`Error: Rule not found`')
-            
-            colors = mutils.colorpatch(json.loads(colors), n_states, bg)
+            bg, colors = mutils.colorpatch(json.loads(colors), n_states, bg)
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
                 ruleout.write(rulefile)
+        if algo == 'Larger than Life':
+            n_states = int(rule.split('C')[1].split(',')[0])
+            if n_states > 2:
+                colors = mutils.ColorRange(n_states).to_dict()
+        if rule.count('/') > 1:
+            algo = 'Generations'
+            colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
           + f' in rule `{rule}` with step `{step}` for `{1+gen}` generation(s)'
           + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
           )
         announcement = await ctx.send(details)
+        writrule = f'{rule}_{ctx.message.id}' if algo == 'RuleLoader' else rule
         with open(f'{current}_in.rle', 'w') as infile:
-            infile.write(pat if algo != 'RuleLoader' else f'x=0,y=0,rule={rule}_{ctx.message.id}\n{pat}')
+            infile.write(f'x=0,y=0,rule={writrule}\n{pat}')
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             return await ctx.send(f'`{bg_err}`')
@@ -317,7 +322,7 @@ class CA:
                 if gen < 2500 * step and not oversized:
                     await gif.add_reaction('➕')
                 await gif.add_reaction('⏩')
-                rxn, _ = await self.bot.wait_for('reaction_add', timeout=30.0, check=lambda rxn, usr: rxn.emoji in '➕⏩' and rxn.message.id == gif.id and usr is ctx.message.author)
+                rxn, _ = await self.bot.wait_for('reaction_add', timeout=25.0, check=lambda rxn, usr: rxn.emoji in '➕⏩' and rxn.message.id == gif.id and usr is ctx.message.author)
                 await gif.delete()
                 os.system(f'rm -rf {current}_frames/'); os.mkdir(f'{current}_frames')
                 if rxn.emoji == '➕':
@@ -344,7 +349,7 @@ class CA:
                 try:
                     start, end_parse, end_makeframes, end_savegif, oversized = resp['coro']
                 except KeyError:
-                    return await resp['event'].add_reaction('👍')
+                    return await resp['event'][0].message.delete()
                 try:
                     gif = await ctx.send(
                       content.format(
@@ -366,9 +371,10 @@ class CA:
                 except discord.errors.HTTPException as e:
                     return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         except asyncio.TimeoutError:
-            # will occur in the "forces-error" unpacking line above
+            # trigger finally block
             pass
         finally:
+            gif = await ctx.channel.get_message(gif.id) # refresh reactions
             [await gif.remove_reaction(rxn, ctx.guild.me) for rxn in gif.reactions if rxn.me]
             os.remove(f'{current}.gif')
             os.remove(f'{current}_in.rle')
@@ -442,18 +448,20 @@ class CA:
             raise error
         
     @mutils.command('Upload an asset (just ruletables for now)')
-    async def upload(self, ctx):
+    async def upload(self, ctx, *, brief=''):
         """
         # Attach a ruletable file to this command to have it be reviewed by Wright. #
         # If valid, it will be added to Caterer and be usable in !sim. #
         """
+        if len(brief) < 10:
+            return await ctx.send("Please provide a short justification/explanation of this rule!")
         msg = None
         attachment, *_ = ctx.message.attachments
         with io.BytesIO() as f:
             await attachment.save(f)
             temp = copy.copy(f)
-            f.seek(0)
-            msg = await self.bot.assets_chn.send(file=discord.File(temp, attachment.filename))
+            f.seek(0); temp.seek(0)
+            msg = await self.bot.assets_chn.send(brief, file=discord.File(temp, attachment.filename))
             emoji = '✅', '❌'
             [await msg.add_reaction(i) for i in emoji]
             def check(rxn, usr):
@@ -469,7 +477,13 @@ class CA:
                     DO UPDATE
                    SET file=$1::bytea, name=$2::text, n_states=$3::int, colors=$4::text
                 '''
-                await self.bot.pool.execute(query, f.read(), *mutils.extract_rule_info(f))
+                try:
+                    await self.bot.pool.execute(query, f.read(), *mutils.extract_rule_info(f))
+                except:
+                    pass
+                else:
+                    await ctx.thumbsup()
+            await ctx.thumbsdown(override=False)
             return await msg.delete()   
 
 def setup(bot):

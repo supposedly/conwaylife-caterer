@@ -20,13 +20,27 @@ def get_prefix(bot, message):
 
 
 class Context(commands.Context):
-    async def thumbsup(self):
-        return await self.message.add_reaction('👍')
-    async def thumbsdown(self):
-        return await self.message.add_reaction('👎')
+    
+    async def update(self):
+        self.message = await self.get_message(self.message.id)
+    
+    async def upd_rxns(self):
+        await self.update()
+        return self.message.reactions
+    
+    async def thumbsup(self, override=True):
+        if not override and any(rxn.emoji in '👍👎' for rxn in await self.upd_rxns() if rxn.me):
+            return
+        await self.message.add_reaction('👍')
+    
+    async def thumbsdown(self, override=True):
+        if not override and any(rxn.emoji in '👍👎' for rxn in await self.upd_rxns() if rxn.me):
+            return
+        await self.message.add_reaction('👎')
 
 
 class Bot(commands.Bot):
+    
     def __init__(self, *args, **kwargs):
         self.first_time = True
         self.owner = None
