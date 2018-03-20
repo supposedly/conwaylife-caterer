@@ -32,7 +32,7 @@ rRULESTRING = re.compile(r'W\d{3}|/?(?:(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S
 
 # matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take much too many steps)
 # does not match rules with >24 states
-rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\dob$]*[ob$][\dob$\n]*!?|[\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?)')
+rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)', re.I)
 
 # splits RLE into its runs
 rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[ob.A-Z])')
@@ -46,7 +46,7 @@ rDOLLARS = re.compile(r'(\d+)\$')
 def parse(current):
     with open(f'{current}_out.rle', 'r') as pat:
         patlist = [line.rstrip('\n') for line in pat]
-
+    
     os.remove(f'{current}_out.rle')
     # `positions` needs to be a list, not a generator
     # because it's returned from this function, so
@@ -82,6 +82,7 @@ def makeframes(current, patlist, positions, bbox, pad, colors, bg, track, trackm
         xpos, ypos = positions[index]
         dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
         frame = [bg * (2+width) for _ in range(2+height)]
+        
         flat_pat = [
           [
             j for run, char in rRUNS.findall(row) for j in
@@ -89,6 +90,7 @@ def makeframes(current, patlist, positions, bbox, pad, colors, bg, track, trackm
           ]
         for row in pat
         ]
+        
         # Draw the pattern onto the frame by replacing segments of prerendered rows
         for i, flat_row in enumerate(flat_pat):
             frame[dy+i][3*dx:3*dx+len(flat_row)] = flat_row

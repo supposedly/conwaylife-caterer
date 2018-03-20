@@ -25,7 +25,7 @@ class Utils:
         self.bot.changelog = self.bot.changelog_last_updated = self.bot.todos = None
     
     @staticmethod
-    def lgst(dt_obj):
+    def fmt(dt_obj):
         """Return a string abbreviating given date to the largest appropriate unit"""
         d = (dt.datetime.utcnow().date() - dt_obj).days
         return f'{d//365.25}y' if d >= 365 else f'{d//30}m' if d >= 30 else f'{d//7}w' if d >= 7 else f'{d}d'
@@ -64,7 +64,7 @@ class Utils:
         return cmd, value
     
     @mutils.group('List what Wright needs to implement')
-    async def todo(self, ctx, *cmds: str.lower):
+    async def todo(self, ctx, cmd: str.lower = None, num: int = None):
         """
         # Shows an embedded list of features I plan to implement. #
         
@@ -74,25 +74,33 @@ class Utils:
         desc = ''
         all_names = set(i.qualified_name for i in self.bot.walk_commands())
         await self._set_todos()
-        desc = ''.join(
-          (
-            f'\n**{pre}{cmd}**\n'
-            + ''.join(
-              f'  {idx}. ({self.lgst(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
-            for idx, date, val in self.bot.todos[cmd]
+        if cmd:
+            pre = '' if cmd not in all_names else ctx.prefix
+            desc = f'\n**{pre}{cmd}**\n' + ''.join(
+              f'  {idx}. ({self.fmt(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
+              for idx, date, val in self.bot.todos[cmd]
+              if idx == (num or idx)
             )
-          for pre, cmd in {(ctx.prefix if name in all_names else '', name if name in all_names else 'general') for name in cmds}
-          )
-          if cmds else
-          (
-            f'\n**{"" if cmd.lower() == "general" else ctx.prefix}{cmd}**\n'
-            + ''.join(
-              f'  {idx}. ({self.lgst(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
-            for idx, date, val in ls
+        else:
+            desc = ''.join(
+              (
+                f'\n**{pre}{cmd}**\n'
+                + ''.join(
+                  f'  {idx}. ({self.dtfmt(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
+                  for idx, date, val in self.bot.todos[cmd]
+                )
+                for pre, cmd in {(ctx.prefix if name in all_names else '', name if name in all_names else 'general') for name in cmds}
+              )
+              if cmd else
+              (
+                f'\n**{"" if cmd.lower() == "general" else ctx.prefix}{cmd}**\n'
+                + ''.join(
+                  f'  {idx}. ({self.fmt(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
+                  for idx, date, val in ls
+                )
+                for cmd, ls in self.bot.todos.items()
+              )
             )
-          for cmd, ls in self.bot.todos.items()
-          )
-        )
         await ctx.send(embed=discord.Embed(title='To-Dos', description=desc))
     
     @todo.command(name='add')
@@ -195,7 +203,7 @@ class Utils:
           + '\n'.join(
             f'  **{"" if cmd.lower() == "general" else ctx.prefix}{cmd}**\n'
             + ''.join(
-              f'    ({self.lgst(date_created)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
+              f'    ({self.fmt(date_created)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
             for date_created, val in ls
             )
           for cmd, ls in cmd_data.items()
