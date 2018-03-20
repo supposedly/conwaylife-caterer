@@ -11,6 +11,7 @@ import re
 import sys
 import time
 import traceback
+from ast import literal_eval
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import aiofiles
@@ -52,8 +53,8 @@ def parse(current):
     # because it's returned from this function, so
     # it gets pickled by run_in_executor -- and
     # generators can't be pickled
-    positions = [eval(i) for i in patlist[::3]]
-    bboxes = [eval(i) for i in patlist[1::3]]
+    positions = [literal_eval(i) for i in patlist[::3]]
+    bboxes = [literal_eval(i) for i in patlist[1::3]]
     
     # Determine the bounding box to make gifs from
     # The rectangle: xmin <= x <= xmax, ymin <= y <= ymax
@@ -96,7 +97,7 @@ def makeframes(current, patlist, positions, bbox, pad, colors, bg, track, trackm
             frame[dy+i][3*dx:3*dx+len(flat_row)] = flat_row
         
         anchor = min(height, width)
-        mul = -(-75 // anchor) if anchor <= 75 else 1
+        mul = -(-100 // anchor) if anchor <= 100 else 1
         frame = mutils.scale(tuple(mutils.scale(row, mul, 3) for row in frame), mul)
         
         with open(f'{current}_frames/{index:0{pad}}.png', 'wb') as out:
@@ -210,8 +211,7 @@ class CA:
           )
         flags = mutils.parse_flags(flags)
         gen = self.genconvert(gen)
-        bg = list(map(int, flags.get('bg', '255,255,255').split(',')))
-        colors = {'o': (0,0,0), 'b': bg}
+        colors = {}
         if 'execs' in flags:
             flags['execs'] = flags['execs'].split(',')
             execs = [self.opts.get(v, self.defaults[i]) for i, v in enumerate(flags['execs'])]
@@ -253,6 +253,21 @@ class CA:
         os.mkdir(f'{current}_frames')
         rule = ''.join(rule.split()) or 'B3/S23'
         algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.match(rule) else 'RuleLoader'
+        dfcolors = {
+          chr(int(state)+64): value
+          for state, value in literal_eval(flags.get('colors', '{}')).items()
+          if state != '0'
+          }
+        bg, fg = ('255,255,255', (0,0,0)) if 'bw' in flags else ('54,57,62', (255,255,255))
+        bg = list(map(int, flags.get('bg', bg).split(',')))
+        if algo in ('HashLife', 'QuickLife'):
+            dfcolors = {**{'o': fg, 'b': bg}, **{'bo'[int(k)]: v for k, v in literal_eval(flags.get('colors', '{}')).values()}}
+        else:
+            dfcolors = {
+              chr(int(state)+64): value
+              for state, value in literal_eval(flags.get('colors', '{}')).items()
+              if state != '0'
+              }
         if algo == 'RuleLoader':
             try:
                 rulename, rulefile, n_states, colors = await self.bot.pool.fetchrow('''
@@ -270,6 +285,7 @@ class CA:
         if rule.count('/') > 1:
             algo = 'Generations'
             colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
+        colors = {**colors, **dfcolors} # override
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
           + f' in rule `{rule}` with step `{step}` for `{1+gen}` generation(s)'
