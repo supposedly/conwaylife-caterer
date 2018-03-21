@@ -28,7 +28,7 @@ def typecasted(func):
         if not callable(kwannot.get(None)):
             kwannot[None] = lambda x: x
         ret = func(
-            *(hint(val) if callable(hint) else val for hint, val in zipln(pannot, args, fillvalue=pannot[-1])),
+            *(val if hint is None else hint(val) if callable(hint) else type(hint)(val) for hint, val in zipln(pannot, args, fillvalue=pannot[-1])),
             **{a: kwannot[a](b) if a in kwannot and callable(kwannot[a]) else kwannot[None](b) for a, b in kwargs.items()}
             )
         conv = func.__annotations__.get('return')
@@ -87,13 +87,15 @@ async def wait_for_any(ctx, events, checks, *, timeout=15.0):
     return None
 
 # ----------------------------------------------------------------------------------- #
+import re
 
 # Typehint converter; truncates seq.
-TRUNC = lambda end: lambda seq: seq[:end]
+def TRUNC(end):
+    return lambda seq: seq[:end]
 # TRUNC(end)(seq) -> seq[0:end]
 
 @typecasted
-def parse_args(args: list, regex: [compile], defaults: [object]) -> ([str], [str]):
+def parse_args(args: list, regex: [re.compile], defaults: list) -> ([str], [str]):
     """
     Sorts `args` according to order in `regexes`.
     
@@ -108,7 +110,7 @@ def parse_args(args: list, regex: [compile], defaults: [object]) -> ([str], [str
     new, regex = [], [i if isinstance(i, (list, tuple)) else [i] for i in regex]
     for ridx, rgx in enumerate(regex): 
         for aidx, arg in enumerate(args):
-            if any(k.match(arg) for k in rgx):
+            if any(k.match(arg) for k in rgx if k is not None):
                 new.append(arg)
                 args.pop(aidx)
                 break
@@ -117,14 +119,14 @@ def parse_args(args: list, regex: [compile], defaults: [object]) -> ([str], [str
     return new, args
 
 @typecasted
-def parse_flags(flags: list, *, prefix: TRUNC(1) = '-', delim: TRUNC(1) = ':') -> {str: str}:
+def parse_flags(flags: list, *, prefix: TRUNC(1) = '-', delim: TRUNC(1) = ':', quote: TRUNC(1) = "'") -> {str: str}:
     # FIXME: This ALMOST works perfectly. Fails when flags ==
     # ['-test', "-a:'", "bb", "'", "-bb:'aaa", "'", "-one:'", "two", "three", "four'"]
     # AKA "-test -a:' bb ' -bb:'aaa ' -one:' two three four'".split()
     # in case I screwed up transcribing to list
     op = f"{delim}'"
     openers = (i for i, v in enumerate(flags) if op in v)
-    closers = (i for i, v in enumerate(flags) if v.endswith("'") and op not in v)
+    closers = (i for i, v in enumerate(flags) if v.endswith(quote) and op not in v)
     while True:
         try:
             begin = next(openers)
@@ -134,12 +136,12 @@ def parse_flags(flags: list, *, prefix: TRUNC(1) = '-', delim: TRUNC(1) = ':') -
           next(closers)
             if flags[begin].endswith(op) and flags[begin].count(op) == 1
           else begin
-            if flags[begin].endswith("'")
+            if flags[begin].endswith(quote)
           else next(closers)
           )
         new = ' '.join(flags[begin:1+end])
         flags[begin:end] = ''
-        flags[begin] = new.rstrip("'").replace(op, delim)
+        flags[begin] = new.rstrip(quote).replace(op, delim)
     # now just get 'em into a dict
     new = {}
     for v in (i.lstrip(prefix) for i in flags if i.startswith(prefix)):
@@ -173,6 +175,8 @@ def chain(nested):
 # ------------- Custom command/group decos with info pointing to cmd.py ------------- #
 
 import dis
+import inspect
+import re
 import types
 
 import discord
@@ -199,8 +203,13 @@ class HelpAttrsMixin:
 
 class Command(HelpAttrsMixin, commands.Command):
     def __init__(self, name, callback, **kwargs):
+        """
+        Callback will be hidden behind the silhouette func below
+        """
         self.parent = None
-        cbc = callback.__code__
+        self.inner = getattr(callback, 'wrapped_', callback)
+        
+        cbc = self.inner.__code__
         self.loc = types.SimpleNamespace(
           file = cbc.co_filename,
           start = cbc.co_firstlineno - 1,
@@ -212,7 +221,9 @@ class Command(HelpAttrsMixin, commands.Command):
 class Group(HelpAttrsMixin, commands.Group):
     def __init__(self, **attrs):
         self.parent = None
-        cbc = attrs['callback'].__code__
+        self.inner = getattr(attrs['callback'], 'wrapped_', attrs['callback'])
+        
+        cbc = self.inner.__code__
         self.loc = types.SimpleNamespace(
           file = cbc.co_filename,
           start = cbc.co_firstlineno - 1,
@@ -223,23 +234,61 @@ class Group(HelpAttrsMixin, commands.Group):
     
     def command(self, *args, **kwargs):
         def decorator(func):
-            res = commands.command(cls=Command, *args, **kwargs)(func)
+            res = command_(*args, **kwargs)(func)
             self.add_command(res)
             return res
         return decorator
     
     def group(self, *args, **kwargs):
         def decorator(func):
-            res = commands.group(*args, **kwargs)(func)
+            res = group_(*args, **kwargs)(func)
             self.add_command(res)
             return res
         return decorator
 
-def command(brief=None, name=None, cls=Command, **attrs):
-    return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(func)
+def command(brief=None, name=None, cls=Command, args=False, **attrs):
+    if not args:
+        return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(func)
+    def give_args(callback):
+        argspec = inspect.getfullargspec(callback)
+        arguments = argspec.kwonlyargs
+        defaults = argspec.kwonlydefaults
+        annotations = argspec.annotations
+        # separate regexes from converters because they're merged in annotations
+        regexes = {}
+        converters = {}
+        for key, val in annotations.items():
+            # assume val is a tuple at first
+            if callable(val[-1]): # returns false on strings (and ofc on tuples w/ non-callable last element)
+                regexes[key] = [re.compile(i) for i in val[:-1]]
+                converters[key] = val[-1]
+                continue
+            regexes[key] = re.compile(val) if isinstance(val, str) else [re.compile(i) for i in val]
+            converters[key] = None
+        
+        async def silhouette(self, ctx, *dpyargs, __invoking=False, **kwargs):
+            if __invoking:
+                return await callback(self, ctx, *dpyargs, **kwargs)
+            [*args_], flags = parse_args(
+              dpyargs,
+              map(regexes.get, arguments),
+              map(defaults.get, arguments)
+              )
+            params = {**kwargs, **{k: converters[k](v) if callable(converters[k]) and v is not None else v for k, v in zip(arguments, args_) if k != 'flags'}}
+            if 'flags' in arguments:
+                params['flags'] = parse_flags(flags)
+            return await callback(self, ctx, **params)
+        
+        silhouette.wrapped_ = callback
+        return silhouette
+    
+    return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(give_args(func))
+    
 
-def group(brief=None, name=None, *, invoke_without_command=True, **attrs):
-    return command(brief, name, cls=Group, invoke_without_command=invoke_without_command, **attrs)
+def group(brief=None, name=None, *, invoke_without_command=True, **kwargs):
+    return command(brief, name, cls=Group, invoke_without_command=invoke_without_command, **kwargs)
+
+command_, group_ = command, group
 
 # ----------------------------- For uploading assets -------------------------------- #
 

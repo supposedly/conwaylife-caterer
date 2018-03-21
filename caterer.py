@@ -37,7 +37,10 @@ class Context(commands.Context):
         if not override and any(rxn.emoji in '👍👎' for rxn in await self.upd_rxns() if rxn.me):
             return
         await self.message.add_reaction('👎')
-
+    
+    async def invoke(self, *args, **kwargs):
+        return await super().invoke(*args, **kwargs, __invoking=True)
+    
 
 class Bot(commands.Bot):
     

@@ -120,6 +120,11 @@ def savegif(current, gen, step):
                     return True
     return False
 
+def genconvert(gen: int):
+    if int(gen) > 0:
+        return int(gen) - 1
+    raise Exception # bad gen (less than or equal to zero)
+
 class CA:
     def __init__(self, bot):
         self.bot = bot
@@ -129,12 +134,6 @@ class CA:
         self.loop = bot.loop
         self.defaults = *[[self.ppe, 'ProcessPoolExecutor']]*2, [self.tpe, 'ThreadPoolExecutor']
         self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
-    
-    @staticmethod
-    def genconvert(gen: int):
-        if int(gen) > 0:
-            return int(gen) - 1
-        raise Exception # bad gen (less than or equal to zero)
     
     @staticmethod
     def makesoup(rulestring: str, x: int, y: int) -> str:
@@ -183,8 +182,17 @@ class CA:
     def moreinfo(self, ctx):
         return f"'{ctx.prefix}help sim' for more info"
     
-    @mutils.group('Simulate an RLE and output to GIF')
-    async def sim(self, ctx, *args, **kwargs):
+    @mutils.group('Simulate an RLE and output to GIF', args=True)
+    async def sim(
+      self, ctx,
+      *,
+      pat: r'[\dob$]*[ob$][\dob$\n]*!?' = '',
+      rule: (rRULESTRING, rLtL) = '',
+      gen: (r'^\d+$', genconvert) = 0,
+      step: (r'^\d+$', int) = 1,
+      flags,
+      **kwargs
+      ):
         """
         # Simulates PAT with output to animated gif. #
         <[FLAGS]>
@@ -204,13 +212,6 @@ class CA:
         _ = re.compile(r'^\d+$')
         rand = kwargs.pop('randpat', None)
         dims = kwargs.pop('soup_dims', None)
-        (gen, step, rule, pat), flags = mutils.parse_args(
-          args,
-          [_, _, (rRULESTRING, rLtL), re.compile(r'[\dob$]*[ob$][\dob$\n]*!?')],
-          ['', '1', '', '']
-          )
-        flags = mutils.parse_flags(flags)
-        gen = self.genconvert(gen)
         colors = {}
         if 'execs' in flags:
             flags['execs'] = flags['execs'].split(',')
@@ -220,7 +221,7 @@ class CA:
         algo = 'HashLife' if 'h' in flags else 'QuickLife'
         track = 'track' in flags or 't' in flags
         try:
-            step, gen = sorted([int(step), int(gen)]) if gen else [int(step), int(gen)]
+            step, gen = (step, gen) if gen is None else sorted((step, gen))
         except ValueError:
             return await ctx.send(f"`Error: No GEN given. {self.moreinfo(ctx)}`")
         if gen / step > 2500:
@@ -261,7 +262,7 @@ class CA:
         bg, fg = ('255,255,255', (0,0,0)) if 'bw' in flags else ('54,57,62', (255,255,255))
         bg = list(map(int, flags.get('bg', bg).split(',')))
         if algo in ('HashLife', 'QuickLife'):
-            dfcolors = {**{'o': fg, 'b': bg}, **{'bo'[int(k)]: v for k, v in literal_eval(flags.get('colors', '{}')).values()}}
+            dfcolors = {**{'o': fg, 'b': bg}, **{'bo'[int(k)]: v for k, v in literal_eval(flags.get('colors', '{}')).items()}}
         else:
             dfcolors = {
               chr(int(state)+64): value
@@ -399,9 +400,17 @@ class CA:
             os.system(f'rm -rf {current}_frames/')
             if algo == 'RuleLoader':
                 os.remove(f'{self.dir}/{rule}_{ctx.message.id}.rule')
-        
-    @sim.command()
-    async def rand(self, ctx, *args):
+    
+    @sim.command(args=True)
+    async def rand(
+      self, ctx,
+      *,
+      dims: r'^\d+x\d+$' = '16x16',
+      rule: (rRULESTRING, rLtL) = None,
+      gen: (r'^\d+$', int) = None,
+      step: (r'^\d+$', int) = None,
+      flags
+    ):
         """
         # Simulates a random soup in given rule with output to GIF. Dims default to 16x16. #
         <[FLAGS]>
@@ -412,19 +421,12 @@ class CA:
         DIMS: "AxB" (sans quotes), where A and B are the desired soup's width and height separated by the literal character "x".
         {inherits}
         """
-        # dims, rule, gen, step
-        _ = re.compile(r'^\d+$')
-        (dims, rule, *nums), flags = mutils.parse_args(
-          args,
-          [re.compile(r'^\d+x\d+$'), (rRULESTRING, rLtL), _, _],
-          ['16x16', None, '300', None]
-          )
+        nums = gen, step
         try:
-            step, gen = sorted(int(i) for i in nums)
+            step, gen = sorted(nums)
         except TypeError:
-            try:
-                step, gen = 1, list(filter(None, nums))[0]
-            except IndexError:
+            step, gen = 1, gen or step
+            if gen is None:
                 return await ctx.send(f'`Error: No GEN given. {self.moreinfo(ctx)}`')
         if not rule:
             async for msg in ctx.channel.history(limit=50):
@@ -435,12 +437,12 @@ class CA:
         x, y = dims.split('x')
         await ctx.invoke(
           self.sim,
-          str(gen), # will this ever be int?
-          str(step),
-          rule or 'B3/S23',
-          *flags,
-          randpat = self.makesoup(rule, int(x), int(y)),
-          soup_dims = '×'.join(dims.split('x'))
+          gen=int(gen),
+          step=int(step),
+          rule=rule or 'B3/S23',
+          flags=flags,
+          randpat=await self.bot.loop.run_in_executor(None, self.makesoup, rule, int(x), int(y)),
+          soup_dims='×'.join(dims.split('x'))
           )
     
     @sim.error
