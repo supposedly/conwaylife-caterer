@@ -254,7 +254,7 @@ def command(brief=None, name=None, cls=Command, args=False, **attrs):
         arguments = argspec.kwonlyargs
         defaults = argspec.kwonlydefaults
         annotations = argspec.annotations
-        # separate regexes from converters because they're merged in annotations
+        # separate regexes from converters because they're both in annotations
         regexes = {}
         converters = {}
         for key, val in annotations.items():
@@ -267,7 +267,7 @@ def command(brief=None, name=None, cls=Command, args=False, **attrs):
             converters[key] = None
         
         async def silhouette(self, ctx, *dpyargs, __invoking=False, **kwargs):
-            if __invoking:
+            if __invoking: # bypass converters
                 return await callback(self, ctx, *dpyargs, **kwargs)
             [*args_], flags = parse_args(
               dpyargs,
@@ -368,3 +368,9 @@ def scale(li, mul, chunk=1):
     """
     return tuple(j for i in zip(*[iter(li)]*chunk) for _ in range(mul) for j in i)
 
+def fix(seq, chunk):
+    # just assume li is a 2d array because that's my only use case
+    li = []
+    for idx, row in enumerate(seq):
+        li.append(tuple(zip(*[iter(row)]*chunk)))
+    return li

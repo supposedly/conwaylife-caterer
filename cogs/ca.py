@@ -9,6 +9,7 @@ import os
 import random
 import re
 import sys
+import tempfile
 import time
 import traceback
 from ast import literal_eval
@@ -17,6 +18,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import aiofiles
 import discord
 import imageio
+import numpy
 import png
 from discord.ext import commands
 from PIL import ImageFile
@@ -74,50 +76,38 @@ def parse(current):
     patlist = [i.split('$') for i in patlist]
     return patlist, positions, bbox, (maxwidth, maxheight)
 
-def makeframes(current, patlist, positions, bbox, pad, colors, bg, track, trackmaxes):
+def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, track, trackmaxes):
     xmin, ymin, width, height = bbox
     width, height = trackmaxes if track else (width, height)
-    
-    for index in range(len(patlist)):
-        pat = patlist[index]
-        xpos, ypos = positions[index]
-        dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
-        frame = [bg * (2+width) for _ in range(2+height)]
-        
-        flat_pat = [
-          [
-            j for run, char in rRUNS.findall(row) for j in
-            (bg if char in '.b' else colors[char]) * int(run or 1)
-          ]
-        for row in pat
-        ]
-        
-        # Draw the pattern onto the frame by replacing segments of prerendered rows
-        for i, flat_row in enumerate(flat_pat):
-            frame[dy+i][3*dx:3*dx+len(flat_row)] = flat_row
-        
-        anchor = min(height, width)
-        mul = -(-100 // anchor) if anchor <= 100 else 1
-        frame = mutils.scale(tuple(mutils.scale(row, mul, 3) for row in frame), mul)
-        
-        with open(f'{current}_frames/{index:0{pad}}.png', 'wb') as out:
-            w = png.Writer(len(frame[0])//3, len(frame))
-            w.write(out, frame)
-
-def savegif(current, gen, step):
-    # finally, pass all created pics to imageio for conversion to gif
-    # then either upload to gfycat or send directly to discord depending on presence of "g" flag
-    png_dir = f'{current}_frames/'
     total = 0
     duration = min(1/6, max(1/60, 5/gen/step) if gen else 1)
-    for subdir, dirs, files in os.walk(png_dir):
-        files.sort()
-        with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as writer:
-            for file in files:
-                frame = imageio.imread(os.path.join(subdir, file))
-                writer.append_data(frame)
-                if os.stat(f'{current}.gif').st_size > 7600000:
-                    return True
+    with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as gif_writer:
+        for pat, (xpos, ypos) in zip(patlist, positions):
+            dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
+            frame = [[bg for _ in range(2+width)] for _ in range(2+height)]
+            # Draw the pattern onto the frame by replacing segments of prerendered rows
+            for i, flat_row in enumerate(
+                [
+                 bg if char in '.b' else colors[char]
+                 for run, char in
+                 rRUNS.findall(row)
+                 for _ in range(int(run or 1))
+                ]
+              for row in pat
+              ):
+                frame[dy+i][dx:dx+len(flat_row)] = flat_row
+            anchor = min(height, width)
+            mul = -(-100 // anchor) if anchor <= 100 else 1
+            gif_writer.append_data(numpy.asarray(
+              mutils.scale(
+                tuple(
+                  mutils.scale(row, mul) for row in frame
+                  ),
+                mul
+                )
+              ))
+            if os.stat(f'{current}.gif').st_size > 7600000:
+                return True
     return False
 
 def genconvert(gen: int):
@@ -154,23 +144,28 @@ class CA:
             rle += '$\n' if y > row + 1 else '!\n'
         return rle
     
-    def cancellation_check(self, ctx, og_msg, rxn, usr):
-        if rxn.message.id != og_msg.id:
+    def cancellation_check(self, ctx, orig_msg, rxn, usr):
+        if rxn.message.id != orig_msg.id:
             return False
-        x_emoji = rxn.emoji == '❌'
+        correct_emoji = rxn.emoji == '\N{WASTEBASKET}'
         if usr != ctx.message.author:
-            return x_emoji and rxn.count > 4
-        return x_emoji
+            return correct_emoji and rxn.count > 3
+        return correct_emoji
 
     async def do_gif(self, execs, current, gen, step, colors, track, bg):
         start = time.perf_counter()
-        patlist, positions, bbox, trackmaxes = await self.loop.run_in_executor(execs[0][0], parse, current)
+        patlist, positions, bbox, trackmaxes = await self.loop.run_in_executor(
+          execs[0][0], parse,
+          current
+          )
         end_parse = time.perf_counter()
-        await self.loop.run_in_executor(execs[1][0], makeframes, current, patlist, positions, bbox, len(str(gen)), colors, bg, track, trackmaxes)
+        oversized = await self.loop.run_in_executor(
+          execs[1][0], makeframes,
+          current, gen, step, patlist, positions, bbox,
+          len(str(gen)), colors, bg, track, trackmaxes
+          )
         end_makeframes = time.perf_counter()
-        oversized = await self.loop.run_in_executor(execs[2][0], savegif, current, gen, step)
-        end_savegif = time.perf_counter()
-        return start, end_parse, end_makeframes, end_savegif, oversized
+        return start, end_parse, end_makeframes, oversized
     
     async def run_bgolly(self, current, algo, gen, step, rule):
         # run bgolly with parameters
@@ -184,14 +179,14 @@ class CA:
     
     @mutils.group('Simulate an RLE and output to GIF', args=True)
     async def sim(
-      self, ctx,
-      *,
-      pat: r'[\dob$]*[ob$][\dob$\n]*!?' = '',
-      rule: (rRULESTRING, rLtL) = '',
-      gen: (r'^\d+$', genconvert) = 0,
-      step: (r'^\d+$', int) = 1,
-      flags,
-      **kwargs
+        self, ctx,
+        *,
+        pat: r'[\dob$]*[ob$][\dob$\n]*!?' = '',
+        rule: (rRULESTRING, rLtL) = '',
+        gen: (r'^\d+$', genconvert) = None,
+        step: (r'^\d+$', int) = None,
+        flags,
+        **kwargs
       ):
         """
         # Simulates PAT with output to animated gif. #
@@ -221,7 +216,7 @@ class CA:
         algo = 'HashLife' if 'h' in flags else 'QuickLife'
         track = 'track' in flags or 't' in flags
         try:
-            step, gen = (step, gen) if gen is None else sorted((step, gen))
+            step, gen = (1, gen) if step is None else sorted((step, gen))
         except ValueError:
             return await ctx.send(f"`Error: No GEN given. {self.moreinfo(ctx)}`")
         if gen / step > 2500:
@@ -251,7 +246,6 @@ class CA:
                 rule = ''
         
         current = f'{self.dir}/{ctx.message.id}'
-        os.mkdir(f'{current}_frames')
         rule = ''.join(rule.split()) or 'B3/S23'
         algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.match(rule) else 'RuleLoader'
         dfcolors = {
@@ -299,7 +293,7 @@ class CA:
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             return await ctx.send(f'`{bg_err}`')
-        await announcement.add_reaction('❌')
+        await announcement.add_reaction('\N{WASTEBASKET}')
         resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'reaction_add',
@@ -308,7 +302,7 @@ class CA:
                   event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
                   )
         try:
-            start, end_parse, end_makeframes, end_savegif, oversized = resp['coro']
+            start, end_parse, end_makeframes, oversized = resp['coro']
         except (KeyError, ValueError):
             return await resp['event'][0].message.delete()
         content = (
@@ -323,12 +317,12 @@ class CA:
                   {
                     'Times': '',
                     '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
-                    '**Saving frames**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
-                    '**Stitching frames to GIF**': f'{round(end_savegif-end_makeframes, 2)}s ({execs[2][1]})'
+                    '**Saving frames to GIF**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
+                    '(**Total**': f'{round(end_makeframes-start, 2)}s)'
                   }
                 ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
                 if flags.get('time') == 'all'
-                  else f'{round(end_savegif-start, 2)}s'
+                  else f'{round(end_makeframes-start, 2)}s'
                   if 'time' in flags
                     else ''
                 ) + ('\n(Truncated to fit under 8MB)' if oversized else ''),
@@ -336,14 +330,23 @@ class CA:
               )
         except discord.errors.HTTPException as e:
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
+        
+        def extension_or_deletion_check(rxn, usr):
+            if usr is ctx.message.author:
+                if rxn.emoji in '➕⏩' and rxn.message.id == gif.id:
+                    return True
+                return rxn.emoji == '\N{WASTEBASKET}' and rxn.message.id == announcement.id
         try:
             while True:
                 if gen < 2500 * step and not oversized:
                     await gif.add_reaction('➕')
                 await gif.add_reaction('⏩')
-                rxn, _ = await self.bot.wait_for('reaction_add', timeout=25.0, check=lambda rxn, usr: rxn.emoji in '➕⏩' and rxn.message.id == gif.id and usr is ctx.message.author)
+                rxn, _ = await self.bot.wait_for('reaction_add', timeout=25.0, check=extension_or_deletion_check)
                 await gif.delete()
-                os.system(f'rm -rf {current}_frames/'); os.mkdir(f'{current}_frames')
+                if rxn.emoji == '\N{WASTEBASKET}':
+                    await announcement.delete()
+                    break
+                
                 if rxn.emoji == '➕':
                     gen += min(2500*step-gen, int(50*math.log1p(gen))) # gives an increasing-at-a-decreasing-rate curve
                 else:
@@ -366,7 +369,7 @@ class CA:
                   event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
                   )
                 try:
-                    start, end_parse, end_makeframes, end_savegif, oversized = resp['coro']
+                    start, end_parse, end_makeframes, oversized = resp['coro']
                 except KeyError:
                     return await resp['event'][0].message.delete()
                 try:
@@ -376,41 +379,40 @@ class CA:
                           {
                             'Times': '',
                             '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
-                            '**Saving frames**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
-                            '**Stitching frames to GIF**': f'{round(end_savegif-end_makeframes, 2)}s ({execs[2][1]})'
+                            '**Saving frames to GIF**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
+                            '(**Total**': f'{round(end_savegif-start, 2)}s)'
                           }
                         ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
                         if flags.get('time') == 'all'
-                          else f'{round(end_savegif-start, 2)}s'
+                          else f'{round(end_makeframes-start, 2)}s'
                           if 'time' in flags
                             else ''
-                        ) + ('\n`(truncated to fit under 8mb)`' if oversized else ''),
+                        ) + ('\n(Truncated to fit under 8MB)' if oversized else ''),
                       file=discord.File(f'{current}.gif')
                       )
                 except discord.errors.HTTPException as e:
                     return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         except asyncio.TimeoutError:
-            # trigger finally block
+            # trigger the finally block
             pass
         finally:
             gif = await ctx.channel.get_message(gif.id) # refresh reactions
-            [await gif.remove_reaction(rxn, ctx.guild.me) for rxn in gif.reactions if rxn.me]
+            [await gif.remove_reaction(rxn, ctx.guild.me) for rxn in gif.reactions + announcement.reactions if rxn.me]
             os.remove(f'{current}.gif')
             os.remove(f'{current}_in.rle')
-            os.system(f'rm -rf {current}_frames/')
             if algo == 'RuleLoader':
                 os.remove(f'{self.dir}/{rule}_{ctx.message.id}.rule')
     
     @sim.command(args=True)
     async def rand(
-      self, ctx,
-      *,
-      dims: r'^\d+x\d+$' = '16x16',
-      rule: (rRULESTRING, rLtL) = None,
-      gen: (r'^\d+$', int) = None,
-      step: (r'^\d+$', int) = None,
-      flags
-    ):
+        self, ctx,
+        *,
+        dims: r'^\d+x\d+$' = '16x16',
+        rule: (rRULESTRING, rLtL) = None,
+        gen: (r'^\d+$', int) = None,
+        step: (r'^\d+$', int) = None,
+        flags
+      ):
         """
         # Simulates a random soup in given rule with output to GIF. Dims default to 16x16. #
         <[FLAGS]>
