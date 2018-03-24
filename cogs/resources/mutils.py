@@ -327,14 +327,14 @@ def extract_rule_info(fp):
 
 # --------------------------- For rule-color shenanigans ---------------------------- #
 
+from math import ceil
+
 NUMS = {
   **{num: chr(64+num) for num in range(25)},
-  **{num: chr(111+num//24-(not num%24)) + chr(64+(num-(not num%24))%24) for num in range(25, 256)}
+  **{num: chr(110+ceil(num/24)) + chr(64+(num%24 or 24)) for num in range(25, 256)}
   }
 # XXX: is the (not num%24) stuff factor-out-able?
 STATES = {v: k for k, v in NUMS.items()}
-print(NUMS)
-print(STATES)
 '''
 STATES = {
   **{val:
