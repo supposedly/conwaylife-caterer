@@ -301,14 +301,11 @@ def extract_rule_info(fp):
     fp.seek(0)
     in_colors = False
     name, n_states, colors  = None, 0, {}
-    for line in (i.decode().strip() for i in fp):
-        line, *_ = line.split('#')
+    for line, *_ in (i.decode().strip().split('#') for i in fp):
         if not line:
             continue
         if line.startswith(('n_states:', 'num_states=')):
             n_states = int(line.split('=')[-1].split(':')[-1].strip())
-            if n_states > 24:
-                raise NotImplementedError('Rules with greater than 24 states not supported yet')
             continue
         if line.startswith('@RULE'):
             name = line.partition(' ')[-1]
@@ -330,6 +327,27 @@ def extract_rule_info(fp):
 
 # --------------------------- For rule-color shenanigans ---------------------------- #
 
+NUMS = {
+  **{num: chr(64+num) for num in range(25)},
+  **{num: chr(111+num//24-(not num%24)) + chr(64+(num-(not num%24))%24) for num in range(25, 256)}
+  }
+# XXX: is the (not num%24) stuff factor-out-able?
+STATES = {v: k for k, v in NUMS.items()}
+print(NUMS)
+print(STATES)
+'''
+STATES = {
+  **{val:
+    ord(val) - 64
+    if len(val) == 1
+    else 24*ord(val[0]) + ord(val[1]) - 2728
+    for val in NUMS.values()}
+  }
+'''
+
+def state_from(val: (int, str)):
+    return NUMS[val] if isinstance(val, int) else STATES[val]
+
 class ColorRange:
     def __init__(self, n_states, start=(255,0,0), end=(255,255,0)):
         self.n_states = n_states
@@ -347,17 +365,16 @@ class ColorRange:
         return tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
     
     def to_dict(self):
-        return dict(zip((chr(64+i) for i in range(self.n_states)), self))
+        return dict(zip((state_from(i) for i in range(self.n_states)), self))
 
 def colorpatch(states: dict, n_states: int, bg, start=(255,255,0), end=(255,0,0)):
-    # FIXME: Fails on rules with > 24 states because of min()/max() and chr()
     if n_states < 3:
         return {
           'o': states.get('1', (0,0,0)),
           'b': states.get('0', (255,255,255))
           }
     crange = ColorRange(n_states, start, end)
-    return  states.get('0', bg), {'.' if i == 0 else chr(64+i): states.get(str(i), crange.at(i) if i else bg) for i in range(n_states)}
+    return  states.get('0', bg), {'.' if i == 0 else state_from(i): states.get(str(i), crange.at(i) if i else bg) for i in range(n_states)}
 
 # -------------------------------------- Misc --------------------------------------- #
 

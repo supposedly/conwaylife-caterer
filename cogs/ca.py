@@ -85,27 +85,22 @@ def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, tr
         for pat, (xpos, ypos) in zip(patlist, positions):
             dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
             frame = [[bg for _ in range(2+width)] for _ in range(2+height)]
-            # Draw the pattern onto the frame by replacing segments of prerendered rows
+            # Draw the pattern onto the frame by replacing segments of background rows
             for i, flat_row in enumerate(
                 [
-                 bg if char in '.b' else colors[char]
-                 for run, char in
-                 rRUNS.findall(row)
-                 for _ in range(int(run or 1))
+                  bg if char in '.b' else colors[char]
+                  for run, char in rRUNS.findall(row)
+                  for _ in range(int(run or 1))
                 ]
               for row in pat
               ):
                 frame[dy+i][dx:dx+len(flat_row)] = flat_row
             anchor = min(height, width)
             mul = -(-100 // anchor) if anchor <= 100 else 1
-            gif_writer.append_data(numpy.asarray(
-              mutils.scale(
-                tuple(
-                  mutils.scale(row, mul) for row in frame
-                  ),
-                mul
-                )
-              ))
+            gif_writer.append_data(
+              numpy.asarray(mutils.scale((mutils.scale(row, mul) for row in frame), mul)),
+              meta={'colorResolution': '8'}
+              )
             if os.stat(f'{current}.gif').st_size > 7600000:
                 return True
     return False
@@ -249,7 +244,7 @@ class CA:
         rule = ''.join(rule.split()) or 'B3/S23'
         algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.match(rule) else 'RuleLoader'
         dfcolors = {
-          chr(int(state)+64): value
+          mutils.state_from(int(state)): value
           for state, value in literal_eval(flags.get('colors', '{}')).items()
           if state != '0'
           }
@@ -259,7 +254,7 @@ class CA:
             dfcolors = {**{'o': fg, 'b': bg}, **{'bo'[int(k)]: v for k, v in literal_eval(flags.get('colors', '{}')).items()}}
         else:
             dfcolors = {
-              chr(int(state)+64): value
+              mutils.state_from(int(state)): value
               for state, value in literal_eval(flags.get('colors', '{}')).items()
               if state != '0'
               }
@@ -280,7 +275,7 @@ class CA:
         if rule.count('/') > 1:
             algo = 'Generations'
             colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
-        colors = {**colors, **dfcolors} # override
+        colors = {**colors, **dfcolors} # override with default colors
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
           + f' in rule `{rule}` with step `{step}` for `{1+gen}` generation(s)'
