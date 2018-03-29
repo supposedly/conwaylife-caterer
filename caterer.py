@@ -43,7 +43,6 @@ class Context(commands.Context):
     
 
 class Bot(commands.Bot):
-    
     def __init__(self, *args, **kwargs):
         self.first_time = True
         self.owner = None

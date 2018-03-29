@@ -2,18 +2,18 @@ import asyncio
 import concurrent
 import copy
 import io
-import itertools
 import json
 import math
 import os
 import random
 import re
 import sys
-import tempfile
 import time
 import traceback
 from ast import literal_eval
+from collections import namedtuple, deque
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from enum import Enum
 
 import aiofiles
 import discord
@@ -25,6 +25,23 @@ from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 from cogs.resources import mutils
+
+
+class Log:
+    __slots__ = 'invoker', 'rule', 'time', 'status'
+    def __init__(self, invoker, rule, time, status):
+        self.invoker = invoker
+        self.rule = rule
+        self.time = time
+        self.status = status
+
+
+class Status(Enum):
+    WAITING = 0
+    SIMMING = 1
+    CANCELED = 2
+    COMPLETED = 3
+    FAILED = 4
 
 
 # matches LtL rulestring
@@ -117,6 +134,7 @@ class CA:
         self.ppe = ProcessPoolExecutor()
         self.tpe = ThreadPoolExecutor() # or just None
         self.loop = bot.loop
+        self.simlog = deque(maxlen=5)
         self.defaults = *[[self.ppe, 'ProcessPoolExecutor']]*2, [self.tpe, 'ThreadPoolExecutor']
         self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
     
@@ -282,13 +300,17 @@ class CA:
           + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
           )
         announcement = await ctx.send(details)
+        curlog = Log(ctx.author.mention, rule, ctx.message.created_at, Status.WAITING)
+        self.simlog.append(curlog)
         writrule = f'{rule}_{ctx.message.id}' if algo == 'RuleLoader' else rule
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(f'x=0,y=0,rule={writrule}\n{pat}')
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
+            curlog.status = Status.FAILED
             return await ctx.send(f'`{bg_err}`')
         await announcement.add_reaction('\N{WASTEBASKET}')
+        curlog.status = Status.SIMMING
         resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'reaction_add',
@@ -299,12 +321,14 @@ class CA:
         try:
             start, end_parse, end_makeframes, oversized = resp['coro']
         except (KeyError, ValueError):
+            curlog.status = Status.CANCELED
             return await resp['event'][0].message.delete()
         content = (
             (ctx.message.author.mention if 'tag' in flags else '')
           + (f' **{flags["id"]}** \n' if 'id' in flags else '')
           + '{time}'
           )
+        curlog.status = Status.COMPLETED
         try:
             gif = await ctx.send(
               content.format(
@@ -324,6 +348,7 @@ class CA:
               file=discord.File(f'{current}.gif')
               )
         except discord.errors.HTTPException as e:
+            curlog.status = Status.FAILED
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         
         def extension_or_deletion_check(rxn, usr):
@@ -331,6 +356,7 @@ class CA:
                 if rxn.emoji in '➕⏩' and rxn.message.id == gif.id:
                     return True
                 return rxn.emoji == '\N{WASTEBASKET}' and rxn.message.id == announcement.id
+        
         try:
             while True:
                 if gen < 2500 * step and not oversized:
@@ -341,7 +367,6 @@ class CA:
                 if rxn.emoji == '\N{WASTEBASKET}':
                     await announcement.delete()
                     break
-                
                 if rxn.emoji == '➕':
                     gen += min(2500*step-gen, int(50*math.log1p(gen))) # gives an increasing-at-a-decreasing-rate curve
                 else:
@@ -392,12 +417,25 @@ class CA:
             pass
         finally:
             gif = await ctx.channel.get_message(gif.id) # refresh reactions
-            [await gif.remove_reaction(rxn, ctx.guild.me) for rxn in gif.reactions + announcement.reactions if rxn.me]
+            await announcement.remove_reaction('\N{WASTEBASKET}', ctx.guild.me)
+            [await gif.remove_reaction(rxn, ctx.guild.me) for rxn in gif.reactions]
             os.remove(f'{current}.gif')
             os.remove(f'{current}_in.rle')
             if algo == 'RuleLoader':
                 os.remove(f'{self.dir}/{rule}_{ctx.message.id}.rule')
     
+    @sim.error
+    async def sim_error(self, ctx, error):
+        # In case of missing GEN:
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send(f'`Error: No {error.param.name.upper()} given. {self.moreinfo(ctx)}`')
+        # Bad argument:
+        elif isinstance(error, (commands.BadArgument, ZeroDivisionError)): # BadArgument on failure to convert to int, ZDE on gen=0
+            badarg = str(error).split('"')[3].split('"')[0]
+            await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
+        else:
+            raise error from None
+
     @sim.command(args=True)
     async def rand(
         self, ctx,
@@ -442,28 +480,19 @@ class CA:
           soup_dims='×'.join(dims.split('x'))
           )
     
-    @sim.error
-    async def sim_error(self, ctx, error):
-        # In case of missing GEN:
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(f'`Error: No {error.param.name.upper()} given. {self.moreinfo(ctx)}`')
-        # Bad argument:
-        elif isinstance(error, (commands.BadArgument, ZeroDivisionError)): # BadArgument on failure to convert to int, ZDE on gen=0
-            badarg = str(error).split('"')[3].split('"')[0]
-            await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
-        # Something went wrong in the command itself:
-        elif isinstance(error, commands.CommandInvokeError):
-            exc = traceback.format_exception(type(error), error, error.__traceback__)
-            # extract relevant traceback only (not whatever led up to CommandInvokeError)
-            end = '\nThe above exception was the direct cause of the following exception:\n\n'
-            end = len(exc) - next(i for i, j in enumerate(reversed(exc), 1) if j == end)
-            try:
-                print('Ignoring exception in on_message', exc[0].split('"""')[1], *exc[1:end])
-            except Exception as e:
-                raise error
-        else:
-            raise error
-        
+    @sim.command('Gives a log of recent sim invocations')
+    async def log(self, ctx):
+        entries = []
+        comp = ('⌛', '💬', '🗑', '✅', '❌')
+        for log in self.simlog:
+            entries.append(
+                f'• {log.invoker}'
+                f' in `{log.rule}`'
+                f" at `{log.time.strftime('%H:%M')}`:"
+                f' {comp[log.status.value]} {log.status.name.title()}'
+                )
+        await ctx.send(embed=discord.Embed(title='Last 5 sims', description='\n'.join(entries)))
+    
     @mutils.command('Upload an asset (just ruletables for now)')
     async def upload(self, ctx, *, brief=''):
         """

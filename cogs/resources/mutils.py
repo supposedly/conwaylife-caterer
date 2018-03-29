@@ -123,7 +123,6 @@ def parse_flags(flags: list, *, prefix: TRUNC(1) = '-', delim: TRUNC(1) = ':', q
     # FIXME: This ALMOST works perfectly. Fails when flags ==
     # ['-test', "-a:'", "bb", "'", "-bb:'aaa", "'", "-one:'", "two", "three", "four'"]
     # AKA "-test -a:' bb ' -bb:'aaa ' -one:' two three four'".split()
-    # in case I screwed up transcribing to list
     op = f"{delim}'"
     openers = (i for i, v in enumerate(flags) if op in v)
     closers = (i for i, v in enumerate(flags) if v.endswith(quote) and op not in v)
@@ -178,6 +177,7 @@ import dis
 import inspect
 import re
 import types
+from functools import wraps
 
 import discord
 from discord.ext import commands
@@ -199,7 +199,7 @@ class HelpAttrsMixin:
     
     @aliases.setter
     def aliases(*_):
-        """Eliminates "can't set attribute" when dpy tries assigning aliases"""
+        """Eliminate "can't set attribute" when dpy tries assigning aliases"""
 
 class Command(HelpAttrsMixin, commands.Command):
     def __init__(self, name, callback, **kwargs):
@@ -249,6 +249,7 @@ class Group(HelpAttrsMixin, commands.Group):
 def command(brief=None, name=None, cls=Command, args=False, **attrs):
     if not args:
         return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(func)
+
     def give_args(callback):
         argspec = inspect.getfullargspec(callback)
         arguments = argspec.kwonlyargs
@@ -280,6 +281,7 @@ def command(brief=None, name=None, cls=Command, args=False, **attrs):
             return await callback(self, ctx, **params)
         
         silhouette.wrapped_ = callback
+        silhouette.__doc__ = callback.__doc__
         return silhouette
     
     return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(give_args(func))
@@ -333,7 +335,6 @@ NUMS = {
   **{num: chr(64+num) for num in range(25)},
   **{num: chr(110+ceil(num/24)) + chr(64+(num%24 or 24)) for num in range(25, 256)}
   }
-# XXX: is the (not num%24) stuff factor-out-able?
 STATES = {v: k for k, v in NUMS.items()}
 '''
 STATES = {
