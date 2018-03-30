@@ -135,15 +135,14 @@ class CA:
         self.tpe = ThreadPoolExecutor() # or just None
         self.loop = bot.loop
         self.simlog = deque(maxlen=5)
-        self.defaults = *[[self.ppe, 'ProcessPoolExecutor']]*2, [self.tpe, 'ThreadPoolExecutor']
+        self.defaults = (*[[self.ppe, 'ProcessPoolExecutor']]*2, [self.tpe, 'ThreadPoolExecutor'])
         self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
     
     @staticmethod
     def makesoup(rulestring: str, x: int, y: int) -> str:
         """generates random soup as RLE with specified dimensions"""
 
-        rle = f'x = {x}, y = {y}, rule = {rulestring}\n' # not really needed but it looks prettier :shrug:
-                                                         # also prevents the length stuff below from erroring
+        rle = f'x = {x}, y = {y}, rule = {rulestring}\n'
         for row in range(y):
             pos = x
             while pos > 0:
@@ -266,16 +265,16 @@ class CA:
           for state, value in literal_eval(flags.get('colors', '{}')).items()
           if state != '0'
           }
-        bg, fg = ('255,255,255', (0,0,0)) if 'bw' in flags else ('54,57,62', (255,255,255))
-        bg = list(map(int, flags.get('bg', bg).split(',')))
+        setbg = literal_eval(flags.get('bg', 'None'))
+        bg, fg = ((255,255,255), (0,0,0)) if 'bw' in flags else ((54,57,62), (255,255,255))
         if algo in ('HashLife', 'QuickLife'):
-            dfcolors = {**{'o': fg, 'b': bg}, **{'bo'[int(k)]: v for k, v in literal_eval(flags.get('colors', '{}')).items()}}
+            dfcolors = {**{'o': fg, 'b': setbg or bg}, **{'bo'[int(k)]: v for k, v in literal_eval(flags.get('colors', '{}')).items()}}
         else:
-            dfcolors = {
-              mutils.state_from(int(state)): value
-              for state, value in literal_eval(flags.get('colors', '{}')).items()
-              if state != '0'
-              }
+            dfcolors = {**{
+                mutils.state_from(int(state)): value
+                for state, value in literal_eval(flags.get('colors', '{}')).items()
+                if state != '0'
+                }, **({'.': setbg} if setbg else {})}
         if algo == 'RuleLoader':
             try:
                 rulename, rulefile, n_states, colors = await self.bot.pool.fetchrow('''
@@ -283,13 +282,15 @@ class CA:
                 ''', rule)
             except ValueError: # not enough values to unpack
                 return await ctx.send('`Error: Rule not found`')
-            bg, colors = mutils.colorpatch(json.loads(colors), n_states, bg)
+            bg, colors = mutils.colorpatch(json.loads(colors), n_states, setbg or bg)
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
                 ruleout.write(rulefile)
         if algo == 'Larger than Life':
             n_states = int(rule.split('C')[1].split(',')[0])
             if n_states > 2:
                 colors = mutils.ColorRange(n_states, (255,255,0), (255,0,0)).to_dict()
+            else:
+                dfcolors = {'o': fg, 'b': setbg or bg}
         if rule.count('/') > 1:
             algo = 'Generations'
             colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
@@ -311,13 +312,17 @@ class CA:
             return await ctx.send(f'`{bg_err}`')
         await announcement.add_reaction('\N{WASTEBASKET}')
         curlog.status = Status.SIMMING
-        resp = await mutils.await_event_or_coro(
-                  self.bot,
-                  event = 'reaction_add',
-                  coro = self.do_gif(execs, current, gen, step, colors, track, bg),
-                  ret_check = lambda obj: isinstance(obj, discord.Message),
-                  event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
-                  )
+        try:
+            resp = await mutils.await_event_or_coro(
+                    self.bot,
+                    event = 'reaction_add',
+                    coro = self.do_gif(execs, current, gen, step, colors, track, setbg or bg),
+                    ret_check = lambda obj: isinstance(obj, discord.Message),
+                    event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
+                    )
+        except Exception as e:
+            curlog.status = Status.FAILED
+            raise e from None
         try:
             start, end_parse, end_makeframes, oversized = resp['coro']
         except (KeyError, ValueError):

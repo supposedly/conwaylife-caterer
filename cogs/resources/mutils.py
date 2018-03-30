@@ -350,26 +350,30 @@ def state_from(val: (int, str)):
     return NUMS[val] if isinstance(val, int) else STATES[val]
 
 class ColorRange:
-    def __init__(self, n_states, start=(255,0,0), end=(255,255,0)):
+    def __init__(self, n_states, start=(255,0,0), end=(255,255,0), *, first=0):
         self.n_states = n_states
+        self.first = first
         self.start = start
         self.end = end
-        self.avgs = [(final-initial)//n_states for initial, final in zip(start, end)]
+        self.avgs = [(final-initial)/n_states for initial, final in zip(start, end)]
     
     def __iter__(self):
         for state in range(self.n_states):
-            yield tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
+            yield tuple(int(initial+level*state) for initial, level in zip(self.start, self.avgs))
     
     def __reversed__(self):
         return self.__class__(self.n_states, self.end, self.start)
     
+    def __str__(self):
+        return '\n'.join(f"{i} {' '.join(map(str,v))}" for i, v in enumerate(self, self.first))
+    
     def at(self, state):
-        if not 0 <= state <= self.n_states:
+        if not self.first <= state <= self.first+self.n_states:
             raise ValueError('Requested state out of range')
-        return tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
+        return tuple(int(initial+level*state) for initial, level in zip(self.start, self.avgs))
     
     def to_dict(self):
-        return dict(zip((state_from(i) for i in range(self.n_states)), self))
+        return dict(zip((state_from(self.first+i) for i in range(self.n_states)), self))
 
 def colorpatch(states: dict, n_states: int, bg, start=(255,255,0), end=(255,0,0)):
     if n_states < 3:
