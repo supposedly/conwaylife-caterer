@@ -479,6 +479,18 @@ class CA:
           soup_dims='×'.join(dims.split('x'))
           )
     
+    @sim.command('Shows uploaded rules')
+    async def rules(self, ctx):
+        em = discord.Embed(
+              title='Rules',
+              description='\n'.join(
+                f"• {i['name']}"
+                for i in
+                await self.bot.pool.fetch('''SELECT DISTINCT name FROM rules''')
+                )
+            )
+        await ctx.send(embed=em)
+
     @sim.command('Gives a log of recent sim invocations')
     async def log(self, ctx):
         entries = []
