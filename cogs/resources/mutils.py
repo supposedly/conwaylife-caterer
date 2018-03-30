@@ -360,6 +360,9 @@ class ColorRange:
         for state in range(self.n_states):
             yield tuple(initial+level*state for initial, level in zip(self.start, self.avgs))
     
+    def __reversed__(self):
+        return self.__class__(self.n_states, self.end, self.start)
+    
     def at(self, state):
         if not 0 <= state <= self.n_states:
             raise ValueError('Requested state out of range')

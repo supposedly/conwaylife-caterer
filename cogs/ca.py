@@ -10,6 +10,7 @@ import re
 import sys
 import time
 import traceback
+import warnings
 from ast import literal_eval
 from collections import namedtuple, deque
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -18,8 +19,8 @@ from enum import Enum
 import aiofiles
 import discord
 import imageio
-import numpy
 import png
+import numpy as np
 from discord.ext import commands
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -115,10 +116,9 @@ def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, tr
             anchor = min(height, width)
             mul = -(-100 // anchor) if anchor <= 100 else 1
             gif_writer.append_data(
-              numpy.asarray(mutils.scale((mutils.scale(row, mul) for row in frame), mul)),
-              meta={'colorResolution': '8'}
-              )
-            if os.stat(f'{current}.gif').st_size > 7600000:
+              np.asarray(mutils.scale((mutils.scale(row, mul) for row in frame), mul), np.uint8)
+            )
+            if os.stat(f'{current}.gif').st_size > 7500000:
                 return True
     return False
 
@@ -196,7 +196,7 @@ class CA:
         *,
         pat: r'[\dob$]*[ob$][\dob$\n]*!?' = '',
         rule: (rRULESTRING, rLtL) = '',
-        gen: (r'^\d+$', genconvert) = None,
+        gen: (r'^\d+$', int) = None,
         step: (r'^\d+$', int) = None,
         flags,
         **kwargs
@@ -217,9 +217,8 @@ class CA:
         PAT: One-line rle or .lif file to simulate. If omitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
         #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
         """
-        _ = re.compile(r'^\d+$')
-        rand = kwargs.pop('randpat', None)
-        dims = kwargs.pop('soup_dims', None)
+        rand = kwargs.get('randpat')
+        dims = kwargs.get('soup_dims')
         colors = {}
         if 'execs' in flags:
             flags['execs'] = flags['execs'].split(',')
@@ -232,6 +231,7 @@ class CA:
             step, gen = (1, gen) if step is None else sorted((step, gen))
         except ValueError:
             return await ctx.send(f"`Error: No GEN given. {self.moreinfo(ctx)}`")
+        gen = genconvert(gen)
         if gen / step > 2500:
             return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. {self.moreinfo(ctx)}`")
         if rand:
@@ -289,7 +289,7 @@ class CA:
         if algo == 'Larger than Life':
             n_states = int(rule.split('C')[1].split(',')[0])
             if n_states > 2:
-                colors = mutils.ColorRange(n_states).to_dict()
+                colors = mutils.ColorRange(n_states, (255,255,0), (255,0,0)).to_dict()
         if rule.count('/') > 1:
             algo = 'Generations'
             colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
@@ -426,15 +426,14 @@ class CA:
     
     @sim.error
     async def sim_error(self, ctx, error):
-        # In case of missing GEN:
+        # Missing GEN:
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(f'`Error: No {error.param.name.upper()} given. {self.moreinfo(ctx)}`')
+            return await ctx.send(f'`Error: No {error.param.name.upper()} given. {self.moreinfo(ctx)}`')
         # Bad argument:
-        elif isinstance(error, (commands.BadArgument, ZeroDivisionError)): # BadArgument on failure to convert to int, ZDE on gen=0
+        if isinstance(error, (commands.BadArgument, ZeroDivisionError)): # BadArgument on failure to convert to int, ZDE on gen=0
             badarg = str(error).split('"')[3].split('"')[0]
-            await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
-        else:
-            raise error from None
+            return await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
+        raise
 
     @sim.command(args=True)
     async def rand(
