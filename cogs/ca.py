@@ -49,7 +49,12 @@ class Status(Enum):
 rLtL = re.compile(r'R\d{1,3},C(\d{1,3}),M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
 
 # matches either W\d{3} or B/S, and then if no B then either 2-state single-slash rulestring or generations rulestring
-rRULESTRING = re.compile(r'W\d{3}|/?(?:(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?)))[HV]?', re.I)
+rRULESTRING = re.compile(
+  r'MAP(?:[A-Z0-9+/]{86}|[A-Z0-9+/]{22}|[A-Z0-9+/]{6})'  # MAP rules
+  r'|W\d{3}'  # Wolfram 1D rules
+  r'|/?(?:(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?)))[HV]?',
+  re.I
+  )
 
 # matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take much too many steps)
 # does not match rules with >24 states
@@ -259,7 +264,7 @@ class CA:
         
         current = f'{self.dir}/{ctx.message.id}'
         rule = ''.join(rule.split()) or 'B3/S23'
-        algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.match(rule) else 'RuleLoader'
+        algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.fullmatch(rule) else 'RuleLoader'
         dfcolors = {
           mutils.state_from(int(state)): value
           for state, value in literal_eval(flags.get('colors', '{}')).items()
