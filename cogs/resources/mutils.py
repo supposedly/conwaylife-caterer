@@ -325,7 +325,7 @@ def extract_rule_info(fp):
             # {0: (255, 255, 255)}
             state, rgb = line.split(None, 1)
             colors[state] = tuple(map(int, rgb.split()[:3]))
-    return name, n_states, json.dumps(colors or {'1': (0,0,0), '0': (255,255,255)})
+    return name, n_states, json.dumps(colors or {})
 
 # --------------------------- For rule-color shenanigans ---------------------------- #
 
@@ -379,7 +379,7 @@ def colorpatch(states: dict, n_states: int, bg, start=(255,255,0), end=(255,0,0)
     if n_states < 3:
         return {
           'o': states.get('1', (0,0,0)),
-          'b': states.get('0', (255,255,255))
+          'b': states.get('0', bg or (255,255,255))
           }
     crange = ColorRange(n_states, start, end)
     return  states.get('0', bg), {'.' if i == 0 else state_from(i): states.get(str(i), crange.at(i) if i else bg) for i in range(n_states)}
