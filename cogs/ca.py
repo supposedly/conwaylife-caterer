@@ -551,7 +551,14 @@ class CA:
                 else:
                     await ctx.thumbsup()
             await ctx.thumbsdown(override=False)
-            return await msg.delete()   
+            return await msg.delete()
+    
+    @mutils.command('Recall an uploaded rule')
+    async def recall(self, ctx, *, name):
+        file = await self.bot.pool.fetchval('''
+        SELECT file FROM rules WHERE name = $1::text
+        ''', name)
+        await ctx.send(file=discord.File(file, name))
 
 def setup(bot):
     bot.add_cog(CA(bot))

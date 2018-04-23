@@ -79,7 +79,7 @@ class Utils:
             desc = f'\n**{pre}{cmd}**\n' + ''.join(
               f'  {idx}. ({self.fmt(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
               for idx, date, val in self.bot.todos[cmd]
-              if idx == (num or idx)
+              if idx == (num or idx)  # This is a clever PoS (if num specified, return num, else return all)
             )
         else:
             desc = ''.join(
