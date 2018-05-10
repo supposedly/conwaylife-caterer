@@ -500,7 +500,7 @@ class CA:
                 )
             )
         await ctx.send(embed=em)
-
+    
     @sim.command('Gives a log of recent sim invocations')
     async def log(self, ctx):
         entries = []
