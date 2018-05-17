@@ -1,18 +1,15 @@
 import asyncio
-import concurrent
 import copy
 import io
+import itertools
 import json
 import math
 import os
 import random
 import re
-import sys
 import time
-import traceback
-import warnings
 from ast import literal_eval
-from collections import namedtuple, deque
+from collections import deque
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from enum import Enum
 
@@ -161,6 +158,14 @@ class CA:
             rle += '$\n' if y > row + 1 else '!\n'
         return rle
     
+    @staticmethod
+    def _extend(n, *, thresh=50):
+        """From BlinkerSpawn"""
+        if n <= thresh:
+            return 2 * n
+        quotient = n // next(i for i in itertools.count(math.ceil(n/thresh)) if not n % i)
+        return n + quotient * (thresh // quotient)
+
     def cancellation_check(self, ctx, orig_msg, rxn, usr):
         if rxn.message.id != orig_msg.id:
             return False
@@ -378,7 +383,7 @@ class CA:
                     await announcement.delete()
                     break
                 if rxn.emoji == '➕':
-                    gen += min(2500*step-gen, int(50*math.log1p(gen))) # gives an increasing-at-a-decreasing-rate curve
+                    gen = self._extend(gen)
                 else:
                     step *= 2
                     oversized = False
