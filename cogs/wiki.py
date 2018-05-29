@@ -6,15 +6,14 @@ import re
 
 import aiohttp
 import discord
+from bs4 import BeautifulSoup
 from discord.ext import commands
 
 from cogs.resources import cmd, wiki_dyk, mutils
 
-rPARENS = re.compile(r' \(.+?\)')
-rBRACKS = re.compile(r'\[.+?\]')
-rTAGS = re.compile(r'<.+?>', re.S)
+rDIRTY = re.compile(r'[([].+?[\])]|\\.')
+rTAGS = re.compile('<.+?>', re.S)
 rREDHERRING = re.compile(r'<p>.{0,10}</p>', re.S) # to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
-rCTRLCHARS = re.compile(r'\\.') # needs to be changed maybe
 rREDIRECT = re.compile(r'">(.+?)</a>')
 rLINKS = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
 rLINKSB = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
@@ -25,26 +24,25 @@ rPGIMGFALLBACK = re.compile(r'(?<=c=\\"|rc=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+
 rTHUMB = re.compile(r'(?<=c=\\"|rc=")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\.(?:png|jpg|gif))/\d+px-\1') # matches thumbnail URL format
 rPOTW = re.compile(r'><a href="(/wiki/(?!File:).+?)" title="(.+?)">Read more\.\.\.') # matches the URL and title of the 'Read more...' link
 
+WIKI_URL = 'http://conwaylife.com/w/api.php'
+
 class Wiki:
     def __init__(self, bot):
         self.bot = bot
         self.session = aiohttp.ClientSession(loop=bot.loop)
     
-    def parse(self, txt, potw=False):
-        if not potw:
-            txt = rREDHERRING.sub('', txt)
-            txt = txt.split('<p>', 1)[-1].split('</p>')[0]
-        txt = txt.replace('<b>', '**').replace('</b>', '**')
-        txt = rCTRLCHARS.sub('', txt) # likely does nothing
-        txt = rPARENS.sub('', txt)
-        txt = rBRACKS.sub('', txt)
-        txt = rLINKSB.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
-        txt = rTAGS.sub('', txt)
-        return html.unescape(txt)
-
+    def clean(self, txt, potw=False):
+        txt = txt if potw else rDIRTY.sub(
+          '',
+          str(next((p for p in BeautifulSoup(txt).find_all("p") if len(p.text) > 10), txt))
+          .replace("<b>", "**")
+          .replace("</b>", "**")
+          )
+        return html.unescape(rTAGS.sub('', rLINKS.sub(r'[\g<2>](http://conwaylife.com{\g<1>})', txt)))
+    
     async def page_img(self, query, img_name=None):
         if img_name is None:
-            async with self.session.get(f'http://conwaylife.com/w/api.php?action=query&prop=images&format=json&titles={query}') as resp:
+            async with self.session.get(f'{WIKI_URL}?action=query&prop=images&format=json&titles={query}') as resp:
                 images = await resp.json()
             pglist = images["query"]["pages"].values()
             for page in pglist: # uh
@@ -57,7 +55,7 @@ class Wiki:
                     break
             else:
                 raise IndexError
-        async with self.session.get(f'http://conwaylife.com/w/api.php?action=query&prop=imageinfo&iiprop=url&format=json&titles={img_name}') as resp:
+        async with self.session.get(f'{WIKI_URL}?action=query&prop=imageinfo&iiprop=url&format=json&titles={img_name}') as resp:
             img_dir = (await resp.json())["query"]["pages"].values()
         try:
             pgimg = list(img_dir)[0]["imageinfo"][0]["url"]
@@ -66,10 +64,10 @@ class Wiki:
         else:
             return pgimg
     
-    async def regpage(self, data, query, em, pgimg):
+    async def regpage(self, data, query, em, pgimg, suffix=''):
         pgtitle = data["parse"]["title"]
-        desc = self.parse(data["parse"]["text"]["*"])
-        em.title = f'{pgtitle}'
+        desc = self.clean(data["parse"]["text"]["*"])
+        em.title = f'{pgtitle}{suffix}'
         em.url = f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}'
         em.description = desc.replace('Cite error: <ref> tags exist, but no <references/> tag was found', '')
         try:
@@ -77,26 +75,23 @@ class Wiki:
         except IndexError as e:
             pass
         return em
-
+    
     def disambig(self, data):
-        def parse_disamb(txt):
-            txt = txt.replace('<b>', '').replace('</b>', '')
-            links = rDISAMB.findall(txt)
-            txt = rLINKS.sub(lambda m: f'**{m.group(2)}**', txt) # change to '**[{m.group(2)}](http://conwaylife.com{m.group(1)})**' for hyperlink although it looks really ugly
-            txt = rLINKSB.sub(lambda m: f'[{m.group(2)}](http://conwaylife.com{m.group(1)})', txt)
-            txt = rTAGS.sub('', txt)
-            txt = rNEWLINES.sub('\n', txt)
-            return txt, links
-        
-        pgtitle = data["parse"]["title"]
-        desc_links = parse_disamb(data["parse"]["text"]["*"])
-        emb = discord.Embed(title=f'{pgtitle}', url=f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}', description=desc_links[0], color=0xffffff)
-        return emb, desc_links[1]
+        pgtitle = data['parse']['title']
+        links, descs = zip(*(
+          (t.a['href'].lstrip('/wiki'), t.text)
+            for t in
+          BeautifulSoup(data['parse']['text']['*']).find_all('li')
+          ))
+        desc = ''.join(f'**{idx}.**{text}' for idx, text in enumerate(descs))
+        emb = discord.Embed(title=f'{pgtitle}', url=f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}', description=desc, color=0xffffff)
+        return emb, links
 
     async def handle_page(self, ctx, query, say=None, num=0):
+        secs = None
         if say is None:
             msg = say = ctx.send
-        async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
+        async with self.session.get(f'{WIKI_URL}?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
             pgtxt = await resp.text()
         data = json.loads(pgtxt)
         if '(disambiguation)' in data["parse"]["title"]:
@@ -104,15 +99,15 @@ class Wiki:
             msg = await say(embed=emb)
             say = msg.edit
             
-            def check(rxn, user): # too long for lambda :(
+            def check(rxn, user):
                 return user == ctx.message.author and rxn.emoji[0].isdigit() and rxn.message.id == msg.id
                 
             for i in range(len(links)):
-                if i < 9:
-                    await msg.add_reaction(f'{i+1}\u20E3')
+                if i < 10:
+                    await msg.add_reaction(f'{i}\u20E3')
                 else:
                     await msg.clear_reactions()
-                    await msg.add_reaction(self.bot.get_emoji(371495166277582849))
+                    await msg.add_reaction(self.bot.get_emoji(371495166277582849))  # :thonk:
                     raise ValueError
             try:
                 react, user = await self.bot.wait_for('reaction_add', timeout=30.0, check=check)
@@ -121,43 +116,14 @@ class Wiki:
             finally:
                 await msg.clear_reactions()
             query = links[int(react.emoji[0])]
-            async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
-                pgtxt = await resp.text()
+            async with self.session.get(f'{WIKI_URL}?action=parse&prop=text&format=json&section={num}&page={query}') as text_resp, \
+                       self.session.get(f'{WIKI_URL}?action=parse&prop=sections&format=json&page={query}') as secs_resp:
+                pgtxt = await text_resp.text()
                 data = json.loads(pgtxt)
-        return pgtxt, data, msg
-    
-    @mutils.command('Provide a Did-You-Know fact from wiki')
-    async def dyk(self, ctx, *nums: int):
-        """# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
-
-        <[ARGS]>
-        NUM: Specific DYK(s) to display. If omitted, displays a single random DYK instead.
-        [or]
-        SEARCH: Triggered automatically if input is not a number, and displays DYKs containing given text. To search for a number, prefix it with a single period; .12, for instance, searches for DYKs containing "12".
-        """
-        nums = nums or [random.randint(0, 91)]
-        em = discord.Embed(title='Did you know...\n', description='', color=0xffffff)
-        for item in ((n-1) % 92 if n else 91 for n in nums):
-            em.description += f'**#{item + 1}:** {wiki_dyk.trivia[item]}\n'
-        await ctx.send(embed=em)
-    
-    @dyk.error
-    async def dyk_search(self, ctx, error):
-        # is it bad practice to abuse the error handler like this? ...probably
-        if isinstance(error, commands.BadArgument):
-            em = discord.Embed(title='Did you know...\n', description='', color=0xffffff)
-            # remove invocation from message and keep query, since we can't do ctx.args here
-            query = ctx.message.content.split(' ', 1)[1].rstrip()
-            query = query[len(query) > 1 and query[0] == '.' and query[1:].isdigit():] # allow searching for numbers by prepending a period
-            rquery = re.compile(fr'\b{re.escape(query)}\b', re.I)
-            matches = [wiki_dyk.plaintext.index(i) for i in wiki_dyk.plaintext if rquery.search(i)]
-            if not matches:
-                return await ctx.send(f'No results found for `{query}`.')
-            for item in matches[:3]:
-                em.description += f'**#{item + 1}:** {wiki_dyk.trivia[item]}\n'
-            em.set_footer(text=f'Showing first three or fewer DYK results for "{query}"')
-            return await ctx.send(embed=em)
-        raise error
+                secs = (await secs_resp.json())["parse"]["sections"]
+            secs = [0] + [i["line"].lower() for i in secs if i["line"] not in ('See also', 'References', 'External links')]
+            num = 0
+        return pgtxt, data, msg, query, num, secs
     
     @mutils.group('Look for a page on conwaylife wiki')
     async def wiki(self, ctx, *, query=''):
@@ -194,7 +160,7 @@ class Wiki:
             return await ctx.send(file=discord.File('./cogs/resources/methusynthesis1.png', 'methusynthesis1.png'), embed=em)
         
         if not query: # get pattern of the week instead
-            async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page=Main_Page') as resp:
+            async with self.session.get(f'{WIKI_URL}?action=parse&prop=text&format=json&section=0&page=Main_Page') as resp:
                 data = await resp.text()
             
             pgtxt = json.loads(data)["parse"]["text"]["*"]
@@ -208,26 +174,32 @@ class Wiki:
             info = rPOTW.search(pgtxt)
             em.title="This week's featured article"
             em.url = f'http://conwaylife.com{info.group(1)}' # pgtitle=info.group(2)
-            em.description = self.parse(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
+            em.description = self.clean(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
             return await ctx.send(embed=em)
         
-        async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+        async with self.session.get(f'{WIKI_URL}?action=parse&prop=text&format=json&section=0&page={query}') as resp:
             prelim = await resp.text()
         if '>REDIRECT ' in prelim:
             query = rREDIRECT.search(prelim).group(1)
         elif 'missingtitle' in prelim or 'invalidtitle' in prelim:
             return await ctx.send(f'Page `{query}` does not exist.') # no sanitization yeet
-        async with self.session.get(f'http://conwaylife.com/w/api.php?action=parse&prop=sections&format=json&page={query}') as resp:
+        
+        async with self.session.get(f'{WIKI_URL}?action=parse&prop=sections&format=json&page={query}') as resp:
             secs = (await resp.json())["parse"]["sections"]
+        
         secs = [0] + [i["line"].lower() for i in secs if i["line"] not in ('See also', 'References', 'External links')]
         num = secs.index(req_sec) if req_sec in secs else 0
         
         try:
-            pgtxt, data, blurb = await self.handle_page(ctx, query, num=num)
+            pgtxt, data, blurb, query, num, secs_ = await self.handle_page(ctx, query, num=num)
             say = blurb.edit if blurb != ctx.send else ctx.send
         except (ValueError, IndexError, asyncio.TimeoutError) as e:
             return
-        seclist = [None]*len(secs)
+        else:
+            if secs_ is not None:
+                secs = secs_
+        
+        seclist = [None] * len(secs)
         seclist[num] = pgtxt, data
         
         pgtxt = pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0]
@@ -238,8 +210,10 @@ class Wiki:
         nav = ['🔼', '🔽'] if num else ['🔽']
         panes = ['📝', '🔧']; cur_pane = 0, '🗒'
         ptypes = ['🇷', '🇨', '5⃣', '6⃣']
+        
         def check(rxn, usr):
             return rxn.emoji in nav + panes and usr is ctx.message.author and rxn.message.id == blurb.id
+        
         try:
             said, synthfile, rle = False, None, None
             while True:
@@ -266,12 +240,13 @@ class Wiki:
                             num, nav = 0, ['🔽']
                         else:
                             nav = ['🔼', '🔽']
+                    
                     if seclist[num] is not None:
                         pgtxt, data = seclist[num]
                     else:
-                        pgtxt, data, _ = await self.handle_page(ctx, query, num=num)
+                        pgtxt, data, *_ = await self.handle_page(ctx, query, num=num)
                         seclist[num] = pgtxt, data
-                    em = await self.regpage(data, query, discord.Embed(), pgimg)
+                    em = await self.regpage(data, query, discord.Embed(), pgimg, suffix=f' ({secs[num]})' if num else '')
                     continue
                 # else reaction.emoji must be in panes
                 if reaction.emoji == 'ℹ': # info (TODO)
@@ -281,18 +256,51 @@ class Wiki:
                 panes.remove(reaction.emoji)
                 if reaction.emoji == '📝': # pattern file
                     if None in (rle, seclist[0]):
-                        seclist[0] = (await self.handle_page(ctx, query, num=0))[:-1]
+                        seclist[0] = (await self.handle_page(ctx, query, num=0))[:2]
                         rle = await self.send_info(ctx, seclist[0][0], query, 'pat', say, filetype=re.escape('.rle'), send=False)
                     await say(content=rle, embed=None)
                 if reaction.emoji == '🔧': # glider synth
                     if None in (synthfile, seclist[0]):
-                        seclist[0] = (await self.handle_page(ctx, query, num=0))[:-1]
+                        seclist[0] = (await self.handle_page(ctx, query, num=0))[:2]
                         synthfile = await self.send_info(ctx, seclist[0][0], query, 'synth', say, filetype=r'\.\w+', send=False)
                     await say(content=synthfile, embed=None)
                 said = True
         
         finally:
             await blurb.clear_reactions()
+    
+    @mutils.command('Provide a Did-You-Know fact from wiki')
+    async def dyk(self, ctx, *nums: int):
+        """# Provides either a random Did-You-Know fact from wiki or else any number of specific DYKs. #
+
+        <[ARGS]>
+        NUM: Specific DYK(s) to display. If omitted, displays a single random DYK instead.
+        [or]
+        SEARCH: Triggered automatically if input is not a number, and displays DYKs containing given text. To search for a number, prefix it with a single period; .12, for instance, searches for DYKs containing "12".
+        """
+        nums = nums or [random.randint(0, 91)]
+        em = discord.Embed(title='Did you know...\n', description='', color=0xffffff)
+        for item in ((n-1) % 92 if n else 91 for n in nums):
+            em.description += f'**#{item + 1}:** {wiki_dyk.trivia[item]}\n'
+        await ctx.send(embed=em)
+    
+    @dyk.error
+    async def dyk_search(self, ctx, error):
+        # is it bad practice to abuse the error handler like this? ...probably
+        if isinstance(error, commands.BadArgument):
+            em = discord.Embed(title='Did you know...\n', description='', color=0xffffff)
+            # remove invocation from message and keep query, since we can't do ctx.args here
+            query = ctx.message.content.split(' ', 1)[1].rstrip()
+            query = query[len(query) > 1 and query[0] == '.' and query[1:].isdigit():] # allow searching for numbers by prepending a period
+            rquery = re.compile(fr'\b{re.escape(query)}\b', re.I)
+            matches = [wiki_dyk.plaintext.index(i) for i in wiki_dyk.plaintext if rquery.search(i)]
+            if not matches:
+                return await ctx.send(f'No results found for `{query}`.')
+            for item in matches[:3]:
+                em.description += f'**#{1+item}:** {wiki_dyk.trivia[item]}\n'
+            em.set_footer(text=f'Showing first three or fewer DYK results for "{query}"')
+            return await ctx.send(embed=em)
+        raise error
                 
     def normalized_filetype(filetype):
         filerefs = {('5', '105', 'l105', 'lif105'): '_105.lif', ('6', '106', 'l106', 'lif106'): '_106.lif', ('r', 'rle', 'RLE'): '.rle', ('t', 'plaintext', 'text', 'cells'): '.cells'}
