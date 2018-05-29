@@ -11,11 +11,11 @@ from discord.ext import commands
 
 from cogs.resources import cmd, wiki_dyk, mutils
 
-rDIRTY = re.compile(r'[([].+?[\])]|\\.')
+rDIRTY = re.compile(r' ?[([].+?[\])]|\\.')
 rTAGS = re.compile('<.+?>', re.S)
 rREDHERRING = re.compile(r'<p>.{0,10}</p>', re.S) # to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
 rREDIRECT = re.compile(r'">(.+?)</a>')
-rLINKS = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
+rLINKS = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
 rPGIMG = re.compile(r'(?<=f=\\"|ef=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
 rPGIMGFALLBACK = re.compile(r'(?<=c=\\"|rc=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
 rTHUMB = re.compile(r'(?<=c=\\"|rc=")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\.(?:png|jpg|gif))/\d+px-\1') # matches thumbnail URL format
@@ -27,14 +27,14 @@ class Wiki:
         self.bot = bot
         self.session = aiohttp.ClientSession(loop=bot.loop)
     
-    def clean(self, txt, potw=False):
+    def clean(self, txt, potw=False, *, WIKI_URL='http://conwaylife.com', API_SUF='/w/api.php'):
         txt = txt if potw else rDIRTY.sub(
           '',
-          str(next((p for p in BeautifulSoup(txt).find_all("p") if len(p.text) > 10), txt))
+          str(next((p for p in BeautifulSoup(txt, 'lxml').find_all("p") if len(p.text) > 10), txt))
           .replace("<b>", "**")
           .replace("</b>", "**")
           )
-        return html.unescape(rTAGS.sub('', rLINKS.sub(r'[\g<2>]({WIKI_URL}{\g<1>})', txt)))
+        return html.unescape(rTAGS.sub('', rLINKS.sub(rf'[\g<2>]({WIKI_URL}\g<1>)', txt)))
     
     async def page_img(self, query, img_name=None, *, WIKI_URL='http://conwaylife.com', API_SUF='/w/api.php'):
         if img_name is None:
@@ -62,7 +62,7 @@ class Wiki:
     
     async def regpage(self, data, query, em, pgimg, suffix='', *, WIKI_URL='http://conwaylife.com', API_SUF='/w/api.php'):
         pgtitle = data["parse"]["title"]
-        desc = self.clean(data["parse"]["text"]["*"])
+        desc = self.clean(data["parse"]["text"]["*"], WIKI_URL=WIKI_URL, API_SUF=API_SUF)
         em.title = f'{pgtitle}{suffix}'
         em.url = f'{WIKI_URL}/wiki/{pgtitle.replace(" ", "_")}'
         em.description = desc.replace('Cite error: <ref> tags exist, but no <references/> tag was found', '')
@@ -77,7 +77,7 @@ class Wiki:
         links, descs = zip(*(
           (t.a['href'].lstrip('/wiki'), t.text)
             for t in
-          BeautifulSoup(data['parse']['text']['*']).find_all('li')
+          BeautifulSoup(data['parse']['text']['*'], 'lxml').find_all('li')
           ))
         desc = ''.join(f'**{idx}.**{text}' for idx, text in enumerate(descs))
         emb = discord.Embed(title=f'{pgtitle}', url=f'{WIKI_URL}/wiki/{pgtitle.replace(" ", "_")}', description=desc, color=0xffffff)
@@ -174,7 +174,7 @@ class Wiki:
             info = rPOTW.search(pgtxt)
             em.title="This week's featured article"
             em.url = f'{WIKI_URL}{info.group(1)}' # pgtitle=info.group(2)
-            em.description = self.clean(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
+            em.description = self.clean(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True, WIKI_URL=WIKI_URL, API_SUF=API_SUF)
             return await ctx.send(embed=em)
         
         async with self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=text&format=json&section=0&page={query}') as resp:
@@ -182,7 +182,6 @@ class Wiki:
         if '>REDIRECT ' in prelim:
             query = rREDIRECT.search(prelim).group(1)
         elif 'missingtitle' in prelim or 'invalidtitle' in prelim:
-            print(query, prelim)
             return await ctx.send(f'Page `{query}` does not exist.') # no sanitization yeet
         
         async with self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=sections&format=json&page={query}') as resp:
