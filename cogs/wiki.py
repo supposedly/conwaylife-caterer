@@ -16,15 +16,11 @@ rTAGS = re.compile('<.+?>', re.S)
 rREDHERRING = re.compile(r'<p>.{0,10}</p>', re.S) # to prevent `<p><br />\n</p>` as in the Simkin Glider Gun page, stupid hack
 rREDIRECT = re.compile(r'">(.+?)</a>')
 rLINKS = re.compile(r'<li> ?<a href="(.+?)".+?>(.+?)</a>')
-rLINKSB = re.compile(r'<a href="(.+?)".*?>(.*?)</a>')
-rDISAMB = re.compile(r'<li> ?<a href="/wiki/(.+?)"')
-rNEWLINES = re.compile(r"\n+")
 rPGIMG = re.compile(r'(?<=f=\\"|ef=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches <a href="/w/images/0/03/Rats.gif" but not src="/w/images/0/03/Rats.gif"
 rPGIMGFALLBACK = re.compile(r'(?<=c=\\"|rc=")/w/images/[a-z\d]+?/[a-z\d]+?/[\w]+\.(?:png|gif)') # matches src= in case of no href=
 rTHUMB = re.compile(r'(?<=c=\\"|rc=")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\.(?:png|jpg|gif))/\d+px-\1') # matches thumbnail URL format
 rPOTW = re.compile(r'><a href="(/wiki/(?!File:).+?)" title="(.+?)">Read more\.\.\.') # matches the URL and title of the 'Read more...' link
 
-WIKI_URL = 'http://conwaylife.com/w/api.php'
 
 class Wiki:
     def __init__(self, bot):
@@ -38,11 +34,11 @@ class Wiki:
           .replace("<b>", "**")
           .replace("</b>", "**")
           )
-        return html.unescape(rTAGS.sub('', rLINKS.sub(r'[\g<2>](http://conwaylife.com{\g<1>})', txt)))
+        return html.unescape(rTAGS.sub('', rLINKS.sub(r'[\g<2>]({WIKI_URL}{\g<1>})', txt)))
     
-    async def page_img(self, query, img_name=None):
+    async def page_img(self, query, img_name=None, *, WIKI_URL='http://conwaylife.com', API_SUF='/w/api.php'):
         if img_name is None:
-            async with self.session.get(f'{WIKI_URL}?action=query&prop=images&format=json&titles={query}') as resp:
+            async with self.session.get(f'{WIKI_URL}{API_SUF}?action=query&prop=images&format=json&titles={query}') as resp:
                 images = await resp.json()
             pglist = images["query"]["pages"].values()
             for page in pglist: # uh
@@ -55,7 +51,7 @@ class Wiki:
                     break
             else:
                 raise IndexError
-        async with self.session.get(f'{WIKI_URL}?action=query&prop=imageinfo&iiprop=url&format=json&titles={img_name}') as resp:
+        async with self.session.get(f'{WIKI_URL}{API_SUF}?action=query&prop=imageinfo&iiprop=url&format=json&titles={img_name}') as resp:
             img_dir = (await resp.json())["query"]["pages"].values()
         try:
             pgimg = list(img_dir)[0]["imageinfo"][0]["url"]
@@ -64,19 +60,19 @@ class Wiki:
         else:
             return pgimg
     
-    async def regpage(self, data, query, em, pgimg, suffix=''):
+    async def regpage(self, data, query, em, pgimg, suffix='', *, WIKI_URL='http://conwaylife.com', API_SUF='/w/api.php'):
         pgtitle = data["parse"]["title"]
         desc = self.clean(data["parse"]["text"]["*"])
         em.title = f'{pgtitle}{suffix}'
-        em.url = f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}'
+        em.url = f'{WIKI_URL}/wiki/{pgtitle.replace(" ", "_")}'
         em.description = desc.replace('Cite error: <ref> tags exist, but no <references/> tag was found', '')
         try:
-            em.set_thumbnail(url=f'http://conwaylife.com{pgimg}' if pgimg else await self.page_img(query))
+            em.set_thumbnail(url=f'{WIKI_URL}{pgimg}' if pgimg else await self.page_img(query, WIKI_URL=WIKI_URL, API_SUF=API_SUF))
         except IndexError as e:
             pass
         return em
     
-    def disambig(self, data):
+    def disambig(self, data, *, WIKI_URL='http://conwaylife.com', API_SUF='/w/api.php'):
         pgtitle = data['parse']['title']
         links, descs = zip(*(
           (t.a['href'].lstrip('/wiki'), t.text)
@@ -84,18 +80,18 @@ class Wiki:
           BeautifulSoup(data['parse']['text']['*']).find_all('li')
           ))
         desc = ''.join(f'**{idx}.**{text}' for idx, text in enumerate(descs))
-        emb = discord.Embed(title=f'{pgtitle}', url=f'http://conwaylife.com/wiki/{pgtitle.replace(" ", "_")}', description=desc, color=0xffffff)
+        emb = discord.Embed(title=f'{pgtitle}', url=f'{WIKI_URL}/wiki/{pgtitle.replace(" ", "_")}', description=desc, color=0xffffff)
         return emb, links
 
-    async def handle_page(self, ctx, query, say=None, num=0):
+    async def handle_page(self, ctx, query, say=None, num=0, *, WIKI_URL='http://conwaylife.com', API_SUF='/w/api.php'):
         secs = None
         if say is None:
             msg = say = ctx.send
-        async with self.session.get(f'{WIKI_URL}?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
+        async with self.session.get(f'{WIKI_URL}/w/api.php?action=parse&prop=text&format=json&section={num}&page={query}') as resp:
             pgtxt = await resp.text()
         data = json.loads(pgtxt)
         if '(disambiguation)' in data["parse"]["title"]:
-            emb, links = self.disambig(data)
+            emb, links = self.disambig(data, WIKI_URL=WIKI_URL, API_SUF=API_SUF)
             msg = await say(embed=emb)
             say = msg.edit
             
@@ -116,8 +112,8 @@ class Wiki:
             finally:
                 await msg.clear_reactions()
             query = links[int(react.emoji[0])]
-            async with self.session.get(f'{WIKI_URL}?action=parse&prop=text&format=json&section={num}&page={query}') as text_resp, \
-                       self.session.get(f'{WIKI_URL}?action=parse&prop=sections&format=json&page={query}') as secs_resp:
+            async with self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=text&format=json&section={num}&page={query}') as text_resp, \
+                       self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=sections&format=json&page={query}') as secs_resp:
                 pgtxt = await text_resp.text()
                 data = json.loads(pgtxt)
                 secs = (await secs_resp.json())["parse"]["sections"]
@@ -126,7 +122,7 @@ class Wiki:
         return pgtxt, data, msg, query, num, secs
     
     @mutils.group('Look for a page on conwaylife wiki')
-    async def wiki(self, ctx, *, query=''):
+    async def wiki(self, ctx, *, query='', WIKI_URL='http://conwaylife.com', API_SUF='/w/api.php'):
         """
         # Displays a short, nicely-formatted blurb from QUERY's page on http://conwaylife.com/wiki. #
         # Will also display extra info and/or provide pattern files for QUERY, if specified. #
@@ -138,6 +134,10 @@ class Wiki:
         <[ARGS]>
         QUERY: Title to search for. If omitted, shows current Pattern of the Week (PoTW) from main page instead.
         """
+        if any(i.startswith('-from:') for i in query.split()):
+            WIKI_URL = next(i for i in query.split() if i.startswith('-from:')).split(':', 1)[1]
+            API_SUF = next((i for i in query.split() if i.startswith('-suf:')), ':/w/api.php').split(':', 1)[1]
+            query = ' '.join(i for i in query.split() if not i.startswith(('-from:', '-suf:')))
         if '#' in query:
             query, req_sec = query.split('#', 1) # 'requested_section'
             req_sec = req_sec.lower()
@@ -155,12 +155,12 @@ class Wiki:
         if query[:1].lower() + query[1:] == 'methusynthesae':
             em.title = 'Methusynthesae'
             em.description = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they *are* patterns, and **don't** form other patterns."
-            em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
+            em.url = 'http:/conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='attachment://methusynthesis1.png')
             return await ctx.send(file=discord.File('./cogs/resources/methusynthesis1.png', 'methusynthesis1.png'), embed=em)
         
         if not query: # get pattern of the week instead
-            async with self.session.get(f'{WIKI_URL}?action=parse&prop=text&format=json&section=0&page=Main_Page') as resp:
+            async with self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=text&format=json&section=0&page=Main_Page') as resp:
                 data = await resp.text()
             
             pgtxt = json.loads(data)["parse"]["text"]["*"]
@@ -170,28 +170,29 @@ class Wiki:
             except AttributeError as e:
                 pass
             else:
-                em.set_thumbnail(url=f'http://conwaylife.com{pgimg}')
+                em.set_thumbnail(url=f'{WIKI_URL}{pgimg}')
             info = rPOTW.search(pgtxt)
             em.title="This week's featured article"
-            em.url = f'http://conwaylife.com{info.group(1)}' # pgtitle=info.group(2)
+            em.url = f'{WIKI_URL}{info.group(1)}' # pgtitle=info.group(2)
             em.description = self.clean(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True)
             return await ctx.send(embed=em)
         
-        async with self.session.get(f'{WIKI_URL}?action=parse&prop=text&format=json&section=0&page={query}') as resp:
+        async with self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=text&format=json&section=0&page={query}') as resp:
             prelim = await resp.text()
         if '>REDIRECT ' in prelim:
             query = rREDIRECT.search(prelim).group(1)
         elif 'missingtitle' in prelim or 'invalidtitle' in prelim:
+            print(query, prelim)
             return await ctx.send(f'Page `{query}` does not exist.') # no sanitization yeet
         
-        async with self.session.get(f'{WIKI_URL}?action=parse&prop=sections&format=json&page={query}') as resp:
+        async with self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=sections&format=json&page={query}') as resp:
             secs = (await resp.json())["parse"]["sections"]
         
         secs = [0] + [i["line"].lower() for i in secs if i["line"] not in ('See also', 'References', 'External links')]
         num = secs.index(req_sec) if req_sec in secs else 0
         
         try:
-            pgtxt, data, blurb, query, num, secs_ = await self.handle_page(ctx, query, num=num)
+            pgtxt, data, blurb, query, num, secs_ = await self.handle_page(ctx, query, num=num, WIKI_URL=WIKI_URL, API_SUF=API_SUF)
             say = blurb.edit if blurb != ctx.send else ctx.send
         except (ValueError, IndexError, asyncio.TimeoutError) as e:
             return
@@ -205,7 +206,7 @@ class Wiki:
         pgtxt = pgtxt.split('Category:' if 'Category:' in pgtxt else '/table')[0]
         pgimg = rPGIMG.search(pgtxt) or rPGIMGFALLBACK.search(pgtxt) or rTHUMB.search(pgtxt)
         pgimg = pgimg.group() if pgimg else None
-        em = await self.regpage(data, query, em, pgimg)
+        em = await self.regpage(data, query, em, pgimg, WIKI_URL=WIKI_URL, API_SUF=API_SUF)
         
         nav = ['🔼', '🔽'] if num else ['🔽']
         panes = ['📝', '🔧']; cur_pane = 0, '🗒'
@@ -244,9 +245,9 @@ class Wiki:
                     if seclist[num] is not None:
                         pgtxt, data = seclist[num]
                     else:
-                        pgtxt, data, *_ = await self.handle_page(ctx, query, num=num)
+                        pgtxt, data, *_ = await self.handle_page(ctx, query, num=num, WIKI_URL=WIKI_URL, API_SUF=API_SUF)
                         seclist[num] = pgtxt, data
-                    em = await self.regpage(data, query, discord.Embed(), pgimg, suffix=f' ({secs[num]})' if num else '')
+                    em = await self.regpage(data, query, discord.Embed(), pgimg, suffix=f' ({secs[num]})' if num else '', WIKI_URL=WIKI_URL, API_SUF=API_SUF)
                     continue
                 # else reaction.emoji must be in panes
                 if reaction.emoji == 'ℹ': # info (TODO)
@@ -256,12 +257,12 @@ class Wiki:
                 panes.remove(reaction.emoji)
                 if reaction.emoji == '📝': # pattern file
                     if None in (rle, seclist[0]):
-                        seclist[0] = (await self.handle_page(ctx, query, num=0))[:2]
+                        seclist[0] = (await self.handle_page(ctx, query, num=0, WIKI_URL=WIKI_URL, API_SUF=API_SUF))[:2]
                         rle = await self.send_info(ctx, seclist[0][0], query, 'pat', say, filetype=re.escape('.rle'), send=False)
                     await say(content=rle, embed=None)
                 if reaction.emoji == '🔧': # glider synth
                     if None in (synthfile, seclist[0]):
-                        seclist[0] = (await self.handle_page(ctx, query, num=0))[:2]
+                        seclist[0] = (await self.handle_page(ctx, query, num=0, WIKI_URL=WIKI_URL, API_SUF=API_SUF))[:2]
                         synthfile = await self.send_info(ctx, seclist[0][0], query, 'synth', say, filetype=r'\.\w+', send=False)
                     await say(content=synthfile, embed=None)
                 said = True

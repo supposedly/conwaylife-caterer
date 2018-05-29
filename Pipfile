@@ -7,9 +7,11 @@ aiofiles = "*"
 cython = "*"
 imageio = "*"
 pypng = "*"
+bs4="*"
 
 asyncpg = {git = 'https://github.com/MagicStack/asyncpg.git'}
 "discord.py" = {git = 'https://github.com/Rapptz/discord.py@rewrite'}
+"yarl" = "<1.2"
 
 [requires]
 python_version = "3.6.4"
