@@ -185,7 +185,7 @@ class Wiki:
             return await ctx.send(f'Page `{query}` does not exist.') # no sanitization yeet
         
         async with self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=sections&format=json&page={query}') as resp:
-            secs = (await resp.json())["parse"]["sections"]
+            secs = json.loads(await resp.text())["parse"]["sections"]
         
         secs = [0] + [i["line"].lower() for i in secs if i["line"] not in ('See also', 'References', 'External links')]
         num = secs.index(req_sec) if req_sec in secs else 0
