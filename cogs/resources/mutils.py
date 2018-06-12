@@ -399,3 +399,20 @@ def fix(seq, chunk):
     for idx, row in enumerate(seq):
         li.append(tuple(zip(*[iter(row)]*chunk)))
     return li
+
+
+async def get_page(ctx, msg, emoji='⬅➡', timeout=15.0):
+    left, right = emoji
+    for r in emoji:
+        await msg.add_reaction(r)
+    try:
+        rxn, _ = await ctx.bot.wait_for('reaction_add', timeout=timeout, check=lambda rxn, usr: usr.id == ctx.author.id and rxn.emoji in emoji and rxn.message.id == msg.id)
+    except asyncio.TimeoutError:
+        for rxn_ in msg.reactions:
+            await msg.remove_reaction(rxn_, ctx.guild.me)
+    else:
+        try:
+            await msg.remove_reaction(rxn, msg.author)
+        except Exception:
+            pass
+        return rxn.emoji == left, rxn.emoji == right

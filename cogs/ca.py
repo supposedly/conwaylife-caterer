@@ -42,6 +42,13 @@ class Status(Enum):
     FAILED = 4
 
 
+MOD_ROLE_IDS = {
+  441021286253330432,  # admin
+  358487842755969025,  # mod
+  431273609567141889,  # tempmod
+  }
+
+
 # matches LtL rulestring
 rLtL = re.compile(r'R\d{1,3},C(\d{1,3}),M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
 
@@ -448,7 +455,7 @@ class CA:
         if isinstance(error, (commands.BadArgument, ZeroDivisionError)): # BadArgument on failure to convert to int, ZDE on gen=0
             badarg = str(error).split('"')[3].split('"')[0]
             return await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
-        raise
+        raise error
 
     @sim.command(args=True)
     async def rand(
@@ -494,18 +501,6 @@ class CA:
           soup_dims='×'.join(dims.split('x'))
           )
     
-    @sim.command('Shows uploaded rules')
-    async def rules(self, ctx):
-        em = discord.Embed(
-              title='Rules',
-              description='\n'.join(
-                f"• {i['name']}"
-                for i in
-                await self.bot.pool.fetch('''SELECT DISTINCT name FROM rules''')
-                )
-            )
-        await ctx.send(embed=em)
-    
     @sim.command('Gives a log of recent sim invocations')
     async def log(self, ctx):
         entries = []
@@ -519,51 +514,107 @@ class CA:
                 )
         await ctx.send(embed=discord.Embed(title='Last 5 sims', description='\n'.join(entries)))
     
+    @mutils.command('Show uploaded rules')
+    async def rules(self, ctx, rule=None):
+        """
+        # If no argument is passed, displays all rules (paginated by tens). #
+        <[ARGS]>
+        RULE: Rulename. If a rule by this name (case-sensitive) has been uploaded, displays that rule's info and gives its rulefile.
+        [or]
+        MEMBER: If the member mentioned is present in the server, shows rules uploaded by them.
+        """
+        if rule is None:
+            offset = 0
+            records = await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, blurb FROM rules OFFSET {offset} LIMIT 10''')
+            say, msg = ctx.send, None
+            while True:
+                msg = await say(embed=discord.Embed(
+                  title='Rules',
+                  description='\n'.join(
+                    f"• {i['name']} ({ctx.guild.get_member(i['uploader'])}): {i['blurb']}"
+                    for i in records or []
+                    )
+                  )) or msg
+                say = msg.edit
+                left, right = await mutils.get_page(ctx, msg)
+                if left:
+                    offset = max(0, offset - 10)
+                elif right:
+                    offset -= records is not None and len(records) == 10 and 10
+        try:
+            member = await commands.MemberConverter().convert(ctx, rule)
+        except commands.BadArgument:
+            rule = await self.bot.pool.fetchrow('''SELECT DISTINCT ON (name) name, uploader, blurb, file FROM rules WHERE name = $1::text''', rule)
+            return await ctx.send(embed=discord.Embed(
+                title=rule['name'],
+                description=f"Uploader: {rule['uploader']}\nBlurb: {rule['blurb']}"
+                ),
+              file=discord.File(rule['file'], rule['name'])
+              )
+        else:
+            records = await self.bot.pool.fetch('''SELECT DISTINCT ON (name) name, blurb FROM rules WHERE uploader = $1::bigint''', member.id)
+            return await ctx.send(embed=discord.Embed(
+              title=f'Rules by {member}',
+              description='\n'.join(
+                f"• {i['name']}: {i['blurb']}"
+                for i in records
+                )
+              ))
+    
     @mutils.command('Upload an asset (just ruletables for now)')
-    async def upload(self, ctx, *, brief=''):
+    async def upload(self, ctx, *, blurb=''):
         """
-        # Attach a ruletable file to this command to have it be reviewed by Wright. #
-        # If valid, it will be added to Caterer and be usable in !sim. #
+        # Attach a ruletable file to this command to have it reviewed by Conwaylife Lounge moderators. #
+        # If acceptable, it will be added to Caterer and be usable in !sim. #
+        <[ARGS]>
+        BLURB: Short description of this rule. Min 10 characters, max 90.
         """
-        if len(brief) < 10:
+        if len(blurb) < 10:
             return await ctx.send("Please provide a short justification/explanation of this rule!")
+        if len(blurb) > 90:
+            return await ctx.send('Please shorten your description. Max 90 characters.')
         msg = None
         attachment, *_ = ctx.message.attachments
         with io.BytesIO() as f:
             await attachment.save(f)
             temp = copy.copy(f)
             f.seek(0); temp.seek(0)
-            msg = await self.bot.assets_chn.send(brief, file=discord.File(temp, attachment.filename))
+            msg = await self.bot.assets_chn.send(blurb, file=discord.File(temp, attachment.filename))
             emoji = '✅', '❌'
             [await msg.add_reaction(i) for i in emoji]
             def check(rxn, usr):
-                return usr == self.bot.owner and rxn.message.id == msg.id and rxn.emoji in emoji
-            rxn, usr = await self.bot.wait_for('reaction_add', check=check) # no timeout
+                return any(r.id in MOD_ROLE_IDS for r in usr.roles) and rxn.message.id == msg.id and rxn.emoji in emoji
+            rxn, _ = await self.bot.wait_for('reaction_add', check=check)  # no timeout
             if rxn.emoji == '✅':
                 query = '''
                 INSERT INTO rules (
-                  file, name, n_states, colors
+                  uploader, blurb, file, name, n_states, colors
                 )
-                SELECT $1::bytea, $2::text, $3::int, $4::text
+                SELECT $1::text, $2::bigint, $3::bytea, $4::text, $5::int, $6::text
                     ON CONFLICT (name)
                     DO UPDATE
-                   SET file=$1::bytea, name=$2::text, n_states=$3::int, colors=$4::text
+                   SET uploader=$1::text, blurb=$2::bigint, file=$3::bytea, name=$4::text, n_states=$5::int, colors=$6::text
                 '''
                 try:
-                    await self.bot.pool.execute(query, f.read(), *mutils.extract_rule_info(f))
+                    await self.bot.pool.execute(query, ctx.author.id, blurb, f.read(), *mutils.extract_rule_info(f))
                 except:
                     pass
                 else:
-                    await ctx.thumbsup()
+                    try:
+                        await ctx.thumbsup()
+                    except discord.NotFound:
+                        pass
+        try:
             await ctx.thumbsdown(override=False)
-            return await msg.delete()
+        except discord.NotFound:
+            pass
+        return await msg.delete()
     
-    @mutils.command('Recall an uploaded rule')
-    async def recall(self, ctx, *, name):
-        file = await self.bot.pool.fetchval('''
-        SELECT file FROM rules WHERE name = $1::text
-        ''', name)
-        await ctx.send(file=discord.File(file, name))
+    @mutils.command()
+    async def delrule(self, ctx, name):
+        if not self.bot.is_owner(ctx.author):
+            return
+        await self.bot.pool.execute('''DELETE FROM rules WHERE name = $1::text''', name)
 
 def setup(bot):
     bot.add_cog(CA(bot))

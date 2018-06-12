@@ -167,7 +167,7 @@ class Wiki:
             data = data.split('Download.')[0]
             try:
                 pgimg = (rPGIMG.search(data) or rPGIMGFALLBACK.search(data) or rTHUMB.search(data)).group()
-            except AttributeError as e:
+            except AttributeError:
                 pass
             else:
                 em.set_thumbnail(url=f'{WIKI_URL}{pgimg}')
