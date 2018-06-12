@@ -1,7 +1,6 @@
 import asyncio
 import copy
 import io
-import itertools
 import json
 import math
 import os
@@ -11,6 +10,7 @@ import time
 from ast import literal_eval
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from itertools import count, islice
 from enum import Enum
 
 import aiofiles
@@ -146,6 +146,7 @@ class CA:
         self.simlog = deque(maxlen=5)
         self.defaults = (*[[self.ppe, 'ProcessPoolExecutor']]*2, [self.tpe, 'ThreadPoolExecutor'])
         self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
+        self.rulecache = None
     
     @staticmethod
     def makesoup(rulestring: str, x: int, y: int) -> str:
@@ -170,7 +171,7 @@ class CA:
         """From BlinkerSpawn"""
         if n <= thresh:
             return 2 * n
-        quotient = n // next(i for i in itertools.count(math.ceil(n/thresh)) if not n % i)
+        quotient = n // next(i for i in count(math.ceil(n/thresh)) if not n % i)
         return n + quotient * (thresh // quotient)
 
     def cancellation_check(self, ctx, orig_msg, rxn, usr):
@@ -422,7 +423,7 @@ class CA:
                             'Times': '',
                             '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
                             '**Saving frames to GIF**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
-                            '(**Total**': f'{round(end_savegif-start, 2)}s)'
+                            '(**Total**': f'{round(end_makeframes-start, 2)}s)'
                           }
                         ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
                         if flags.get('time') == 'all'
@@ -523,16 +524,21 @@ class CA:
         [or]
         MEMBER: If the member mentioned is present in the server, shows rules uploaded by them.
         """
+        if self.rulecache is None:
+            self.rulecache = [
+              {'name': i['name'], 'blurb': i['blurb'], 'file': i['file'], 'uploader': i['uploader']}
+              for i in 
+              await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, file, blurb FROM rules''')
+              ]
         if rule is None:
             offset = 0
-            records = await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, blurb FROM rules OFFSET {offset} LIMIT 10''')
             say, msg = ctx.send, None
             while True:
                 msg = await say(embed=discord.Embed(
                   title='Rules',
                   description='\n'.join(
                     f"• {i['name']} ({ctx.guild.get_member(i['uploader'])}): {i['blurb']}"
-                    for i in records or []
+                    for i in islice(self.rulecache, offset, offset + 10)
                     )
                   )) or msg
                 say = msg.edit
@@ -540,11 +546,11 @@ class CA:
                 if left:
                     offset = max(0, offset - 10)
                 elif right:
-                    offset -= records is not None and len(records) == 10 and 10
+                    offset += offset + 10 < len(self.rulecache) and 10
         try:
             member = await commands.MemberConverter().convert(ctx, rule)
         except commands.BadArgument:
-            rule = await self.bot.pool.fetchrow('''SELECT DISTINCT ON (name) name, uploader, blurb, file FROM rules WHERE name = $1::text''', rule)
+            rule = next(d for d in self.rulecache if d['name'] == rule)
             return await ctx.send(embed=discord.Embed(
                 title=rule['name'],
                 description=f"Uploader: {rule['uploader']}\nBlurb: {rule['blurb']}"
@@ -552,7 +558,7 @@ class CA:
               file=discord.File(rule['file'], rule['name'])
               )
         else:
-            records = await self.bot.pool.fetch('''SELECT DISTINCT ON (name) name, blurb FROM rules WHERE uploader = $1::bigint''', member.id)
+            records = next(d for d in self.rulecache if d['uploader'] == member.id)
             return await ctx.send(embed=discord.Embed(
               title=f'Rules by {member}',
               description='\n'.join(
@@ -573,6 +579,7 @@ class CA:
             return await ctx.send("Please provide a short justification/explanation of this rule!")
         if len(blurb) > 90:
             return await ctx.send('Please shorten your description. Max 90 characters.')
+        self.rulecache = None
         msg = None
         attachment, *_ = ctx.message.attachments
         with io.BytesIO() as f:
@@ -590,14 +597,14 @@ class CA:
                 INSERT INTO rules (
                   uploader, blurb, file, name, n_states, colors
                 )
-                SELECT $1::text, $2::bigint, $3::bytea, $4::text, $5::int, $6::text
+                SELECT $1::bigint, $2::text, $3::bytea, $4::text, $5::int, $6::text
                     ON CONFLICT (name)
                     DO UPDATE
-                   SET uploader=$1::text, blurb=$2::bigint, file=$3::bytea, name=$4::text, n_states=$5::int, colors=$6::text
+                   SET uploader=$1::bigint, blurb=$2::text, file=$3::bytea, name=$4::text, n_states=$5::int, colors=$6::text
                 '''
                 try:
                     await self.bot.pool.execute(query, ctx.author.id, blurb, f.read(), *mutils.extract_rule_info(f))
-                except:
+                except Exception as e:
                     pass
                 else:
                     try:
