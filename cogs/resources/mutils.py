@@ -184,7 +184,7 @@ from discord.ext import commands
 
 from .import cmd
 
-class HelpAttrsMixin:
+class HelpAttrMixin:
     @property
     def helpsafe_name(self):
         return self.qualified_name.replace(' ', '/')
@@ -201,7 +201,7 @@ class HelpAttrsMixin:
     def aliases(*_):
         """Eliminate "can't set attribute" when dpy tries assigning aliases"""
 
-class Command(HelpAttrsMixin, commands.Command):
+class Command(HelpAttrMixin, commands.Command):
     def __init__(self, name, callback, **kwargs):
         """
         Callback will be hidden behind the silhouette func below
@@ -218,7 +218,7 @@ class Command(HelpAttrsMixin, commands.Command):
         self.loc.len = self.loc.end - self.loc.start
         super().__init__(name, callback, **kwargs)
 
-class Group(HelpAttrsMixin, commands.Group):
+class Group(HelpAttrMixin, commands.Group):
     def __init__(self, **attrs):
         self.parent = None
         self.inner = getattr(attrs['callback'], 'wrapped_', attrs['callback'])
@@ -246,45 +246,44 @@ class Group(HelpAttrsMixin, commands.Group):
             return res
         return decorator
 
-def command(brief=None, name=None, cls=Command, args=False, **attrs):
-    if not args:
-        return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(func)
-
-    def give_args(callback):
-        argspec = inspect.getfullargspec(callback)
-        arguments = argspec.kwonlyargs
-        defaults = argspec.kwonlydefaults
-        annotations = argspec.annotations
-        # separate regexes from converters because they're both in annotations
-        regexes = {}
-        converters = {}
-        for key, val in annotations.items():
-            # assume val is a tuple at first
-            if callable(val[-1]): # returns false on strings (and ofc on tuples w/ non-callable last element)
-                regexes[key] = [re.compile(i) for i in val[:-1]]
-                converters[key] = val[-1]
-                continue
-            regexes[key] = re.compile(val) if isinstance(val, str) else [re.compile(i) for i in val]
-            converters[key] = None
-        
-        async def silhouette(self, ctx, *dpyargs, __invoking=False, **kwargs):
-            if __invoking: # bypass converters
-                return await callback(self, ctx, *dpyargs, **kwargs)
-            [*args_], flags = parse_args(
-              dpyargs,
-              map(regexes.get, arguments),
-              map(defaults.get, arguments)
-              )
-            params = {**kwargs, **{k: converters[k](v) if callable(converters[k]) and v is not None else v for k, v in zip(arguments, args_) if k != 'flags'}}
-            if 'flags' in arguments:
-                params['flags'] = parse_flags(flags)
-            return await callback(self, ctx, **params)
-        
-        silhouette.wrapped_ = callback
-        silhouette.__doc__ = callback.__doc__
-        return silhouette
+def give_args(callback):
+    argspec = inspect.getfullargspec(callback)
+    arguments = argspec.kwonlyargs
+    defaults = argspec.kwonlydefaults
+    annotations = argspec.annotations
+    # separate regexes from converters because they're both in annotations
+    regexes = {}
+    converters = {}
+    for key, val in annotations.items():
+        # assume val is a tuple at first
+        if callable(val[-1]): # returns false for strings (and ofc for tuples w/ non-callable last element)
+            regexes[key] = [re.compile(i) for i in val[:-1]]
+            converters[key] = val[-1]
+            continue
+        regexes[key] = re.compile(val) if isinstance(val, str) else [re.compile(i) for i in val]
+        converters[key] = None
     
-    return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(give_args(func))
+    async def silhouette(self, ctx, *dpyargs, __invoking=False, **kwargs):
+        if __invoking: # bypass converters
+            return await callback(self, ctx, *dpyargs, **kwargs)
+        [*args_], flags = parse_args(
+            dpyargs,
+            map(regexes.get, arguments),
+            map(defaults.get, arguments)
+            )
+        params = {**kwargs, **{k: converters[k](v) if callable(converters[k]) and v is not None else v for k, v in zip(arguments, args_) if k != 'flags'}}
+        if 'flags' in arguments:
+            params['flags'] = parse_flags(flags)
+        return await callback(self, ctx, **params)
+    
+    silhouette.wrapped_ = callback
+    silhouette.__doc__ = callback.__doc__
+    return silhouette
+
+def command(brief=None, name=None, cls=Command, args=False, **attrs):
+    return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(
+      give_args(func) if args else func
+      )
     
 
 def group(brief=None, name=None, *, invoke_without_command=True, **kwargs):

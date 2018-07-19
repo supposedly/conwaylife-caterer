@@ -3,6 +3,7 @@ import copy
 import io
 import json
 import math
+import operator
 import os
 import random
 import re
@@ -10,8 +11,8 @@ import time
 from ast import literal_eval
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from itertools import count, islice
 from enum import Enum
+from itertools import count, islice, starmap
 
 import aiofiles
 import discord
@@ -60,7 +61,7 @@ rRULESTRING = re.compile(
   re.I
   )
 
-# matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take much too many steps)
+# matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take way too many steps)
 # does not match rules with >24 states
 rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)', re.I)
 
@@ -73,6 +74,24 @@ rDOLLARS = re.compile(r'(\d+)\$')
 
 # ---- #
 
+
+class Trackbox:
+    ROOT_2 = 2 ** 0.5
+
+    def __init__(self, gens, distance, x0, y0, ):
+        self.gens = gens
+        self.dist = distance
+        self.dx = dx
+        self.dy = dy
+    
+    def __call__(self, gen):
+        return 
+
+
+def _replace(m):
+    return '$' * int(m[1])
+
+
 def parse(current):
     with open(f'{current}_out.rle', 'r') as pat:
         patlist = [line.rstrip('\n') for line in pat]
@@ -82,36 +101,33 @@ def parse(current):
     # because it's returned from this function, so
     # it gets pickled by run_in_executor -- and
     # generators can't be pickled
-    positions = [literal_eval(i) for i in patlist[::3]]
-    bboxes = [literal_eval(i) for i in patlist[1::3]]
+    positions = list(map(eval, patlist[::3]))
+    bboxes = list(map(eval, patlist[1::3]))
     
     # Determine the bounding box to make gifs from
     # The rectangle: xmin <= x <= xmax, ymin <= y <= ymax
     # where (x|y)(min|max) is the min/max coordinate across all gens.
     xmins, ymins = zip(*positions)
     (widths, heights), maxwidth, maxheight = zip(*bboxes), max(w for w, h in bboxes), max(h for w, h in bboxes)
-    xmaxes = (xm+w for xm, w in zip(xmins, widths))
-    ymaxes = (ym+h for ym, h in zip(ymins, heights))
+    xmaxes = starmap(operator.add, zip(xmins, widths))
+    ymaxes = starmap(operator.add, zip(ymins, heights))
     xmin, ymin, xmax, ymax = min(xmins), min(ymins), max(xmaxes), max(ymaxes)
     # Bounding box: top-left x and y, width and height
     bbox = xmin, ymin, xmax-xmin, ymax-ymin
     
-    patlist = patlist[2::3] # just RLE
     # ['4b3$o', '3o2b'] -> ['4b$$$o', '3o2b']
-    patlist = (rDOLLARS.sub(lambda m: ''.join(['$' for i in range(int(m.group(1)))]), j).replace('!', '') for j in patlist) # unroll newlines
-    # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o', '2b']]
-    patlist = [i.split('$') for i in patlist]
-    return patlist, positions, bbox, (maxwidth, maxheight)
+    # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o2b']]
+    return [i.replace('!', '').split('$') for i in (rDOLLARS.sub(_replace, j) for j in patlist[2::3])], positions, bbox, (maxwidth, maxheight)
 
 def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, track, trackmaxes):
     xmin, ymin, width, height = bbox
-    width, height = trackmaxes if track else (width, height)
-    total = 0
+    if track:
+        width, height = trackmaxes
     duration = min(1/6, max(1/60, 5/gen/step) if gen else 1)
     with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as gif_writer:
         for pat, (xpos, ypos) in zip(patlist, positions):
             dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
-            frame = [[bg for _ in range(2+width)] for _ in range(2+height)]
+            frame = [[bg] * (2 + width) for _ in range(2 + height)]
             # Draw the pattern onto the frame by replacing segments of background rows
             for i, flat_row in enumerate(
                 [
@@ -134,7 +150,7 @@ def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, tr
 def genconvert(gen: int):
     if int(gen) > 0:
         return int(gen) - 1
-    raise Exception # bad gen (less than or equal to zero)
+    raise ValueError  # bad gen (less than or equal to zero)
 
 class CA:
     def __init__(self, bot):
@@ -150,8 +166,7 @@ class CA:
     
     @staticmethod
     def makesoup(rulestring: str, x: int, y: int) -> str:
-        """generates random soup as RLE with specified dimensions"""
-
+        """Generates random soup as RLE with specified dimensions"""
         rle = f'x = {x}, y = {y}, rule = {rulestring}\n'
         for row in range(y):
             pos = x
@@ -604,7 +619,7 @@ class CA:
                 '''
                 try:
                     await self.bot.pool.execute(query, ctx.author.id, blurb, f.read(), *mutils.extract_rule_info(f))
-                except Exception as e:
+                except Exception:
                     pass
                 else:
                     try:
