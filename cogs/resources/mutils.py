@@ -384,20 +384,25 @@ def colorpatch(states: dict, n_states: int, bg, start=(255,255,0), end=(255,0,0)
     return  states.get('0', bg), {'.' if i == 0 else state_from(i): states.get(str(i), crange.at(i) if i else bg) for i in range(n_states)}
 
 # -------------------------------------- Misc --------------------------------------- #
+from itertools import cycle
 
-def scale(li, mul, chunk=1):
+def scale(li, mul, chunk=1, grid=None, grdiv=1):
     """
     scale([a, b, c], 2) => (a, a, b, b, c, c)
     scale([a, b, c], 2, 3) => (a, b, c, a, b, c)
     """
-    return tuple(j for i in zip(*[iter(li)]*chunk) for _ in range(mul) for j in i)
+    zipped = zip(*[iter(li)] * chunk)
+    if grid is not None and mul > 1:
+        if grdiv == 1:
+            return [j if edge else [grid] * len(j) for i in zipped for edge in range(mul) for j in i]
+        offsets = cycle(range(mul * grdiv))
+        return [j if cont else [grid] * len(j) for i in zipped for edge, cont in zip(range(mul), offsets) for j in i]
+    return [j for i in zipped for _ in range(mul) for j in i]
 
 def fix(seq, chunk):
+    # ***UNUSED***
     # just assume li is a 2d array because that's my only use case
-    li = []
-    for idx, row in enumerate(seq):
-        li.append(tuple(zip(*[iter(row)]*chunk)))
-    return li
+    return [tuple(zip(*[iter(row)] * chunk)) for row in seq]
 
 
 async def get_page(ctx, msg, emoji='⬅➡', timeout=15.0):

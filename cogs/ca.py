@@ -49,6 +49,7 @@ MOD_ROLE_IDS = {
   431273609567141889,  # tempmod
   }
 
+ROOT_2 = 2 ** 0.5
 
 # matches LtL rulestring
 rLtL = re.compile(r'R\d{1,3},C(\d{1,3}),M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re.I)
@@ -76,13 +77,19 @@ rDOLLARS = re.compile(r'(\d+)\$')
 
 
 class Trackbox:
-    ROOT_2 = 2 ** 0.5
 
-    def __init__(self, gens, distance, x0, y0, ):
-        self.gens = gens
+    def __init__(self, n_gens, r, distance, dx, dy):
+        self.n_gens = n_gens
         self.dist = distance
+        self.r = r
+        # (x0, y0) == (0, 0), so (dx, dy) == final (x, y)
         self.dx = dx
         self.dy = dy
+    
+    @classmethod
+    def from_lists(cls, positions, bboxes):
+        n_gens = len(positions)
+        ...
     
     def __call__(self, gen):
         return 
@@ -101,8 +108,12 @@ def parse(current):
     # because it's returned from this function, so
     # it gets pickled by run_in_executor -- and
     # generators can't be pickled
+    # [(0, 0), (-1, 1), (0, 0), (-1, -1), (1, -2), (0, -1), (2, -2), (1, -1), (0, -2), (-1, 1)]
     positions = list(map(eval, patlist[::3]))
+    # [(5, 3), (7, 1), (5, 3), (7, 5), (3, 7), (5, 5), (1, 7), (3, 5), (5, 7), (7, 1)]
     bboxes = list(map(eval, patlist[1::3]))
+    
+    # trackbox = Trackbox.from_lists(positions, bboxes)
     
     # Determine the bounding box to make gifs from
     # The rectangle: xmin <= x <= xmax, ymin <= y <= ymax
@@ -119,7 +130,8 @@ def parse(current):
     # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o2b']]
     return [i.replace('!', '').split('$') for i in (rDOLLARS.sub(_replace, j) for j in patlist[2::3])], positions, bbox, (maxwidth, maxheight)
 
-def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, track, trackmaxes):
+
+def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, track, trackmaxes, grid):
     xmin, ymin, width, height = bbox
     if track:
         width, height = trackmaxes
@@ -140,17 +152,25 @@ def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, tr
                 frame[dy+i][dx:dx+len(flat_row)] = flat_row
             anchor = min(height, width)
             mul = -(-100 // anchor) if anchor <= 100 else 1
+            first_grid = 0 if grid else None
             gif_writer.append_data(
-              np.asarray(mutils.scale((mutils.scale(row, mul) for row in frame), mul), np.uint8)
-            )
+              np.asarray(
+                mutils.scale(
+                  (mutils.scale(row, mul, grid=first_grid) for row in frame),
+                  mul, grid=(0, 0, 0) if grid else None
+                  ),
+                np.uint8)
+              )
             if os.stat(f'{current}.gif').st_size > 7500000:
                 return True
     return False
+
 
 def genconvert(gen: int):
     if int(gen) > 0:
         return int(gen) - 1
     raise ValueError  # bad gen (less than or equal to zero)
+
 
 class CA:
     def __init__(self, bot):
@@ -197,7 +217,7 @@ class CA:
             return correct_emoji and rxn.count > 3
         return correct_emoji
 
-    async def do_gif(self, execs, current, gen, step, colors, track, bg):
+    async def do_gif(self, execs, current, gen, step, colors, track, bg, grid):
         start = time.perf_counter()
         patlist, positions, bbox, trackmaxes = await self.loop.run_in_executor(
           execs[0][0], parse,
@@ -207,7 +227,8 @@ class CA:
         oversized = await self.loop.run_in_executor(
           execs[1][0], makeframes,
           current, gen, step, patlist, positions, bbox,
-          len(str(gen)), colors, bg, track, trackmaxes
+          len(str(gen)), colors, bg, track, trackmaxes,
+          grid
           )
         end_makeframes = time.perf_counter()
         return start, end_parse, end_makeframes, oversized
@@ -241,6 +262,8 @@ class CA:
           all: Provide verbose output, showing time taken for each step alongside the type of executor used.
         -tag: When finished, tag requester. Useful for time-intensive simulations.
         -id: Has no function besides appearing above the final output, but can be used to tell apart simultaneously-created gifs.
+        -t: Track. Rudimentary impl, nothing smooth -- goes by generation.
+        -g: Show grid lines.
         
         <[ARGS]>
         GEN: Generation to simulate up to.
@@ -259,6 +282,7 @@ class CA:
             execs = self.defaults
         algo = 'HashLife' if 'h' in flags else 'QuickLife'
         track = 'track' in flags or 't' in flags
+        grid = 'grid' in flags or 'g' in flags
         try:
             step, gen = (1, gen) if step is None else sorted((step, gen))
         except ValueError:
@@ -349,7 +373,7 @@ class CA:
             resp = await mutils.await_event_or_coro(
                     self.bot,
                     event = 'reaction_add',
-                    coro = self.do_gif(execs, current, gen, step, colors, track, setbg or bg),
+                    coro = self.do_gif(execs, current, gen, step, colors, track, setbg or bg, grid),
                     ret_check = lambda obj: isinstance(obj, discord.Message),
                     event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
                     )
@@ -422,7 +446,7 @@ class CA:
                 resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'reaction_add',
-                  coro = self.do_gif(execs, current, gen, step, colors, track, bg),
+                  coro = self.do_gif(execs, current, gen, step, colors, track, bg, grid),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
                   event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
                   )
