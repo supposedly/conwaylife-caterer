@@ -352,6 +352,9 @@ class CA:
             algo = 'Generations'
             colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
         colors = {**colors, **dfcolors} # override with default colors
+        if 'bw' in flags:  # (todo oh my GOD fix all of this)
+            colors['0'] = colors['b'] = (255, 255, 255)
+            colors['1'] = colors['o'] = (0, 0, 0)
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
           + f' in rule `{rule}` with step `{step}` for `{1+gen}` generation(s)'
