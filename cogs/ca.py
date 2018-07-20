@@ -77,7 +77,6 @@ rDOLLARS = re.compile(r'(\d+)\$')
 
 
 class Trackbox:
-
     def __init__(self, n_gens, r, distance, dx, dy):
         self.n_gens = n_gens
         self.dist = distance
@@ -90,15 +89,21 @@ class Trackbox:
     @classmethod
     def from_lists(cls, positions, bboxes):
         n_gens = len(positions)
-        x2, y2 = positions[-1]
-        d = (x2 ** 2 + y2 ** 2) ** 0.5
+        dx, dy = positions[-1]
+        m = dy / dx
+        b = -m * positions[0][0]
+        def x_prime(x, y):
+            return x * dx / d + (y - b) * dy / d
+        def y_prime(x, y):
+            return (y - b) * dx / d - x * dy / d
+        d = (dx ** 2 + dy ** 2) ** 0.5  # dx and dy double as "x2" and "y2" in distance formula
         r = max(
-          abs(min(x - d * (gen / n_gens) for gen, x in enumerate(map(operator.itemgetter(0), positions)))),
-          max(x - d * (gen / n_gens) for gen, x in enumerate(map(operator.itemgetter(0), positions))),
-          abs(min(map(operator.itemgetter(1), positions))),
-          max(map(operator.itemgetter(1), positions))
+          abs(min(x_prime(*pos) - d * (gen / n_gens) for gen, pos in enumerate(positions))),
+          max(x_prime(*pos) - d * (gen / n_gens) for gen, pos in enumerate(positions)),
+          abs(min(starmap(y_prime, positions))),
+          max(starmap(y_prime, positions))
         )
-        return cls(n_gens, r, d, x2, y2)
+        return cls(n_gens, r, d, dx, dy)
     
     def __call__(self, gen):
         t = gen / self.n_gens
@@ -107,7 +112,7 @@ class Trackbox:
           t * self.dx + self.r_calc,
           t * self.dy - self.r_calc,
           t * self.dy + self.r_calc
-        )
+          )
 
 
 def _replace(m):
