@@ -82,6 +82,7 @@ class Trackbox:
         self.n_gens = n_gens
         self.dist = distance
         self.r = r
+        self.r_calc = r / ROOT_2
         # (x0, y0) == (0, 0), so (dx, dy) == final (x, y)
         self.dx = dx
         self.dy = dy
@@ -89,10 +90,24 @@ class Trackbox:
     @classmethod
     def from_lists(cls, positions, bboxes):
         n_gens = len(positions)
-        ...
+        x2, y2 = positions[-1]
+        d = (x2 ** 2 + y2 ** 2) ** 0.5
+        r = max(
+          abs(min(x - d * (gen / n_gens) for gen, x in enumerate(map(operator.itemgetter(0), positions)))),
+          max(x - d * (gen / n_gens) for gen, x in enumerate(map(operator.itemgetter(0), positions))),
+          abs(min(map(operator.itemgetter(1), positions))),
+          max(map(operator.itemgetter(1), positions))
+        )
+        return cls(n_gens, r, d, x2, y2)
     
     def __call__(self, gen):
-        return 
+        t = gen / self.n_gens
+        return (
+          t * self.dx - self.r_calc,
+          t * self.dx + self.r_calc,
+          t * self.dy - self.r_calc,
+          t * self.dy + self.r_calc
+        )
 
 
 def _replace(m):
@@ -113,7 +128,7 @@ def parse(current):
     # [(5, 3), (7, 1), (5, 3), (7, 5), (3, 7), (5, 5), (1, 7), (3, 5), (5, 7), (7, 1)]
     bboxes = list(map(eval, patlist[1::3]))
     
-    # trackbox = Trackbox.from_lists(positions, bboxes)
+    trackbox = Trackbox.from_lists(positions, bboxes)
     
     # Determine the bounding box to make gifs from
     # The rectangle: xmin <= x <= xmax, ymin <= y <= ymax
@@ -351,7 +366,7 @@ class CA:
         if rule.count('/') > 1:
             algo = 'Generations'
             colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
-        colors = {**colors, **dfcolors} # override with default colors
+        colors = {**colors, **dfcolors}  # override with default colors
         if 'bw' in flags:  # (todo oh my GOD fix all of this)
             colors['0'] = colors['b'] = (255, 255, 255)
             colors['1'] = colors['o'] = (0, 0, 0)
@@ -595,7 +610,7 @@ class CA:
             rule = next(d for d in self.rulecache if d['name'] == rule)
             return await ctx.send(embed=discord.Embed(
                 title=rule['name'],
-                description=f"Uploader: {rule['uploader']}\nBlurb: {rule['blurb']}"
+                description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
                 ),
               file=discord.File(rule['file'], rule['name'])
               )

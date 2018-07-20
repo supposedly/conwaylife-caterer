@@ -86,7 +86,7 @@ class Utils:
               (
                 f'\n**{pre}{cmd}**\n'
                 + ''.join(
-                  f'  {idx}. ({self.dtfmt(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
+                  f'  {idx}. ({self.fmt(date)}) {(val[0].upper()+val[1:]).format(pre=ctx.prefix)}\n'
                   for idx, date, val in self.bot.todos[cmd]
                 )
                 for pre, cmd in {(ctx.prefix if name in all_names else '', name if name in all_names else 'general') for name in cmds}
