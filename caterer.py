@@ -68,7 +68,7 @@ async def on_ready():
         for cog in ('meta', 'wiki', 'ca', 'admin'):
             try:
                 bot.load_extension(f'cogs.{cog}')
-            except Exception as e:
+            except Exception:
                 raise
         bot.help_padding = 1 + max(len(i.name) for i in bot.commands)
         bot.sorted_commands = sorted(bot.commands, key=lambda x: x.name)

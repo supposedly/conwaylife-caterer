@@ -45,11 +45,11 @@ class Status(Enum):
     FAILED = 4
 
 
-MOD_ROLE_IDS = {
-  441021286253330432,  # admin
-  358487842755969025,  # mod
-  431273609567141889,  # tempmod
-  }
+# MOD_ROLE_IDS = {
+#   441021286253330432,  # admin
+#   358487842755969025,  # mod
+#   431273609567141889,  # tempmod
+#   }
 
 ROOT_2 = 2 ** 0.5
 
@@ -214,7 +214,7 @@ class CA:
                 # below could also just be random.randint(1,x) but something likes this gives natural-ish-looking results
                 runlength = math.ceil(-math.log(1-random.random()))
                 if runlength > pos:
-                    runlength = pos # or just `break`, no big difference qualitatively
+                    runlength = pos  # or just `break`, no big difference qualitatively
                 # switches o/b from last occurrence of the letter
                 rle += (str(runlength) if runlength > 1 else '') + 'ob'['o' in rle[-3 if rle[-1] == '\n' else -1]]
                 pos -= runlength
@@ -257,7 +257,7 @@ class CA:
         max_mem = int(os.popen('free -m').read().split()[7]) // 1.25 # TODO: use
         preface = f'{self.dir}/resources/bgolly'
         if '::' in rule:
-            rule = f'{rule}_{current}'
+            rule = f"{rule}_{current.split('/')[-1]}"
         algo = algo.split('::')[0]
         ruleflag = f's {self.dir}/' if algo == 'RuleLoader' else f'r {rule}'
         return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
@@ -269,10 +269,10 @@ class CA:
     async def sim(
         self, ctx,
         *,
-        pat: r'[\dob$]*[ob$][\dob$\n]*!?' = '',
-        rule: (rRULESTRING, rLtL) = '',
         gen: (r'^\d+$', int) = None,
+        pat: r'[\dob$]*[ob$][\dob$\n]*!?' = '',
         step: (r'^\d+$', int) = None,
+        rule: r'(?:::)?[^\s:]+' = '',
         flags,
         **kwargs
       ):
@@ -294,6 +294,7 @@ class CA:
         PAT: One-line rle or .lif file to simulate. If omitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
         #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
         """
+        given_rule, display_given_rule = rule, False
         rand = kwargs.get('randpat')
         dims = kwargs.get('soup_dims')
         colors = {}
@@ -336,10 +337,20 @@ class CA:
             else:
                 rule = ''
         
+        setbg = literal_eval(flags.get('bg', 'None'))
+        bg, fg = ((255,255,255), (0,0,0)) if 'bw' in flags else ((54,57,62), (255,255,255))
+        dfcolors = {
+          mutils.state_from(int(state)): value
+          for state, value in literal_eval(flags.get('colors', '{}')).items()
+          if state != '0'
+          }
+        
         current = f'{self.dir}/{ctx.message.id}'
         rule = ''.join(rule.split()) or 'B3/S23'
-        if '::' in rule:
-            name, rulestring = rule.split('::')
+        
+        if '::' in given_rule:
+            rulestring, name = given_rule.split('::')
+            rulestring = rulestring or rule.split('::')[0]
             algo = f'RuleLoader::{name}'
             module = types.ModuleType('<custom>')
             await self.loop.run_in_executor(None,
@@ -350,17 +361,15 @@ class CA:
                 ),
               module.__dict__
               )
-            with open(f'{self.dir}/{rule}_{ctx.message.id}.rule', 'w') as ruleout:
+            with open(f'{self.dir}/{rulestring}_{ctx.message.id}.rule', 'w+') as ruleout:
                 ruleout.write(await self.loop.run_in_executor(None, module.main, rulestring))
+                _, n_states, colors = mutils.extract_rule_info(ruleout, False)
+                bg, colors = mutils.colorpatch(colors, n_states, setbg or bg)
+            rule = f'{rulestring}_{ctx.message.id}'
+            given_rule = rulestring
+            display_given_rule = True
         else:
             algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.fullmatch(rule) else 'RuleLoader'
-        dfcolors = {
-          mutils.state_from(int(state)): value
-          for state, value in literal_eval(flags.get('colors', '{}')).items()
-          if state != '0'
-          }
-        setbg = literal_eval(flags.get('bg', 'None'))
-        bg, fg = ((255,255,255), (0,0,0)) if 'bw' in flags else ((54,57,62), (255,255,255))
         if algo in ('HashLife', 'QuickLife'):
             dfcolors = {**{'o': fg, 'b': setbg or bg}, **{'bo'[int(k)]: v for k, v in literal_eval(flags.get('colors', '{}')).items()}}
         else:
@@ -372,7 +381,7 @@ class CA:
         if algo == 'RuleLoader':
             try:
                 rulename, rulefile, n_states, colors = await self.bot.pool.fetchrow('''
-                SELECT name, file, n_states, colors FROM rules WHERE name = $1::text
+                  SELECT name, file, n_states, colors FROM rules WHERE name = $1::text
                 ''', rule)
             except ValueError: # not enough values to unpack
                 return await ctx.send('`Error: Rule not found`')
@@ -394,7 +403,8 @@ class CA:
             colors['1'] = colors['o'] = (0, 0, 0)
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
-          + f' in rule `{rule}` with step `{step}` for `{1+gen}` generation(s)'
+          + f' in rule `{given_rule if display_given_rule else rule}` with '
+          + f'step `{step}` for `{1+gen}` generation(s)'
           + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
           )
         announcement = await ctx.send(details)
@@ -544,7 +554,7 @@ class CA:
         dims: r'^\d+x\d+$' = '16x16',
         gen: (r'^\d+$', int) = None,
         step: (r'^\d+$', int) = None,
-        rule: '.+' = None,
+        rule: r'[^\s:]+(?:::)?' = None,
         flags
       ):
         """
@@ -571,7 +581,7 @@ class CA:
                     rule = rmatch.group()
                     break
         x, y = dims.split('x')
-        rule_ = rule and rule.split('::')[-1]
+        rule_ = f"{rule and rule.split('::')[0]}_{ctx.message.id}"
         await ctx.invoke(
           self.sim,
           gen=int(gen),
@@ -656,23 +666,15 @@ class CA:
         BLURB: Short description of this rule. Min 10 characters, max 90.
         """
         if len(blurb) < 10:
-            return await ctx.send("Please provide a short justification/explanation of this rule!")
+            return await ctx.send('Please provide a short justification/explanation of this rule!')
         if len(blurb) > 90:
             return await ctx.send('Please shorten your description. Max 90 characters.')
         self.rulecache = None
         msg = None
         attachment, *_ = ctx.message.attachments
         with io.BytesIO() as f:
-            await attachment.save(f)
-            temp = copy.copy(f)
-            f.seek(0); temp.seek(0)
-            msg = await self.bot.assets_chn.send(blurb, file=discord.File(temp, attachment.filename))
-            emoji = '✅', '❌'
-            [await msg.add_reaction(i) for i in emoji]
-            def check(rxn, usr):
-                return any(r.id in MOD_ROLE_IDS for r in usr.roles) and rxn.message.id == msg.id and rxn.emoji in emoji
-            rxn, _ = await self.bot.wait_for('reaction_add', check=check)  # no timeout
-            if rxn.emoji == '✅':
+            await attachment.save(f, seek_begin=True)
+            if await self._approve_asset(f, attachment.filename, blurb, 'rule'):
                 query = '''
                 INSERT INTO rules (
                   uploader, blurb, file, name, n_states, colors
@@ -704,7 +706,7 @@ class CA:
         await self.bot.pool.execute('''DELETE FROM rules WHERE name = $1::text''', name)
     
     @mutils.command('Register a custom rulefile-generating python script')
-    async def register(self, ctx, name):
+    async def register(self, ctx, name, *, blurb):
         """
         # Register a custom rulefile-generating python module. #
         # Must be compatible with Python 3.6, and additionally must #
@@ -712,21 +714,42 @@ class CA:
         # string argument (the user's input) to produce a ruletable. #
 
         <[ARGS]>
-        NAME: The name, separated from a rulestring by two colons, that users will invoke your script with from {prefix}sim.
+        NAME: The name, to be separated from a rulestring by two colons, that users will invoke your script with from {prefix}sim.
+        BLURB: A short (10-to-90-character) description of your script and the ruletables it generates.
         """
-        fp = io.BytesIO()
-        await ctx.message.attachments[0].save(fp, seek_begin=True)
-        await self.bot.pool.execute('''
-          INSERT INTO algos (name, module)
-          SELECT $1::text, $2::bytea
-          ''',
-          name,
-          await self.loop.run_in_executor(
-            None,
-            marshal.dumps,
-            await self.loop.run_in_executor(None, compile, fp.read(), '<custom>', 'exec', 0, False, 2)
-            )
-          )
+        if len(blurb) < 10:
+            return await ctx.send('Please provide a short justification/explanation of this rule!')
+        if len(blurb) > 90:
+            return await ctx.send('Please shorten your description. Max 90 characters.')
+        attachment, fp = ctx.message.attachments[0], io.BytesIO()
+        await attachment.save(fp, seek_begin=True)
+        if await self._approve_asset(fp, attachment.filename, blurb, 'rule generator'):
+            await self.bot.pool.execute('''
+              INSERT INTO algos (name, module)
+              SELECT $1::text, $2::bytea
+              ''',
+              name,
+              await self.loop.run_in_executor(
+                None,
+                marshal.dumps,
+                await self.loop.run_in_executor(None, compile, fp.read(), '<custom>', 'exec', 0, False, 2)
+                )
+              )
+    
+    async def _approve_asset(self, file, filename, blurb, kind, *, approval='✅', rejection='❌'):
+        msg = await self.bot.assets_chn.send(f'{kind.upper()}: {blurb}', file=discord.File(copy.copy(file), filename))
+        await msg.add_reaction(approval)
+        await msg.add_reaction(rejection)
+        file.seek(0)
+        def check(rxn, usr):
+            # ...not going to check role IDs anymore, because if someone has access to
+            # the caterer-assets channel it's likely a given that they're trusted
+            return usr.id != self.bot.user.id and rxn.message.id == msg.id and rxn.emoji in (approval, rejection)
+        rxn, _ = await self.bot.wait_for('reaction_add', check=check)  # no timeout
+        if rxn.emoji == approval:
+            await msg.delete()
+            return True
+        return False
 
 
 def setup(bot):

@@ -298,14 +298,15 @@ command_, group_ = command, group
 
 import json
 
-def extract_rule_info(fp):
+def extract_rule_info(fp, colors_as_json=True):
     """
     Extract rulename and colors from a ruletable file.
     """
     fp.seek(0)
     in_colors = False
     name, n_states, colors  = None, 0, {}
-    for line, *_ in (i.decode().strip().split('#') for i in fp):
+    lines = (i.decode().strip().split('#')[0] for i in fp) if colors_as_json else (i.strip().split('#', 1)[0] for i in fp)
+    for line in lines:
         if not line:
             continue
         if line.startswith(('n_states:', 'num_states=')):
@@ -327,7 +328,7 @@ def extract_rule_info(fp):
             # {0: (255, 255, 255)}
             state, rgb = line.split(None, 1)
             colors[state] = tuple(map(int, rgb.split()[:3]))
-    return name, n_states, json.dumps(colors or {})
+    return name, n_states, (json.dumps(colors or {}) if colors_as_json else colors)
 
 # --------------------------- For rule-color shenanigans ---------------------------- #
 

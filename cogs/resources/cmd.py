@@ -8,7 +8,8 @@ args = {
   "rules": '?name / ?member',
   "todo": '*cmd',
   "upload": '>blurb',
-  "wiki": '?+query (-type:?format)'
+  "register": 'name >blurb',
+  "wiki": '?+query (-type:?format)',
 }
 
 # ---------- #
