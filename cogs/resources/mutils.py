@@ -378,11 +378,12 @@ class ColorRange:
     def to_dict(self):
         return dict(zip((state_from(self.first+i) for i in range(self.n_states)), self))
 
-def colorpatch(states: dict, n_states: int, bg, start=(255,255,0), end=(255,0,0)):
+def colorpatch(states: dict, n_states: int, fg=None, bg=None, start=(255,255,0), end=(255,0,0)):
+    bg, fg = bg or (54, 57, 62), fg or (255, 255, 255)
     if n_states < 3:
-        return states.get('0', bg or (0, 0, 0)), {
-          'o': states.get('1', (255, 255, 255)),
-          'b': states.get('0', bg or (0, 0, 0))  # I don't even know man
+        return states.get('0', bg), {
+          'o': states.get('1', fg),
+          'b': states.get('0', bg)  # I don't even know man
           }
     crange = ColorRange(n_states, start, end)
     return states.get('0', bg), {'.' if i == 0 else state_from(i): states.get(str(i), crange.at(i) if i else bg) for i in range(n_states)}

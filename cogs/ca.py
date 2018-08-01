@@ -272,7 +272,7 @@ class CA:
         gen: (r'^\d+$', int) = None,
         pat: r'[\dob$]*[ob$][\dob$\n]*!?' = '',
         step: (r'^\d+$', int) = None,
-        rule: r'(?:::)?[^\s:]+' = '',
+        rule: r'(?:::)?[^-\s:][^\s:]*' = '',  # no flags, so no hyphen at start
         flags,
         **kwargs
       ):
@@ -337,13 +337,8 @@ class CA:
             else:
                 rule = ''
         
-        setbg = literal_eval(flags.get('bg', 'None'))
         bg, fg = ((255,255,255), (0,0,0)) if 'bw' in flags else ((54,57,62), (255,255,255))
-        dfcolors = {
-          mutils.state_from(int(state)): value
-          for state, value in literal_eval(flags.get('colors', '{}')).items()
-          if state != '0'
-          }
+        colors = {'o': fg, 'b': bg}
         
         current = f'{self.dir}/{ctx.message.id}'
         rule = ''.join(rule.split()) or 'B3/S23'
@@ -364,20 +359,12 @@ class CA:
             with open(f'{self.dir}/{rulestring}_{ctx.message.id}.rule', 'w+') as ruleout:
                 ruleout.write(await self.loop.run_in_executor(None, module.main, rulestring))
                 _, n_states, colors = mutils.extract_rule_info(ruleout, False)
-                bg, colors = mutils.colorpatch(colors, n_states, setbg or bg)
+                bg, colors = mutils.colorpatch(colors, n_states, fg, bg)
             rule = f'{rulestring}_{ctx.message.id}'
             given_rule = rulestring
             display_given_rule = True
         else:
             algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.fullmatch(rule) else 'RuleLoader'
-        if algo in ('HashLife', 'QuickLife'):
-            dfcolors = {**{'o': fg, 'b': setbg or bg}, **{'bo'[int(k)]: v for k, v in literal_eval(flags.get('colors', '{}')).items()}}
-        else:
-            dfcolors = {**{
-                mutils.state_from(int(state)): value
-                for state, value in literal_eval(flags.get('colors', '{}')).items()
-                if state != '0'
-                }, **({'.': setbg} if setbg else {})}
         if algo == 'RuleLoader':
             try:
                 rulename, rulefile, n_states, colors = await self.bot.pool.fetchrow('''
@@ -385,22 +372,16 @@ class CA:
                 ''', rule)
             except ValueError: # not enough values to unpack
                 return await ctx.send('`Error: Rule not found`')
-            bg, colors = mutils.colorpatch(json.loads(colors), n_states, setbg or bg)
+            bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
                 ruleout.write(rulefile)
         if algo == 'Larger than Life':
             n_states = int(rule.split('C')[1].split(',')[0])
             if n_states > 2:
                 colors = mutils.ColorRange(n_states, (255,255,0), (255,0,0)).to_dict()
-            else:
-                dfcolors = {'o': fg, 'b': setbg or bg}
         if rule.count('/') > 1 and '::' not in rule:
             algo = 'Generations'
             colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
-        colors = {**colors, **dfcolors}  # override with default colors
-        if 'bw' in flags:  # (todo oh my GOD fix all of this)
-            colors['0'] = colors['b'] = (255, 255, 255)
-            colors['1'] = colors['o'] = (0, 0, 0)
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
           + f' in rule `{given_rule if display_given_rule else rule}` with '
@@ -423,7 +404,7 @@ class CA:
             resp = await mutils.await_event_or_coro(
                   self.bot,
                   event = 'reaction_add',
-                  coro = self.do_gif(execs, current, gen, step, colors, track, setbg or bg, grid),
+                  coro = self.do_gif(execs, current, gen, step, colors, track, bg, grid),
                   ret_check = lambda obj: isinstance(obj, discord.Message),
                   event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
                   )
@@ -554,7 +535,7 @@ class CA:
         dims: r'^\d+x\d+$' = '16x16',
         gen: (r'^\d+$', int) = None,
         step: (r'^\d+$', int) = None,
-        rule: r'[^\s:]+(?:::)?' = None,
+        rule: r'(?:::)?[^-\s:][^\s:]*' = None,
         flags
       ):
         """
@@ -670,11 +651,10 @@ class CA:
         if len(blurb) > 90:
             return await ctx.send('Please shorten your description. Max 90 characters.')
         self.rulecache = None
-        msg = None
         attachment, *_ = ctx.message.attachments
         with io.BytesIO() as f:
             await attachment.save(f, seek_begin=True)
-            if await self._approve_asset(f, attachment.filename, blurb, 'rule'):
+            if await self.bot.approve_asset(f, attachment.filename, blurb, 'rule'):
                 query = '''
                 INSERT INTO rules (
                   uploader, blurb, file, name, n_states, colors
@@ -684,20 +664,9 @@ class CA:
                     DO UPDATE
                    SET uploader=$1::bigint, blurb=$2::text, file=$3::bytea, name=$4::text, n_states=$5::int, colors=$6::text
                 '''
-                try:
-                    await self.bot.pool.execute(query, ctx.author.id, blurb, f.read(), *mutils.extract_rule_info(f))
-                except Exception:
-                    pass
-                else:
-                    try:
-                        await ctx.thumbsup()
-                    except discord.NotFound:
-                        pass
-        try:
-            await ctx.thumbsdown(override=False)
-        except discord.NotFound:
-            pass
-        return await msg.delete()
+                await self.bot.pool.execute(query, ctx.author.id, blurb, f.read(), *mutils.extract_rule_info(f))
+                await ctx.thumbsup()
+        await ctx.thumbsdown(override=False)
     
     @mutils.command()
     async def delrule(self, ctx, name):
@@ -723,7 +692,7 @@ class CA:
             return await ctx.send('Please shorten your description. Max 90 characters.')
         attachment, fp = ctx.message.attachments[0], io.BytesIO()
         await attachment.save(fp, seek_begin=True)
-        if await self._approve_asset(fp, attachment.filename, blurb, 'rule generator'):
+        if await self.bot.approve_asset(fp, attachment.filename, blurb, 'rule generator'):
             await self.bot.pool.execute('''
               INSERT INTO algos (name, module)
               SELECT $1::text, $2::bytea
@@ -735,21 +704,8 @@ class CA:
                 await self.loop.run_in_executor(None, compile, fp.read(), '<custom>', 'exec', 0, False, 2)
                 )
               )
-    
-    async def _approve_asset(self, file, filename, blurb, kind, *, approval='✅', rejection='❌'):
-        msg = await self.bot.assets_chn.send(f'{kind.upper()}: {blurb}', file=discord.File(copy.copy(file), filename))
-        await msg.add_reaction(approval)
-        await msg.add_reaction(rejection)
-        file.seek(0)
-        def check(rxn, usr):
-            # ...not going to check role IDs anymore, because if someone has access to
-            # the caterer-assets channel it's likely a given that they're trusted
-            return usr.id != self.bot.user.id and rxn.message.id == msg.id and rxn.emoji in (approval, rejection)
-        rxn, _ = await self.bot.wait_for('reaction_add', check=check)  # no timeout
-        if rxn.emoji == approval:
-            await msg.delete()
-            return True
-        return False
+            await ctx.thumbsup()
+        await ctx.thumbsdown(override=False)
 
 
 def setup(bot):

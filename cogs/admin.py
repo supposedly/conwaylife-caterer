@@ -88,7 +88,7 @@ class Admin:
         except Exception as e:
             await ctx.send(f'```py\n{traceback.format_exc()}\n```')
         else:
-            await ctx.send('\N{OK HAND SIGN}')
+            await ctx.thumbsup()
 
     @commands.command(pass_context=True, hidden=True, name='eval')
     async def _eval(self, ctx, *, body: str):
