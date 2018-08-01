@@ -20,7 +20,6 @@ def get_prefix(bot, message):
 
 
 class Context(commands.Context):
-    
     async def update(self):
         self.message = await self.get_message(self.message.id)
     

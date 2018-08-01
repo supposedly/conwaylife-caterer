@@ -3,11 +3,13 @@ import copy
 import io
 import json
 import math
+import marshal
 import operator
 import os
 import random
 import re
 import time
+import types
 from ast import literal_eval
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -68,7 +70,7 @@ rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*
 
 # splits RLE into its runs
 rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[ob.A-Z])')
-# [rRUNS.sub(lambda m:''.join(['0' if m.group(2) == 'b' else '1' for x in range(int(m.group(1)) if m.group(1) else 1)]), pattern) for pattern in patlist[i]]
+# [rRUNS.sub(lambda m: '10'[m[2] == 'b'] * int(m[1] or 1), pattern) for pattern in patlist[i]]
 
 # unrolls $ signs
 rDOLLARS = re.compile(r'(\d+)\$')
@@ -77,14 +79,12 @@ rDOLLARS = re.compile(r'(\d+)\$')
 
 
 class Trackbox:
-    def __init__(self, n_gens, r, distance, dx, dy):
+    def __init__(self, n_gens, r, distance, x0, y0, dx, dy):
         self.n_gens = n_gens
         self.dist = distance
-        self.r = r
-        self.r_calc = r / ROOT_2
-        # (x0, y0) == (0, 0), so (dx, dy) == final (x, y)
-        self.dx = dx
-        self.dy = dy
+        self.r, self.r_calc = r, r/ROOT_2
+        self.x0, self.y0 = x0, y0
+        self.dx, self.dy = dx, dy
     
     @classmethod
     def from_lists(cls, positions, bboxes):
@@ -133,7 +133,7 @@ def parse(current):
     # [(5, 3), (7, 1), (5, 3), (7, 5), (3, 7), (5, 5), (1, 7), (3, 5), (5, 7), (7, 1)]
     bboxes = list(map(eval, patlist[1::3]))
     
-    trackbox = Trackbox.from_lists(positions, bboxes)
+    # trackbox = Trackbox.from_lists(positions, bboxes)
     
     # Determine the bounding box to make gifs from
     # The rectangle: xmin <= x <= xmax, ymin <= y <= ymax
@@ -179,8 +179,8 @@ def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, tr
                   (mutils.scale(row, mul, grid=first_grid) for row in frame),
                   mul, grid=(0, 0, 0) if grid else None
                   ),
-                np.uint8)
-              )
+                np.uint8
+              ))
             if os.stat(f'{current}.gif').st_size > 7500000:
                 return True
     return False
@@ -254,9 +254,11 @@ class CA:
         return start, end_parse, end_makeframes, oversized
     
     async def run_bgolly(self, current, algo, gen, step, rule):
-        # run bgolly with parameters
         max_mem = int(os.popen('free -m').read().split()[7]) // 1.25 # TODO: use
         preface = f'{self.dir}/resources/bgolly'
+        if '::' in rule:
+            rule = f'{rule}_{current}'
+        algo = algo.split('::')[0]
         ruleflag = f's {self.dir}/' if algo == 'RuleLoader' else f'r {rule}'
         return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
     
@@ -336,7 +338,22 @@ class CA:
         
         current = f'{self.dir}/{ctx.message.id}'
         rule = ''.join(rule.split()) or 'B3/S23'
-        algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.fullmatch(rule) else 'RuleLoader'
+        if '::' in rule:
+            name, rulestring = rule.split('::')
+            algo = f'RuleLoader::{name}'
+            module = types.ModuleType('<custom>')
+            await self.loop.run_in_executor(None,
+              exec,
+              await self.bot.loop.run_in_executor(None,
+                marshal.loads,
+                await self.bot.pool.fetchval('''SELECT module FROM algos WHERE name = $1::text''', name)
+                ),
+              module.__dict__
+              )
+            with open(f'{self.dir}/{rule}_{ctx.message.id}.rule', 'w') as ruleout:
+                ruleout.write(await self.loop.run_in_executor(None, module.main, rulestring))
+        else:
+            algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.fullmatch(rule) else 'RuleLoader'
         dfcolors = {
           mutils.state_from(int(state)): value
           for state, value in literal_eval(flags.get('colors', '{}')).items()
@@ -368,7 +385,7 @@ class CA:
                 colors = mutils.ColorRange(n_states, (255,255,0), (255,0,0)).to_dict()
             else:
                 dfcolors = {'o': fg, 'b': setbg or bg}
-        if rule.count('/') > 1:
+        if rule.count('/') > 1 and '::' not in rule:
             algo = 'Generations'
             colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
         colors = {**colors, **dfcolors}  # override with default colors
@@ -385,7 +402,7 @@ class CA:
         self.simlog.append(curlog)
         writrule = f'{rule}_{ctx.message.id}' if algo == 'RuleLoader' else rule
         with open(f'{current}_in.rle', 'w') as infile:
-            infile.write(f'x=0,y=0,rule={writrule}\n{pat}')
+            infile.write(pat if pat.startswith('x = ') else f'x=0,y=0,rule={writrule}\n{pat}')
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             curlog.status = Status.FAILED
@@ -394,12 +411,12 @@ class CA:
         curlog.status = Status.SIMMING
         try:
             resp = await mutils.await_event_or_coro(
-                    self.bot,
-                    event = 'reaction_add',
-                    coro = self.do_gif(execs, current, gen, step, colors, track, setbg or bg, grid),
-                    ret_check = lambda obj: isinstance(obj, discord.Message),
-                    event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
-                    )
+                  self.bot,
+                  event = 'reaction_add',
+                  coro = self.do_gif(execs, current, gen, step, colors, track, setbg or bg, grid),
+                  ret_check = lambda obj: isinstance(obj, discord.Message),
+                  event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
+                  )
         except Exception as e:
             curlog.status = Status.FAILED
             raise e from None
@@ -525,9 +542,9 @@ class CA:
         self, ctx,
         *,
         dims: r'^\d+x\d+$' = '16x16',
-        rule: (rRULESTRING, rLtL) = None,
         gen: (r'^\d+$', int) = None,
         step: (r'^\d+$', int) = None,
+        rule: '.+' = None,
         flags
       ):
         """
@@ -554,13 +571,14 @@ class CA:
                     rule = rmatch.group()
                     break
         x, y = dims.split('x')
+        rule_ = rule and rule.split('::')[-1]
         await ctx.invoke(
           self.sim,
           gen=int(gen),
           step=int(step),
           rule=rule or 'B3/S23',
           flags=flags,
-          randpat=await self.bot.loop.run_in_executor(None, self.makesoup, rule, int(x), int(y)),
+          randpat=await self.bot.loop.run_in_executor(None, self.makesoup, rule_, int(x), int(y)),
           soup_dims='×'.join(dims.split('x'))
           )
     
@@ -684,6 +702,32 @@ class CA:
         if not self.bot.is_owner(ctx.author):
             return
         await self.bot.pool.execute('''DELETE FROM rules WHERE name = $1::text''', name)
+    
+    @mutils.command('Register a custom rulefile-generating python script')
+    async def register(self, ctx, name):
+        """
+        # Register a custom rulefile-generating python module. #
+        # Must be compatible with Python 3.6, and additionally must #
+        # contain a "main()" function that can be called with a single #
+        # string argument (the user's input) to produce a ruletable. #
+
+        <[ARGS]>
+        NAME: The name, separated from a rulestring by two colons, that users will invoke your script with from {prefix}sim.
+        """
+        fp = io.BytesIO()
+        await ctx.message.attachments[0].save(fp, seek_begin=True)
+        await self.bot.pool.execute('''
+          INSERT INTO algos (name, module)
+          SELECT $1::text, $2::bytea
+          ''',
+          name,
+          await self.loop.run_in_executor(
+            None,
+            marshal.dumps,
+            await self.loop.run_in_executor(None, compile, fp.read(), '<custom>', 'exec', 0, False, 2)
+            )
+          )
+
 
 def setup(bot):
     bot.add_cog(CA(bot))

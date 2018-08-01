@@ -38,7 +38,7 @@ def typecasted(func):
 # ----------------------------------------------------------------------------------- #
 
 import asyncio
-import concurrent
+import concurrent.futures
 
 async def await_event_or_coro(bot, event, coro, *, ret_check=None, event_check=None, timeout=None):
     """
@@ -97,7 +97,7 @@ def TRUNC(end):
 @typecasted
 def parse_args(args: list, regex: [re.compile], defaults: list) -> ([str], [str]):
     """
-    Sorts `args` according to order in `regexes`.
+    Sorts `args` according to order in `regex`.
     
     If no matches for a given regex are found in `args`, the item
     in `defaults` with the same index is dropped in to replace it.
@@ -153,11 +153,9 @@ def parse_flags(flags: list, *, prefix: TRUNC(1) = '-', delim: TRUNC(1) = ':', q
 import dis
 import types
 
-CODE_TYPE = type((lambda: None).__code__)
-
 def attrify(func):
     """Assign nested callables to attributes of their enclosing function"""
-    for nest in (types.FunctionType(i.argval, globals()) for i in dis.get_instructions(func) if type(i.argval) is CODE_TYPE):
+    for nest in (types.FunctionType(i.argval, globals()) for i in dis.get_instructions(func) if isinstance(i.argval, types.CodeType)):
         setattr(func, nest.__name__, nest)
     return func
 
@@ -184,6 +182,7 @@ from discord.ext import commands
 
 from .import cmd
 
+
 class HelpAttrMixin:
     @property
     def helpsafe_name(self):
@@ -201,6 +200,7 @@ class HelpAttrMixin:
     def aliases(*_):
         """Eliminate "can't set attribute" when dpy tries assigning aliases"""
 
+
 class Command(HelpAttrMixin, commands.Command):
     def __init__(self, name, callback, **kwargs):
         """
@@ -217,6 +217,7 @@ class Command(HelpAttrMixin, commands.Command):
           )
         self.loc.len = self.loc.end - self.loc.start
         super().__init__(name, callback, **kwargs)
+
 
 class Group(HelpAttrMixin, commands.Group):
     def __init__(self, **attrs):
@@ -245,6 +246,7 @@ class Group(HelpAttrMixin, commands.Group):
             self.add_command(res)
             return res
         return decorator
+
 
 def give_args(callback):
     argspec = inspect.getfullargspec(callback)
@@ -279,6 +281,7 @@ def give_args(callback):
     silhouette.wrapped_ = callback
     silhouette.__doc__ = callback.__doc__
     return silhouette
+
 
 def command(brief=None, name=None, cls=Command, args=False, **attrs):
     return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(
@@ -392,12 +395,12 @@ def scale(li, mul, chunk=1, grid=None, grdiv=1):
     scale([a, b, c], 2, 3) => (a, b, c, a, b, c)
     """
     zipped = zip(*[iter(li)] * chunk)
-    if grid is not None and mul > 1:
-        if grdiv == 1:
-            return [j if edge else [grid] * len(j) for i in zipped for edge in range(mul) for j in i]
-        offsets = cycle(range(mul * grdiv))
-        return [j if cont else [grid] * len(j) for i in zipped for edge, cont in zip(range(mul), offsets) for j in i]
-    return [j for i in zipped for _ in range(mul) for j in i]
+    if grid is None or mul == 1:
+        return [j for i in zipped for _ in range(mul) for j in i]
+    if grdiv == 1:
+        return [j if edge else [grid] * len(j) for i in zipped for edge in range(mul) for j in i]
+    offsets = cycle(range(mul * grdiv))
+    return [j if cont else [grid] * len(j) for i in zipped for edge, cont in zip(range(mul), offsets) for j in i]
 
 def fix(seq, chunk):
     # ***UNUSED***
