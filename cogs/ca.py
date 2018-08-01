@@ -356,6 +356,10 @@ class CA:
                 ),
               module.__dict__
               )
+            try:
+                rulestring = await self.loop.run_in_executor(None, module.rulestring, rulestring)
+            except AttributeError:
+                pass  # no need to modify rulestring then
             with open(f'{self.dir}/{rulestring}_{ctx.message.id}.rule', 'w+') as ruleout:
                 ruleout.write(await self.loop.run_in_executor(None, module.main, rulestring))
                 _, n_states, colors = mutils.extract_rule_info(ruleout, False)
