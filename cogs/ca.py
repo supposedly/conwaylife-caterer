@@ -566,7 +566,9 @@ class CA:
                     rule = rmatch.group()
                     break
         x, y = dims.split('x')
-        rule_ = f"{rule and rule.split('::')[0]}_{ctx.message.id}"
+        rule_ = f"{rule and rule.split('::')[0]}"
+        if '/' not in rule:
+            rule_ += f'_{ctx.message.id}'
         await ctx.invoke(
           self.sim,
           gen=int(gen),
