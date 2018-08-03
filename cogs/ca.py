@@ -51,6 +51,7 @@ class Status(Enum):
 #   431273609567141889,  # tempmod
 #   }
 
+WRIGHT = 180809886374952960
 ROOT_2 = 2 ** 0.5
 
 # matches LtL rulestring
@@ -234,7 +235,7 @@ class CA:
             return False
         correct_emoji = rxn.emoji == '\N{WASTEBASKET}'
         if usr != ctx.message.author:
-            return correct_emoji and rxn.count > 3
+            return correct_emoji and (rxn.count > 3 or usr.id == WRIGHT)
         return correct_emoji
 
     async def do_gif(self, execs, current, gen, step, colors, track, bg, grid):
@@ -449,7 +450,7 @@ class CA:
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         
         def extension_or_deletion_check(rxn, usr):
-            if usr is ctx.message.author:
+            if usr is ctx.message.author or usr.id == WRIGHT:
                 if rxn.emoji in '➕⏩' and rxn.message.id == gif.id:
                     return True
                 return rxn.emoji == '\N{WASTEBASKET}' and rxn.message.id == announcement.id
