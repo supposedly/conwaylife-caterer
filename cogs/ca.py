@@ -633,7 +633,7 @@ class CA:
                 title=rule['name'],
                 description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
                 ),
-              file=discord.File(rule['file'] + '.rule', rule['name'])
+              file=discord.File(rule['file'], rule['name'] + '.rule')
               )
         else:
             records = next(d for d in self.rulecache if d['uploader'] == member.id)
