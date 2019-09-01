@@ -633,7 +633,7 @@ class CA:
                 title=rule['name'],
                 description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
                 ),
-              file=discord.File(rule['file'], rule['name'])
+              file=discord.File(rule['file'] + '.rule', rule['name'])
               )
         else:
             records = next(d for d in self.rulecache if d['uploader'] == member.id)
@@ -687,14 +687,19 @@ class CA:
         # Register a custom rulefile-generating python module. #
         # Must be compatible with Python 3.6, and additionally must #
         # contain a "main()" function that can be called with a single #
-        # string argument (the user's input) to produce a ruletable. #
+        # rulestring argument (the user's input) to produce a rulefile. #
+        #
+        # Due to bad-design-related limitations, your rulestrings must be filename-safe. #
+        # If they're not, e.g. if they contain slashes, you must define a rulestring() #
+        # function that normalizes inputted rulestrings to be filename-safe. #
+        # Your main() function will be passed this new rulestring, not the original. #
 
         <[ARGS]>
         NAME: The name, to be separated from a rulestring by two colons, that users will invoke your script with from {prefix}sim.
-        BLURB: A short (10-to-90-character) description of your script and the ruletables it generates.
+        BLURB: A short (10-to-90-character) description of your script and the rulefile it generates.
         """
         if len(blurb) < 10:
-            return await ctx.send('Please provide a short justification/explanation of this rule!')
+            return await ctx.send('Please provide a short justification/explanation of this generator!')
         if len(blurb) > 90:
             return await ctx.send('Please shorten your description. Max 90 characters.')
         attachment, fp = ctx.message.attachments[0], io.BytesIO()
@@ -703,6 +708,8 @@ class CA:
             await self.bot.pool.execute('''
               INSERT INTO algos (name, module)
               SELECT $1::text, $2::bytea
+              ON CONFLICT (name) DO
+              UPDATE SET module=$2::bytea
               ''',
               name,
               await self.loop.run_in_executor(
