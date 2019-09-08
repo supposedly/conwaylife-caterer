@@ -772,7 +772,7 @@ class CA:
                 title=gen['name'],
                 description=f"Uploader: {self.bot.get_user(gen['uploader'])}\nBlurb: {gen['blurb']}"
                 ),
-              file=discord.File(gen['file'], gen['name'] + '.py')
+              file=discord.File(gen['plaintext'], gen['name'] + '.py')
               )
         else:
             return await ctx.send(embed=discord.Embed(

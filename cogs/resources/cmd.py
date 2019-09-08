@@ -21,6 +21,7 @@ aliases = {
   'rules': ['rule'],
   'sim': ['gif'],
   'sim rand': ['r', 'random'],
+  'generators': ['gens', 'generator', 'gen'],
   'todo': ['todos'],
   'todo add': ['new'],
   'todo del': ['rm', 'remove', 'delete'],
