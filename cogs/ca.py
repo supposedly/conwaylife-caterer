@@ -714,10 +714,10 @@ class CA:
               INSERT INTO algos (
                   name, uploader, plaintext, module, blurb
               )
-              SELECT $1::text, $2::bigint, $3::text, $4::bytea, $5::text
+              SELECT $1::text, $2::bigint, $3::bytea, $4::bytea, $5::text
                   ON CONFLICT (name)
                   DO UPDATE
-                  SET uploader=$2::bigint, plaintext=$3::text, module=$4::bytea, blurb=COALESCE($5::text, blurb)
+                  SET uploader=$2::bigint, plaintext=$3::bytea, module=$4::bytea, blurb=COALESCE(algos.blurb, $5::text)
               ''',
               name,
               ctx.author.id,
@@ -726,8 +726,9 @@ class CA:
                 None,
                 marshal.dumps,
                 await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
-                )
-              )
+              ),
+              blurb
+            )
             await ctx.thumbsup()
         await ctx.thumbsdown(override=False)
     
