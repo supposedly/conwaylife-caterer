@@ -658,7 +658,6 @@ class CA:
             return await ctx.send('Please provide a short justification/explanation of this rule!')
         if len(blurb) > 90:
             return await ctx.send('Please shorten your description. Max 90 characters.')
-        self.rulecache = None
         attachment, *_ = ctx.message.attachments
         with io.BytesIO() as f:
             await attachment.save(f, seek_begin=True)
@@ -673,6 +672,7 @@ class CA:
                    SET uploader=$1::bigint, blurb=$2::text, file=$3::bytea, name=$4::text, n_states=$5::int, colors=$6::text
                 '''
                 await self.bot.pool.execute(query, ctx.author.id, blurb, f.read(), *mutils.extract_rule_info(f))
+                self.rulecache = None
                 await ctx.thumbsup()
         await ctx.thumbsdown(override=False)
     
@@ -685,6 +685,7 @@ class CA:
         except:
             await ctx.thumbsdown()
             raise
+        self.rulecache = None
         await ctx.thumbsup()
     
     @mutils.command('Register a custom rulefile-generating python script')
@@ -729,6 +730,7 @@ class CA:
               ),
               blurb
             )
+            self.gencache = None
             await ctx.thumbsup()
         await ctx.thumbsdown(override=False)
     
@@ -794,6 +796,7 @@ class CA:
         except:
             await ctx.thumbsdown()
             raise
+        self.gencache = None
         await ctx.thumbsup()
 
 
