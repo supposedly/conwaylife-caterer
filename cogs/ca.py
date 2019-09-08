@@ -204,6 +204,7 @@ class CA:
         self.defaults = (*[[self.ppe, 'ProcessPoolExecutor']]*2, [self.tpe, 'ThreadPoolExecutor'])
         self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
         self.rulecache = None
+        self.gencache = None
     
     @staticmethod
     def makesoup(rulestring: str, x: int, y: int) -> str:
@@ -636,12 +637,12 @@ class CA:
               file=discord.File(rule['file'], rule['name'] + '.rule')
               )
         else:
-            records = next(d for d in self.rulecache if d['uploader'] == member.id)
             return await ctx.send(embed=discord.Embed(
               title=f'Rules by {member}',
               description='\n'.join(
-                f"• {i['name']}: {i['blurb']}"
-                for i in records
+                f"• {d['name']}: {d['blurb']}"
+                for d in self.rulecache
+                if d['uploader'] == member.id
                 )
               ))
     
@@ -698,28 +699,93 @@ class CA:
         NAME: The name, to be separated from a rulestring by two colons, that users will invoke your script with from {prefix}sim.
         BLURB: A short (10-to-90-character) description of your script and the rulefile it generates.
         """
-        if len(blurb) < 10:
-            return await ctx.send('Please provide a short justification/explanation of this generator!')
         if len(blurb) > 90:
             return await ctx.send('Please shorten your description. Max 90 characters.')
+        elif not blurb:
+            blurb = None
         attachment, fp = ctx.message.attachments[0], io.BytesIO()
         await attachment.save(fp, seek_begin=True)
         if await self.bot.approve_asset(fp, attachment.filename, blurb, 'rule generator'):
+            code = fp.read()
             await self.bot.pool.execute('''
-              INSERT INTO algos (name, module)
-              SELECT $1::text, $2::bytea
-              ON CONFLICT (name) DO
-              UPDATE SET module=$2::bytea
+              INSERT INTO algos (
+                  name, uploader, plaintext, module, blurb
+              )
+              SELECT $1::text, $2::bigint, $3::text, $4::bytea, $5::text
+                  ON CONFLICT (name)
+                  DO UPDATE
+                  SET uploader=$2::bigint, plaintext=$3::text, module=$4::bytea, blurb=COALESCE($5::text, blurb)
               ''',
               name,
+              ctx.author.id,
+              code,
               await self.loop.run_in_executor(
                 None,
                 marshal.dumps,
-                await self.loop.run_in_executor(None, compile, fp.read(), '<custom>', 'exec', 0, False, 2)
+                await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
                 )
               )
             await ctx.thumbsup()
         await ctx.thumbsdown(override=False)
+    
+
+    @mutils.command('Show uploaded generators')
+    async def generators(self, ctx, text=None):
+        """
+        # If no argument is passed, displays all generators (paginated by tens). #
+        <[ARGS]>
+        GENERATOR: Generator's name. If a generator by this name (case-sensitive) has been uploaded, displays its info and gives its file.
+        [or]
+        MEMBER: If the member mentioned is present in the server, shows generators uploaded by them.
+        """
+        if self.gencache is None:
+            self.gencache = [
+              {'name': i['name'], 'uploader': i['uploader'], 'blurb': i['blurb'], 'plaintext': i['plaintext']}
+              for i in 
+              await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, plaintext, blurb FROM algos''')
+            ]
+        if text is None:
+            offset = 0
+            say, msg = ctx.send, None
+            while True:
+                msg = await say(embed=discord.Embed(
+                  title='Rules',
+                  description='\n'.join(
+                    f"• {i['name']} ({ctx.guild.get_member(i['uploader'])}): {i['blurb']}"
+                    for i in islice(self.gencache, offset, offset + 10)
+                    )
+                  )) or msg
+                say = msg.edit
+                left, right = await mutils.get_page(ctx, msg)
+                if left:
+                    offset = max(0, offset - 10)
+                elif right:
+                    offset += offset + 10 < len(self.gencache) and 10
+        try:
+            member = await commands.MemberConverter().convert(ctx, text)
+        except commands.BadArgument:
+            gen = next(d for d in self.gencache if d['name'] == text)
+            return await ctx.send(embed=discord.Embed(
+                title=gen['name'],
+                description=f"Uploader: {self.bot.get_user(gen['uploader'])}\nBlurb: {gen['blurb']}"
+                ),
+              file=discord.File(gen['file'], gen['name'] + '.py')
+              )
+        else:
+            return await ctx.send(embed=discord.Embed(
+              title=f'Generators by {member}',
+              description='\n'.join(
+                f"• {d['name']}: {d['blurb']}"
+                for d in self.gencache
+                if d['uploader'] == member.id
+                )
+              ))
+    
+    @mutils.command()
+    async def delgen(self, ctx, name):
+        if not self.bot.is_owner(ctx.author):
+            return
+        await self.bot.pool.execute('''DELETE FROM algos WHERE name = $1::text''', name)
 
 
 def setup(bot):
