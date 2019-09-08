@@ -7,8 +7,8 @@ args = {
   'sim rand': 'gen ?dims ?step ?rule (-h -tag -time(:all) -id:identifier)',
   'rules': '?name / ?member',
   'todo': '*cmd',
-  'upload': '>blurb',
-  'register': 'name >blurb',
+  'upload': 'name >blurb',
+  'register': 'name ?>blurb',
   'wiki': '?+query (-type:?format)',
 }
 

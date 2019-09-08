@@ -680,7 +680,12 @@ class CA:
     async def delrule(self, ctx, name):
         if not self.bot.is_owner(ctx.author):
             return
-        await self.bot.pool.execute('''DELETE FROM rules WHERE name = $1::text''', name)
+        try:
+            await self.bot.pool.execute('''DELETE FROM rules WHERE name = $1::text''', name)
+        except:
+            await ctx.thumbsdown()
+            raise
+        await ctx.thumbsup()
     
     @mutils.command('Register a custom rulefile-generating python script')
     async def register(self, ctx, name, *, blurb):
@@ -699,9 +704,7 @@ class CA:
         NAME: The name, to be separated from a rulestring by two colons, that users will invoke your script with from {prefix}sim.
         BLURB: A short (10-to-90-character) description of your script and the rulefile it generates.
         """
-        if len(blurb) > 90:
-            return await ctx.send('Please shorten your description. Max 90 characters.')
-        elif not blurb:
+        if not blurb:
             blurb = None
         attachment, fp = ctx.message.attachments[0], io.BytesIO()
         await attachment.save(fp, seek_begin=True)
@@ -785,7 +788,12 @@ class CA:
     async def delgen(self, ctx, name):
         if not self.bot.is_owner(ctx.author):
             return
-        await self.bot.pool.execute('''DELETE FROM algos WHERE name = $1::text''', name)
+        try:
+            await self.bot.pool.execute('''DELETE FROM algos WHERE name = $1::text''', name)
+        except:
+            await ctx.thumbsdown()
+            raise
+        await ctx.thumbsup()
 
 
 def setup(bot):
