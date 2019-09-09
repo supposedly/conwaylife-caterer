@@ -207,9 +207,23 @@ class CA:
         self.gencache = None
     
     @staticmethod
-    def makesoup(rulestring: str, x: int, y: int) -> str:
+    def state_from(val, n_states):
+        if n_states < 3:
+            return 'bo'[val] if isinstance(val, int) else int(val == 'o')
+        return mutils.state_from(val)
+    
+    def get_rand_state(self, n_states: int, last_state: str) -> str:
+        if last_state is None:
+            return self.state_from(random.randrange(0, n_states), n_states)
+        new = last_state = self.state_from(last_state, n_states)
+        while new == last_state:
+            new = random.randrange(0, n_states)
+        return self.state_from(new, n_states)
+    
+    def makesoup(self, rulestring: str, n_states: int, x: int, y: int) -> str:
         """Generates random soup as RLE with specified dimensions"""
         rle = f'x = {x}, y = {y}, rule = {rulestring}\n'
+        last_state = None
         for row in range(y):
             pos = x
             while pos > 0:
@@ -217,8 +231,8 @@ class CA:
                 runlength = math.ceil(-math.log(1-random.random()))
                 if runlength > pos:
                     runlength = pos  # or just `break`, no big difference qualitatively
-                # switches o/b from last occurrence of the letter
-                rle += (str(runlength) if runlength > 1 else '') + 'ob'['o' in rle[-3 if rle[-1] == '\n' else -1]]
+                last_state = self.get_rand_state(n_states, last_state)
+                rle += (str(runlength) if runlength > 1 else '') + last_state
                 pos -= runlength
             rle += '$\n' if y > row + 1 else '!\n'
         return rle
@@ -297,7 +311,7 @@ class CA:
         #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
         """
         given_rule, display_given_rule = rule, False
-        rand = kwargs.get('randpat')
+        rand = kwargs.get('rand')
         dims = kwargs.get('soup_dims')
         colors = {}
         if 'execs' in flags:
@@ -315,9 +329,7 @@ class CA:
         gen = genconvert(gen)
         if gen / step > 2500:
             return await ctx.send(f"`Error: Cannot simulate more than 2500 frames. {self.moreinfo(ctx)}`")
-        if rand:
-            pat = rand
-        if not pat:
+        if not pat and not rand:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rXRLE.search(msg.content)
                 if rmatch:
@@ -327,7 +339,7 @@ class CA:
                     break
             if not pat:
                 return await ctx.send(f"`Error: No PAT given and none found in last 50 messages. {self.moreinfo(ctx)}`")
-        else:
+        elif pat and not rand:
             pat = pat.strip('`')
         
         if not rule:
@@ -345,6 +357,7 @@ class CA:
         current = f'{self.dir}/{ctx.message.id}'
         rule = ''.join(rule.split()) or 'B3/S23'
         
+        n_states = 2
         if '::' in given_rule:
             rulestring, name = given_rule.split('::')
             rulestring = rulestring or rule.split('::')[0]
@@ -369,8 +382,11 @@ class CA:
             rule = f'{rulestring}_{ctx.message.id}'
             given_rule = rulestring
             display_given_rule = True
-        else:
-            algo = 'Larger than Life' if rLtL.match(rule) else algo if rRULESTRING.fullmatch(rule) else 'RuleLoader'
+        elif rLtL.match(rule):
+            algo = 'Larger than Life'
+            n_states = 2 + int(rLtL.match(rule)[1])
+        elif not rRULESTRING.fullmatch(rule):
+            algo = 'RuleLoader'
         if algo == 'RuleLoader':
             try:
                 rulename, rulefile, n_states, colors = await self.bot.pool.fetchrow('''
@@ -387,7 +403,16 @@ class CA:
                 colors = mutils.ColorRange(n_states, (255,255,0), (255,0,0)).to_dict()
         if rule.count('/') > 1 and '::' not in rule:
             algo = 'Generations'
-            colors = mutils.ColorRange(int(rule.split('/')[-1])).to_dict()
+            n_states = int(rule.split('/')[-1])
+            colors = mutils.ColorRange(n_states).to_dict()
+        
+        if rand:
+            rule_ = rule.split('::')[0]
+            if algo == 'RuleLoader':
+                rule_ += f'_{ctx.message.id}'
+            pat = await self.bot.loop.run_in_executor(None, self.makesoup, rule_, n_states, *dims)
+            dims = f'{dims[0]}\u00d7{dims[1]}'
+        
         details = (
           (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
           + f' in rule `{given_rule if display_given_rule else rule}` with '
@@ -567,18 +592,15 @@ class CA:
                 if rmatch:
                     rule = rmatch.group()
                     break
-        x, y = dims.split('x')
-        rule_ = f"{rule and rule.split('::')[0]}"
-        if '/' not in rule:
-            rule_ += f'_{ctx.message.id}'
+        x, y = map(int, dims.split('x'))
         await ctx.invoke(
           self.sim,
           gen=int(gen),
           step=int(step),
           rule=rule or 'B3/S23',
           flags=flags,
-          randpat=await self.bot.loop.run_in_executor(None, self.makesoup, rule_, int(x), int(y)),
-          soup_dims='×'.join(dims.split('x'))
+          rand=True,
+          soup_dims=(x, y)
           )
     
     @sim.command('Gives a log of recent sim invocations')

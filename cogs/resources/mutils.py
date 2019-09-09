@@ -336,7 +336,8 @@ from math import ceil
 
 NUMS = {
   **{num: chr(64+num) for num in range(25)},
-  **{num: chr(110+ceil(num/24)) + chr(64+(num%24 or 24)) for num in range(25, 256)}
+  **{num: chr(110+ceil(num/24)) + chr(64+(num%24 or 24)) for num in range(25, 256)},
+    0: '.'
   }
 STATES = {v: k for k, v in NUMS.items()}
 '''
