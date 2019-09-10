@@ -89,10 +89,6 @@ async def wait_for_any(ctx, events, checks, *, timeout=15.0):
 # ----------------------------------------------------------------------------------- #
 import re
 
-# Typehint converter; truncates seq.
-def TRUNC(end):
-    return lambda seq: seq[:end]
-# TRUNC(end)(seq) -> seq[0:end]
 
 @typecasted
 def parse_args(args: list, regex: [re.compile], defaults: list) -> ([str], [str]):
@@ -118,10 +114,11 @@ def parse_args(args: list, regex: [re.compile], defaults: list) -> ([str], [str]
              new.append(defaults[ridx])
     return new, args
 
-@typecasted
-def parse_flags(flags: list, *, prefix: TRUNC(1) = '-', delim: TRUNC(1) = ':', quote: TRUNC(1) = "'") -> {str: str}:
+def parse_flags(flags, *, prefix='-', delim=':', quote="'"):
     # verified with hypothesis:
     # @given(st.from_regex(r"\A(-[a-z]+:(' ?[a-z]+ ?'|[a-z]+) )*-[a-z]+:(' ?[a-z]+ ?'|[a-z]+)\Z").map(str.split))
+    if isinstance(flags, str):
+        flags = flags.split()
     op = f"{delim}{quote}"
     openers = (i for i, v in enumerate(flags) if op in v and v.startswith(prefix))
     closers = (i for i, v in enumerate(flags) if v.endswith(quote) and op not in v)
