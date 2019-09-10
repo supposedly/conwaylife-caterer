@@ -4,7 +4,7 @@ args = {
   'dyk': '+num / >search',
   'help': '>cmd',
   'sim': 'gen ?step ?rule ?pat (-h -tag -time(:all) -id:identifier)',
-  'sim rand': 'gen ?dims ?step ?rule (-h -tag -time(:all) -id:identifier)',
+  'sim rand': 'gen ?dims ?step ?rule (-include:n,n..m,n..m+s -exclude:n,n..m,n..m+s -h -tag -time(:all) -id:identifier)',
   'rules': '?name / ?member',
   'todo': '*cmd',
   'upload': 'name >blurb',

@@ -212,15 +212,15 @@ class CA:
             return 'bo'[val] if isinstance(val, int) else int(val == 'o')
         return mutils.state_from(val)
     
-    def get_rand_state(self, n_states: int, last_state: str) -> str:
+    def get_rand_state(self, n_states: int, last_state: str, allowed_states: {int}) -> str:
         if last_state is None:
             return self.state_from(random.randrange(0, n_states), n_states)
         new = last_state = self.state_from(last_state, n_states)
-        while new == last_state:
+        while new == last_state or new not in allowed_states:
             new = random.randrange(0, n_states)
         return self.state_from(new, n_states)
     
-    def makesoup(self, rulestring: str, n_states: int, x: int, y: int) -> str:
+    def makesoup(self, rulestring: str, n_states: int, x: int, y: int, allowed_states: {int}) -> str:
         """Generates random soup as RLE with specified dimensions"""
         rle = f'x = {x}, y = {y}, rule = {rulestring}\n'
         last_state = None
@@ -231,7 +231,7 @@ class CA:
                 runlength = math.ceil(-math.log(1-random.random()))
                 if runlength > pos:
                     runlength = pos  # or just `break`, no big difference qualitatively
-                last_state = self.get_rand_state(n_states, last_state)
+                last_state = self.get_rand_state(n_states, last_state, allowed_states)
                 rle += (str(runlength) if runlength > 1 else '') + last_state
                 pos -= runlength
             rle += '$\n' if y > row + 1 else '!\n'
@@ -311,6 +311,13 @@ class CA:
       ):
         """
         # Simulates PAT with output to animated gif. #
+        <[ARGS]>
+        GEN: Generation to simulate up to.
+        STEP: Step size. Affects simulation speed. If omitted, defaults to 1.
+        RULE: Rulestring to simulate PAT under. If omitted, defaults to B3/S23 or rule specified in PAT.
+        PAT: One-line rle or .lif file to simulate. If omitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
+        #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
+
         <[FLAGS]>
         -h: Use HashLife instead of the default QuickLife.
         -time: Include time taken to create gif (in seconds w/hundredths) alongside GIF.
@@ -319,13 +326,6 @@ class CA:
         -id: Has no function besides appearing above the final output, but can be used to tell apart simultaneously-created gifs.
         -t: Track. Rudimentary impl, nothing smooth -- goes by generation.
         -g: Show grid lines.
-        
-        <[ARGS]>
-        GEN: Generation to simulate up to.
-        STEP: Step size. Affects simulation speed. If omitted, defaults to 1.
-        RULE: Rulestring to simulate PAT under. If omitted, defaults to B3/S23 or rule specified in PAT.
-        PAT: One-line rle or .lif file to simulate. If omitted, uses last-sent Golly-compatible pattern (which should be enclosed in a code block and therefore can be a multiliner).
-        #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
         """
         given_rule, display_given_rule = rule, False
         rand = kwargs.get('rand')
@@ -368,7 +368,7 @@ class CA:
             else:
                 rule = ''
         
-        bg, fg = ((255,255,255), (0,0,0)) if 'bw' in flags else ((54,57,62), (255,255,255))
+        bg, fg = ((255, 255, 255), (0, 0, 0)) if 'bw' in flags else ((54, 57, 62), (255, 255, 255))
         colors = {'o': fg, 'b': bg}
         
         current = f'{self.dir}/{ctx.message.id}'
@@ -414,7 +414,16 @@ class CA:
             rule_ = rule.split('::')[0]
             if algo == 'RuleLoader':
                 rule_ += f'_{ctx.message.id}'
-            pat = await self.bot.loop.run_in_executor(None, self.makesoup, rule_, n_states, *dims)
+            include, exclude = kwargs['soup_include_states'], kwargs['soup_exclude_states']
+            allowed_states = include if include else set(range(n_states))
+            if exclude:
+                allowed_states -= exclude
+            if len(allowed_states) < 2:
+                return await ctx.send('`Error: random soup cannot be generated with fewer than 2 states allowed`')
+            pat = await self.bot.loop.run_in_executor(
+              None, self.makesoup,
+              rule_, n_states, *dims, allowed_states
+            )
             dims = f'{dims[0]}\u00d7{dims[1]}'
         
         details = (
@@ -575,12 +584,17 @@ class CA:
       ):
         """
         # Simulates a random soup in given rule with output to GIF. Dims default to 16x16. #
-        <[FLAGS]>
-        (None)
-        {inherits}
+        # If either flag is given but empty (e.g. `-include` rather than `-include:1,2,3..5`), it will count as not having been given. #
+        # -include and -exclude cannot be given at the same time. If they are, only -include will be counted. #
+        # Lastly, if the use of either flag results in less than 2 states' being allowed, an error will be returned. #
         
         <[ARGS]>
         DIMS: "AxB" (sans quotes), where A and B are the desired soup's width and height separated by the literal character "x".
+        {inherits}
+        
+        <[FLAGS]>
+        -include: States to include, delimited by commas. Additionally, nutshell-style range notation is accepted.
+        -exclude: Alternatively, states to exclude. Ditto above.
         {inherits}
         """
         nums = gen, step
@@ -597,6 +611,11 @@ class CA:
                     rule = rmatch.group()
                     break
         x, y = map(int, dims.split('x'))
+        include, exclude = set(), set()
+        if 'include' in flags:
+            include = mutils.flatten_range_list(flags.pop('include').split(','))
+        elif 'exclude' in flags:
+            exclude = mutils.flatten_range_list(flags.pop('exclude').split(','))
         await ctx.invoke(
           self.sim,
           gen=int(gen),
@@ -604,7 +623,9 @@ class CA:
           rule=rule or 'B3/S23',
           flags=flags,
           rand=True,
-          soup_dims=(x, y)
+          soup_dims=(x, y),
+          soup_include_states=include,
+          soup_exclude_states=exclude
           )
     
     @sim.command('Gives a log of recent sim invocations')
@@ -771,7 +792,7 @@ class CA:
         MEMBER: If the member mentioned is present in the server, shows generators uploaded by them.
 
         <[FLAGS]>
-        rule: A rulestring. If the string passed above is a generator name, then attached to Caterer's response (instead of the generator's Python file) will be a rulefile generated by running the named generator on this rulestring.
+        -rule: A rulestring. If the string passed above is a generator name, then attached to Caterer's response (instead of the generator's Python file) will be a rulefile generated by running the named generator on this rulestring.
         """
         if flags is None:
             flags = {}

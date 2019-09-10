@@ -116,7 +116,7 @@ def parse_args(args: list, regex: [re.compile], defaults: list) -> ([str], [str]
 
 def parse_flags(flags, *, prefix='-', delim=':', quote="'"):
     # verified with hypothesis:
-    # @given(st.from_regex(r"\A(-[a-z]+:(' ?[a-z]+ ?'|[a-z]+) )*-[a-z]+:(' ?[a-z]+ ?'|[a-z]+)\Z").map(str.split))
+    # @given(st.from_regex(r"\A(-[a-z]+:(' ?[a-z]+ ?'|[a-z]+) )*-[a-z]+:(' ?[a-z]+ ?'|[a-z]+)\Z"))
     if isinstance(flags, str):
         flags = flags.split()
     op = f"{delim}{quote}"
@@ -417,3 +417,15 @@ async def get_page(ctx, msg, emoji='⬅➡', timeout=15.0):
         except Exception:
             pass
         return rxn.emoji == left, rxn.emoji == right
+
+
+def parse_nutshell_range(s):
+    r, step = s, '1'
+    if '+' in s:
+        r, step = r.split('+', 1)
+    begin, end = r.split('..', 1)
+    return range(int(begin.strip()), 1 + int(end.strip()), int(step.strip()))
+
+
+def flatten_range_list(li):
+    return {t for s in li for t in ([int(s)] if s.isnumeric() else parse_nutshell_range(s))}
