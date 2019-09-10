@@ -120,33 +120,27 @@ def parse_args(args: list, regex: [re.compile], defaults: list) -> ([str], [str]
 
 @typecasted
 def parse_flags(flags: list, *, prefix: TRUNC(1) = '-', delim: TRUNC(1) = ':', quote: TRUNC(1) = "'") -> {str: str}:
-    # FIXME: This ALMOST works perfectly. Fails when flags ==
-    # ['-test', "-a:'", "bb", "'", "-bb:'aaa", "'", "-one:'", "two", "three", "four'"]
-    # AKA "-test -a:' bb ' -bb:'aaa ' -one:' two three four'".split()
-    op = f"{delim}'"
-    openers = (i for i, v in enumerate(flags) if op in v)
+    # verified with hypothesis:
+    # @given(st.from_regex(r"\A(-[a-z]+:(' ?[a-z]+ ?'|[a-z]+) )*-[a-z]+:(' ?[a-z]+ ?'|[a-z]+)\Z").map(str.split))
+    op = f"{delim}{quote}"
+    openers = (i for i, v in enumerate(flags) if op in v and v.startswith(prefix))
     closers = (i for i, v in enumerate(flags) if v.endswith(quote) and op not in v)
+    d = {}
     while True:
         try:
             begin = next(openers)
         except (IndexError, StopIteration):
             break
-        end = (
-          next(closers)
-            if flags[begin].endswith(op) and flags[begin].count(op) == 1
-          else begin
-            if flags[begin].endswith(quote)
-          else next(closers)
-          )
-        new = ' '.join(flags[begin:1+end])
-        flags[begin:end] = ''
-        flags[begin] = new.rstrip(quote).replace(op, delim)
-    # now just get 'em into a dict
-    new = {}
-    for v in (i.lstrip(prefix) for i in flags if i.startswith(prefix)):
-        flag, opts = (v+delim[delim in v:]).split(delim, 1)
-        new[flag] = opts
-    return new
+        begin_val = flags[begin]
+        end = begin if begin_val.endswith(quote) and begin_val.count(quote) > 1 else next(closers)
+        name = begin_val[len(prefix):begin_val.index(delim)]
+        val = ' '.join(flags[begin:1+end])[1+begin_val.index(delim):].strip(quote)
+        d[name] = val
+    for i in flags:
+        if i.startswith(prefix) and op not in i:
+            name, val = i[len(prefix):].split(delim, 1) if delim in i else (i, '')
+            d[name] = val
+    return d
 
 # ----------------------------------------------------------------------------------- #
 
