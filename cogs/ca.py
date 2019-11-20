@@ -553,7 +553,7 @@ class CA(commands.Cog):
             # trigger the finally block
             pass
         finally:
-            gif = await ctx.channel.get_message(gif.id) # refresh reactions
+            gif = await ctx.channel.fetch_message(gif.id) # refresh reactions
             await announcement.remove_reaction('\N{WASTEBASKET}', ctx.guild.me)
             [await gif.remove_reaction(rxn, ctx.guild.me) for rxn in gif.reactions]
             os.remove(f'{current}.gif')
@@ -678,12 +678,14 @@ class CA(commands.Cog):
             member = await commands.MemberConverter().convert(ctx, rule)
         except commands.BadArgument:
             rule = next(d for d in self.rulecache if d['name'] == rule)
-            return await ctx.send(embed=discord.Embed(
-                title=rule['name'],
-                description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
-                ),
-              file=discord.File(rule['file'], rule['name'] + '.rule')
-              )
+            with io.BytesIO(rule['file']) as b:
+                b.seek(0)
+                return await ctx.send(embed=discord.Embed(
+                    title=rule['name'],
+                    description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
+                    ),
+                  file=discord.File(b, rule['name'] + '.rule')
+                  )
         else:
             return await ctx.send(embed=discord.Embed(
               title=f'Rules by {member}',
@@ -824,17 +826,19 @@ class CA(commands.Cog):
             member = await commands.MemberConverter().convert(ctx, text)
         except commands.BadArgument:
             if 'rule' in flags:
-                with io.StringIO() as fp:
-                    rulestring = await self.write_rule_from_generator(text, flags['rule'], fp)
-                    fp.seek(0)
-                    return await ctx.send(file=discord.File(fp.read().encode('utf-8'), rulestring + '.rule'))
+                with io.StringIO() as s:
+                    rulestring = await self.write_rule_from_generator(text, flags['rule'], s)
+                    s.seek(0)
+                    return await ctx.send(file=discord.File(s, rulestring + '.rule'))
             gen = next(d for d in self.gencache if d['name'] == text)
-            return await ctx.send(embed=discord.Embed(
-                title=gen['name'],
-                description=f"Uploader: {self.bot.get_user(gen['uploader'])}\nBlurb: {gen['blurb']}"
-                ),
-              file=discord.File(gen['plaintext'], gen['name'] + '.py')
-              )
+            with io.StringIO(gen['plaintext']) as s:
+                s.seek(0)
+                return await ctx.send(embed=discord.Embed(
+                    title=gen['name'],
+                    description=f"Uploader: {self.bot.get_user(gen['uploader'])}\nBlurb: {gen['blurb']}"
+                    ),
+                  file=discord.File(s, gen['name'] + '.py')
+                  )
         else:
             return await ctx.send(embed=discord.Embed(
               title=f'Generators by {member}',
