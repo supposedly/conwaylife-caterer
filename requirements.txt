@@ -1,0 +1,9 @@
+aiofiles
+cython
+imageio
+pypng
+bs4
+lxml
+asyncpg
+discord.py
+yarl
