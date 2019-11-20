@@ -16,7 +16,7 @@ rDOC = re.compile(r'""".*?"""\n\s+', re.S)
 DISCORD_PUBLIC_VERSION = pkg_resources.get_distribution('discord.py').parsed_version.public
 ZWSP = '\u200b'
 
-class Utils:
+class Utils(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.pool = bot.pool

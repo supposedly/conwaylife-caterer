@@ -167,6 +167,7 @@ import inspect
 import re
 import types
 from functools import wraps
+from itertools import chain, repeat
 
 import discord
 from discord.ext import commands
@@ -193,7 +194,7 @@ class HelpAttrMixin:
 
 
 class Command(HelpAttrMixin, commands.Command):
-    def __init__(self, name, callback, **kwargs):
+    def __init__(self, callback, **kwargs):
         """
         Callback will be hidden behind the silhouette func below
         """
@@ -207,13 +208,13 @@ class Command(HelpAttrMixin, commands.Command):
           end = max(i for _, i in dis.findlinestarts(cbc))
           )
         self.loc.len = self.loc.end - self.loc.start
-        super().__init__(name, callback, **kwargs)
+        super().__init__(callback, **kwargs)
 
 
 class Group(HelpAttrMixin, commands.Group):
-    def __init__(self, **attrs):
+    def __init__(self, callback, **attrs):
         self.parent = None
-        self.inner = getattr(attrs['callback'], 'wrapped_', attrs['callback'])
+        self.inner = getattr(callback, 'wrapped_', callback)
         
         cbc = self.inner.__code__
         self.loc = types.SimpleNamespace(
@@ -222,7 +223,7 @@ class Group(HelpAttrMixin, commands.Group):
           end = max(i for _, i in dis.findlinestarts(cbc))
           )
         self.loc.len = self.loc.end - self.loc.start
-        super().__init__( **attrs)
+        super().__init__(callback, **attrs)
     
     def command(self, *args, **kwargs):
         def decorator(func):
@@ -256,9 +257,17 @@ def give_args(callback):
         regexes[key] = re.compile(val) if isinstance(val, str) else [re.compile(i) for i in val]
         converters[key] = None
     
-    async def silhouette(self, ctx, *dpyargs, __invoking=False, **kwargs):
+    # no `self`??????? ctx.cog is also None for some reason so ctx.command.cog instead of self
+    async def silhouette(ctx, *dpyargs, __invoking=False, **kwargs):
+        # idfk/idfc how to solve it so this works
+        cog, qualstring = None, ''
+        for qual in chain(('ctx', 'command'), repeat('parent')):
+            qualstring = f'{qualstring}.{qual}' if qualstring else qual
+            cog = eval(f'{qualstring}.cog')
+            if cog is not None:
+                break
         if __invoking: # bypass converters
-            return await callback(self, ctx, *dpyargs, **kwargs)
+            return await callback(cog, ctx, *dpyargs, **kwargs)
         [*args_], flags = parse_args(
             dpyargs,
             map(regexes.get, arguments),
@@ -267,7 +276,7 @@ def give_args(callback):
         params = {**kwargs, **{k: converters[k](v) if callable(converters[k]) and v is not None else v for k, v in zip(arguments, args_) if k != 'flags'}}
         if 'flags' in arguments:
             params['flags'] = parse_flags(flags)
-        return await callback(self, ctx, **params)
+        return await callback(cog, ctx, **params)
     
     silhouette.wrapped_ = callback
     silhouette.__doc__ = callback.__doc__
@@ -277,7 +286,7 @@ def give_args(callback):
 def command(brief=None, name=None, cls=Command, args=False, **attrs):
     return lambda func: commands.command(name or func.__name__, cls, brief=brief, **attrs)(
       give_args(func) if args else func
-      )
+    )
     
 
 def group(brief=None, name=None, *, invoke_without_command=True, **kwargs):

@@ -2,6 +2,8 @@
 src/
 __pycache__/
 *_frames/
+.env/
+.vscode/
 
 *.gif
 *.rle

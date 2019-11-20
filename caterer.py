@@ -74,8 +74,11 @@ class Bot(commands.Bot):
         return False
 
 
-bot = Bot(command_prefix=get_prefix, description='A cellular automata bot for Conwaylife.com')
-bot.remove_command('help')
+bot = Bot(
+  command_prefix=get_prefix,
+  description='A cellular automata bot for Conwaylife.com',
+  help_command=None
+)
 
 @bot.check
 def ignore_bots(ctx):
@@ -84,7 +87,16 @@ def ignore_bots(ctx):
 @bot.event
 async def on_ready():
     if bot.first_time:
-        bot.pool = await asyncpg.create_pool(dsn=os.getenv('DATABASE_URL'), max_size=15, loop=bot.loop)
+        #### DEV STUFF
+        import ssl
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        ####
+        bot.pool = await asyncpg.create_pool(
+          ssl=context,
+          dsn=os.getenv('DATABASE_URL'), max_size=15, loop=bot.loop
+        )
         bot.assets_chn = bot.get_channel(424383992666783754)
         bot.owner = (await bot.application_info()).owner
         for cog in ('meta', 'wiki', 'ca', 'admin'):

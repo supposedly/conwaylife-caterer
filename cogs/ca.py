@@ -193,7 +193,7 @@ def genconvert(gen: int):
     raise ValueError  # bad gen (less than or equal to zero)
 
 
-class CA:
+class CA(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.dir = os.path.dirname(os.path.abspath(__file__))
@@ -597,6 +597,7 @@ class CA:
         -exclude: Alternatively, states to exclude. Ditto above.
         {inherits}
         """
+        print(self, ctx)
         nums = gen, step
         try:
             step, gen = sorted(nums)

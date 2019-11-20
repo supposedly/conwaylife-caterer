@@ -22,7 +22,7 @@ rTHUMB = re.compile(r'(?<=c=\\"|rc=")/w/images/thumb/[a-z\d]+?/[a-z\d]+?/([\w]+\
 rPOTW = re.compile(r'><a href="(/wiki/(?!File:).+?)" title="(.+?)">Read more\.\.\.') # matches the URL and title of the 'Read more...' link
 
 
-class Wiki:
+class Wiki(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.session = aiohttp.ClientSession(loop=bot.loop)
@@ -301,7 +301,8 @@ class Wiki:
             em.set_footer(text=f'Showing first three or fewer DYK results for "{query}"')
             return await ctx.send(embed=em)
         raise error
-                
+    
+    @staticmethod
     def normalized_filetype(filetype):
         filerefs = {('5', '105', 'l105', 'lif105'): '_105.lif', ('6', '106', 'l106', 'lif106'): '_106.lif', ('r', 'rle', 'RLE'): '.rle', ('t', 'plaintext', 'text', 'cells'): '.cells'}
         normalized = filetype.strip('.').lower()
