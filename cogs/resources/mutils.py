@@ -259,7 +259,10 @@ def give_args(callback):
         regexes[key] = re.compile(val) if isinstance(val, str) else [re.compile(i) for i in val]
         converters[key] = None
     
-    async def silhouette(self, ctx, *dpyargs, __invoking=False, **kwargs):
+    async def silhouette(self, ctx=None, *dpyargs, __invoking=False, **kwargs):
+        # XXX TODO: fix hacky (figure out how to get ctx to always pass self.cog when invoking)
+        if ctx is None or not isinstance(self, commands.Cog):
+            self, ctx = self.cog, self
         if __invoking: # bypass converters
             return await callback(self, ctx, *dpyargs, **kwargs)
         [*args_], flags = parse_args(

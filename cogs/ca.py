@@ -599,7 +599,6 @@ class CA(commands.Cog):
         -exclude: Alternatively, states to exclude. Ditto above.
         {inherits}
         """
-        print(self, ctx)
         nums = gen, step
         try:
             step, gen = sorted(nums)
