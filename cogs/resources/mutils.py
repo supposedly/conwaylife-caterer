@@ -224,19 +224,21 @@ class Group(HelpAttrMixin, commands.Group):
           )
         self.loc.len = self.loc.end - self.loc.start
         super().__init__(callback, **attrs)
-    
+
     def command(self, *args, **kwargs):
         def decorator(func):
-            res = command_(*args, **kwargs)(func)
-            self.add_command(res)
-            return res
+            kwargs.setdefault('parent', self)
+            result = command(*args, **kwargs)(func)
+            self.add_command(result)
+            return result
         return decorator
-    
+
     def group(self, *args, **kwargs):
         def decorator(func):
-            res = group_(*args, **kwargs)(func)
-            self.add_command(res)
-            return res
+            kwargs.setdefault('parent', self)
+            result = group(*args, **kwargs)(func)
+            self.add_command(result)
+            return result
         return decorator
 
 
@@ -257,17 +259,9 @@ def give_args(callback):
         regexes[key] = re.compile(val) if isinstance(val, str) else [re.compile(i) for i in val]
         converters[key] = None
     
-    # no `self`??????? ctx.cog is also None for some reason so ctx.command.cog instead of self
-    async def silhouette(ctx, *dpyargs, __invoking=False, **kwargs):
-        # idfk/idfc how to solve it so this works
-        cog, qualstring = None, ''
-        for qual in chain(('ctx', 'command'), repeat('parent')):
-            qualstring = f'{qualstring}.{qual}' if qualstring else qual
-            cog = eval(f'{qualstring}.cog')
-            if cog is not None:
-                break
+    async def silhouette(self, ctx, *dpyargs, __invoking=False, **kwargs):
         if __invoking: # bypass converters
-            return await callback(cog, ctx, *dpyargs, **kwargs)
+            return await callback(self, ctx, *dpyargs, **kwargs)
         [*args_], flags = parse_args(
             dpyargs,
             map(regexes.get, arguments),
@@ -276,7 +270,7 @@ def give_args(callback):
         params = {**kwargs, **{k: converters[k](v) if callable(converters[k]) and v is not None else v for k, v in zip(arguments, args_) if k != 'flags'}}
         if 'flags' in arguments:
             params['flags'] = parse_flags(flags)
-        return await callback(cog, ctx, **params)
+        return await callback(self, ctx, **params)
     
     silhouette.wrapped_ = callback
     silhouette.__doc__ = callback.__doc__
@@ -291,8 +285,6 @@ def command(brief=None, name=None, cls=Command, args=False, **attrs):
 
 def group(brief=None, name=None, *, invoke_without_command=True, **kwargs):
     return command(brief, name, cls=Group, invoke_without_command=invoke_without_command, **kwargs)
-
-command_, group_ = command, group
 
 # ----------------------------- For uploading assets -------------------------------- #
 

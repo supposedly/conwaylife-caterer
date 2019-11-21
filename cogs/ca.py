@@ -568,8 +568,10 @@ class CA(commands.Cog):
             return await ctx.send(f'`Error: No {error.param.name.upper()} given. {self.moreinfo(ctx)}`')
         # Bad argument:
         if isinstance(error, (commands.BadArgument, ZeroDivisionError)): # BadArgument on failure to convert to int, ZDE on gen=0
-            badarg = str(error).split('"')[3].split('"')[0]
-            return await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
+            if '"' in str(error):
+                badarg = str(error).split('"')[3].split('"')[0]
+                return await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
+            return await ctx.send(f'`Error: {error}.`')
         raise error
 
     @sim.command(args=True)
