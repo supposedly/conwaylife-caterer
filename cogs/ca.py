@@ -665,7 +665,7 @@ class CA(commands.Cog):
                 msg = await say(embed=discord.Embed(
                   title='Rules',
                   description='\n'.join(
-                    f"• {i['name']} ({ctx.guild.get_member(i['uploader'])}): {i['blurb']}"
+                    f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
                     for i in islice(self.rulecache, offset, offset + 10)
                     )
                   )) or msg
@@ -732,7 +732,13 @@ class CA(commands.Cog):
         if not self.bot.is_owner(ctx.author):
             return
         try:
-            await self.bot.pool.execute('''DELETE FROM rules WHERE name = $1::text''', name)
+            if name.startswith('user:'):
+                await self.bot.pool.execute(
+                  '''DELETE FROM rules WHERE uploader = $1::bigint''',
+                  (await commands.MemberConverter().convert(ctx, name[name.index(':') + 1 :])).id
+                )
+            else:
+                await self.bot.pool.execute('''DELETE FROM rules WHERE name = $1::text''', name)
         except:
             await ctx.thumbsdown()
             raise
@@ -810,10 +816,11 @@ class CA(commands.Cog):
             offset = 0
             say, msg = ctx.send, None
             while True:
+                print(self.gencache[offset:offset+10])
                 msg = await say(embed=discord.Embed(
                   title='Rules',
                   description='\n'.join(
-                    f"• {i['name']} ({ctx.guild.get_member(i['uploader'])}): {i['blurb']}"
+                    f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
                     for i in islice(self.gencache, offset, offset + 10)
                     )
                   )) or msg
@@ -865,3 +872,10 @@ class CA(commands.Cog):
 
 def setup(bot):
     bot.add_cog(CA(bot))
+
+
+def get_member_bismuth(guild, *args):
+    discrim = str(guild.get_member(*args))
+    if '﷽' in discrim:
+        return 'bismuth'
+    return discrim

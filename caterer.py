@@ -94,7 +94,7 @@ async def on_ready():
         context.verify_mode = ssl.CERT_NONE
         ####
         bot.pool = await asyncpg.create_pool(
-        #   ssl=context,
+          ssl=context,
           dsn=os.getenv('DATABASE_URL'), max_size=15, loop=bot.loop
         )
         bot.assets_chn = bot.get_channel(424383992666783754)
