@@ -4,6 +4,7 @@ import copy
 import os
 import select
 import subprocess
+from datetime import datetime
 
 import aiofiles
 import asyncpg
@@ -28,19 +29,23 @@ class Context(commands.Context):
         await self.update()
         return self.message.reactions
     
-    async def thumbsup(self, override=True):
+    async def thumbsup(self, user=None, text='Success!', ping=False, *, override=True):
         try:
             if not override and any(rxn.emoji in '👍👎' for rxn in await self.upd_rxns() if rxn.me):
                 return
             await self.message.add_reaction('👍')
+            if user is not None and ping:
+                await self.send(f'{user.mention}: {text}')
         except discord.NotFound:
             pass
     
-    async def thumbsdown(self, override=True):
+    async def thumbsdown(self, user=None, text='Failure.', ping=False, *, override=True):
         try:
             if not override and any(rxn.emoji in '👍👎' for rxn in await self.upd_rxns() if rxn.me):
                 return
             await self.message.add_reaction('👎')
+            if user is not None and ping:
+                await self.send(f'{user.mention}: {text}')
         except discord.NotFound:
             pass
     
@@ -69,9 +74,12 @@ class Bot(commands.Bot):
             return usr.id != self.user.id and rxn.message.id == msg.id and rxn.emoji in (approval, rejection)
         rxn, _ = await self.wait_for('reaction_add', check=check)  # no timeout
         await msg.delete()
+        # if it hasn't even been a minute yet, then they're probably still around to see
+        # the thumbs-up, so don't ping
+        should_ping = (datetime.now() - msg.created_at).total_seconds() >= 60
         if rxn.emoji == approval:
-            return True
-        return False
+            return True, should_ping
+        return False, should_ping
 
 
 bot = Bot(

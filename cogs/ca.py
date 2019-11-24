@@ -710,9 +710,10 @@ class CA(commands.Cog):
         if len(blurb) > 90:
             return await ctx.send('Please shorten your description. Max 90 characters.')
         attachment, *_ = ctx.message.attachments
-        with io.BytesIO() as f:
-            await attachment.save(f, seek_begin=True)
-            if await self.bot.approve_asset(f, attachment.filename, blurb, 'rule'):
+        with io.BytesIO() as fp:
+            await attachment.save(fp, seek_begin=True)
+            approved, should_ping = await self.bot.approve_asset(fp, attachment.filename, blurb, 'rule')
+            if approved:
                 query = '''
                 INSERT INTO rules (
                   uploader, blurb, file, name, n_states, colors
@@ -722,10 +723,10 @@ class CA(commands.Cog):
                     DO UPDATE
                    SET uploader=$1::bigint, blurb=$2::text, file=$3::bytea, name=$4::text, n_states=$5::int, colors=$6::text
                 '''
-                await self.bot.pool.execute(query, ctx.author.id, blurb, f.read(), *mutils.extract_rule_info(f))
+                await self.bot.pool.execute(query, ctx.author.id, blurb, fp.read(), *mutils.extract_rule_info(f))
                 self.rulecache = None
-                await ctx.thumbsup()
-        await ctx.thumbsdown(override=False)
+                await ctx.thumbsup(ctx.author, f'Rule `{attachment.filename}` was approved!', should_ping)
+        await ctx.thumbsdown(ctx.author,  f'Rule `{attachment.filename}` was rejected or not parsable.', override=False)
     
     @mutils.command()
     async def delrule(self, ctx, name):
@@ -735,7 +736,7 @@ class CA(commands.Cog):
             if name.startswith('user:'):
                 await self.bot.pool.execute(
                   '''DELETE FROM rules WHERE uploader = $1::bigint''',
-                  (await commands.MemberConverter().convert(ctx, name[name.index(':') + 1 :])).id
+                  (await commands.MemberConverter().convert(ctx, name[1+name.index(':'):])).id
                 )
             else:
                 await self.bot.pool.execute('''DELETE FROM rules WHERE name = $1::text''', name)
@@ -764,32 +765,32 @@ class CA(commands.Cog):
         """
         if not blurb:
             blurb = None
-        attachment, fp = ctx.message.attachments[0], io.BytesIO()
-        await attachment.save(fp, seek_begin=True)
-        if await self.bot.approve_asset(fp, attachment.filename, blurb, 'rule generator'):
-            code = fp.read()
-            await self.bot.pool.execute('''
-              INSERT INTO algos (
-                  name, uploader, plaintext, module, blurb
-              )
-              SELECT $1::text, $2::bigint, $3::bytea, $4::bytea, $5::text
-                  ON CONFLICT (name)
-                  DO UPDATE
-                  SET uploader=$2::bigint, plaintext=$3::bytea, module=$4::bytea, blurb=COALESCE(algos.blurb, $5::text)
-              ''',
-              name,
-              ctx.author.id,
-              code,
-              await self.loop.run_in_executor(
-                None,
-                marshal.dumps,
-                await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
-              ),
-              blurb
-            )
-            self.gencache = None
-            await ctx.thumbsup()
-        await ctx.thumbsdown(override=False)
+        attachment = ctx.message.attachments[0]
+        with io.BytesIO() as fp:
+            await attachment.save(fp, seek_begin=True)
+            approved, should_ping = self.bot.approve_asset(fp, attachment.filename, blurb, ctx.author, 'rule generator')
+            if approved:
+                code = fp.read()
+                await self.bot.pool.execute('''
+                  INSERT INTO algos (
+                      name, uploader, plaintext, module, blurb
+                  )
+                  SELECT $1::text, $2::bigint, $3::bytea, $4::bytea, $5::text
+                      ON CONFLICT (name)
+                      DO UPDATE
+                      SET uploader=$2::bigint, plaintext=$3::bytea, module=$4::bytea, blurb=COALESCE(algos.blurb, $5::text)
+                  ''',
+                  name, ctx.author.id, code,
+                  await self.loop.run_in_executor(
+                    None,
+                    marshal.dumps,
+                    await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
+                  ),
+                  blurb
+                )
+                self.gencache = None
+                await ctx.thumbsup(ctx.author, f'Generator {name} was approved!', should_ping)
+        await ctx.thumbsdown(ctx.author, f'Generator {name} was rejected or not parsable.', should_ping, override=False)
     
 
     @mutils.command('Show uploaded generators')
