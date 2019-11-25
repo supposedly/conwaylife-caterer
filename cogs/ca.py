@@ -723,7 +723,7 @@ class CA(commands.Cog):
                     DO UPDATE
                    SET uploader=$1::bigint, blurb=$2::text, file=$3::bytea, name=$4::text, n_states=$5::int, colors=$6::text
                 '''
-                await self.bot.pool.execute(query, ctx.author.id, blurb, fp.read(), *mutils.extract_rule_info(f))
+                await self.bot.pool.execute(query, ctx.author.id, blurb, fp.read(), *mutils.extract_rule_info(fp))
                 self.rulecache = None
                 await ctx.thumbsup(ctx.author, f'Rule `{attachment.filename}` was approved!', should_ping)
         await ctx.thumbsdown(ctx.author,  f'Rule `{attachment.filename}` was rejected or not parsable.', override=False)
