@@ -785,13 +785,12 @@ class CA(commands.Cog):
             await msg_ctx.thumbsdown(ctx.author, f'Generator {name} was rejected or not parsable.', should_ping, override=False)
     
     @mutils.command()
-    async def fix(self, ctx):
+    async def catchup(self, ctx):
         if ctx.channel.id != ASSETS:
             return
         async for msg in ctx.channel.history():
             await self._approve(ctx, msg)
         await ctx.thumbsup()
-
     
     @mutils.command()
     async def delrule(self, ctx, name):
@@ -940,8 +939,20 @@ class CA(commands.Cog):
     async def updatepyc(self, ctx):
         if not self.bot.is_owner(ctx.author):
             return
-        plaintexts = await self.bot.pool.execute('''SELECT plaintext FROM algos''')
-
+        for plaintext, name in await self.bot.pool.fetch('''SELECT plaintext, name FROM algos'''):
+            await self.bot.pool.execute(
+              '''
+              UPDATE algos
+              SET module=$1::bytea
+              WHERE name=$2::text
+              ''',
+              await self.loop.run_in_executor(None,
+                compile,
+                plaintext, f"<generator '{name}'>", 'exec', optimize=2
+              ),
+              name
+            )
+        await ctx.thumbsup()
 
 def setup(bot):
     bot.add_cog(CA(bot))
