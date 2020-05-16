@@ -788,7 +788,7 @@ class CA(commands.Cog):
     async def catchup(self, ctx):
         if ctx.channel.id != ASSETS:
             return
-        async for msg in ctx.channel.history():
+        async for msg in ctx.channel.history().filter(lambda msg: msg.author == self.bot):
             await self._approve(ctx, msg)
         await ctx.thumbsup()
     
