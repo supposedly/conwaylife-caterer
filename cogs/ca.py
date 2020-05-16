@@ -285,13 +285,13 @@ class CA(commands.Cog):
     async def write_rule_from_generator(self, gen_name, rulestring, fp):
         module = types.ModuleType('<custom>')
         await self.loop.run_in_executor(None,
-            exec,
-            await self.bot.loop.run_in_executor(None,
+          exec,
+          await self.bot.loop.run_in_executor(None,
             marshal.loads,
             await self.bot.pool.fetchval('''SELECT module FROM algos WHERE name = $1::text''', gen_name)
-            ),
-            module.__dict__
-            )
+          ),
+          module.__dict__
+          )
         try:
             rulestring = await self.loop.run_in_executor(None, module.rulestring, rulestring)
         except AttributeError:
@@ -789,7 +789,7 @@ class CA(commands.Cog):
         if ctx.channel.id != ASSETS:
             return
         async for msg in ctx.channel.history():
-            self._approve(ctx, msg)
+            await self._approve(ctx, msg)
         await ctx.thumbsup()
 
     
@@ -819,6 +819,7 @@ class CA(commands.Cog):
         self.rulecache = None
         await ctx.thumbsup()
     
+
     @mutils.command('Register a custom rulefile-generating python script')
     async def register(self, ctx, name, *, blurb):
         """
@@ -934,6 +935,12 @@ class CA(commands.Cog):
             raise
         self.gencache = None
         await ctx.thumbsup()
+    
+    @mutils.command()
+    async def updatepyc(self, ctx):
+        if not self.bot.is_owner(ctx.author):
+            return
+        plaintexts = await self.bot.pool.execute('''SELECT plaintext FROM algos''')
 
 
 def setup(bot):
