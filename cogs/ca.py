@@ -52,6 +52,7 @@ class Status(Enum):
 #   }
 
 WRIGHT = 180809886374952960
+ASSETS = 424383992666783754
 ROOT_2 = 2 ** 0.5
 
 # matches LtL rulestring
@@ -484,6 +485,8 @@ class CA(commands.Cog):
                 ) + ('\n(Truncated to fit under 8MB)' if oversized else ''),
               file=discord.File(f'{current}.gif')
               )
+            newline = '\n' * bool(gif.content)
+            gif.edit(f'By {ctx.author.mention}{newline}{gif.content}')
         except discord.errors.HTTPException as e:
             curlog.status = Status.FAILED
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
@@ -697,6 +700,32 @@ class CA(commands.Cog):
                 )
               ))
     
+    async def _insert_rule(self, *args):
+        query = '''
+        INSERT INTO rules (
+          uploader, blurb, file, name, n_states, colors
+        )
+        SELECT $1::bigint, $2::text, $3::bytea, $4::text, $5::int, $6::text
+            ON CONFLICT (name)
+            DO UPDATE
+           SET uploader=$1::bigint, blurb=$2::text, file=$3::bytea, name=$4::text, n_states=$5::int, colors=$6::text
+        '''
+        await self.bot.pool.execute(query, *args)
+        self.rulecache = None
+    
+    async def _insert_generator(self, *args):
+        await self.bot.pool.execute('''
+          INSERT INTO algos (
+              name, uploader, plaintext, module, blurb
+          )
+          SELECT $1::text, $2::bigint, $3::bytea, $4::bytea, $5::text
+              ON CONFLICT (name)
+              DO UPDATE
+              SET uploader=$2::bigint, plaintext=$3::bytea, module=$4::bytea, blurb=COALESCE(algos.blurb, $5::text)
+          ''',
+          *args
+        )
+    
     @mutils.command('Upload an asset (just ruletables for now)')
     async def upload(self, ctx, *, blurb=''):
         """
@@ -714,35 +743,79 @@ class CA(commands.Cog):
             await attachment.save(fp, seek_begin=True)
             approved, should_ping = await self.bot.approve_asset(fp, attachment.filename, blurb, 'rule')
             if approved:
-                query = '''
-                INSERT INTO rules (
-                  uploader, blurb, file, name, n_states, colors
-                )
-                SELECT $1::bigint, $2::text, $3::bytea, $4::text, $5::int, $6::text
-                    ON CONFLICT (name)
-                    DO UPDATE
-                   SET uploader=$1::bigint, blurb=$2::text, file=$3::bytea, name=$4::text, n_states=$5::int, colors=$6::text
-                '''
-                await self.bot.pool.execute(query, ctx.author.id, blurb, fp.read(), *mutils.extract_rule_info(fp))
+                await self._insert_rule(ctx.author.id, blurb, fp.read(), *mutils.extract_rule_info(fp))
                 self.rulecache = None
                 await ctx.thumbsup(ctx.author, f'Rule `{attachment.filename}` was approved!', should_ping)
         await ctx.thumbsdown(ctx.author,  f'Rule `{attachment.filename}` was rejected or not parsable.', override=False)
     
+    
+    async def _approve(self, ctx, msg):
+        msg_ctx = await self.bot.custom_context(msg)
+        kind = 'generator' if msg.content.lower().startswith('rule generator') else 'rule'
+        blurb = msg.content.split(':', 1)[1]
+        approved, should_ping = await self.bot.approve_msg(msg)
+        if not approved:
+            return
+        attachment, *_ = msg.attachments
+        if kind == 'rule':
+            with io.BytesIO() as fp:
+                await attachment.save(fp, seek_begin=True)
+                if approved:
+                    await self._insert_rule(msg.author.id, blurb, fp.read(), *mutils.extract_rule_info(fp))
+                    self.rulecache = None
+                    await msg_ctx.thumbsup(msg.author, f'Rule `{attachment.filename}` was approved!', should_ping)
+                await msg_ctx.thumbsdown(msg.author,  f'Rule `{attachment.filename}` was rejected or not parsable.', override=False)
+        else:
+            name, blurb = blurb.split(None, 1)
+            with io.BytesIO() as fp:
+                await attachment.save(fp, seek_begin=True)
+                if approved:
+                    code = fp.read()
+                    await self._insert_generator(
+                    name, msg.author.id, code,
+                    await self.loop.run_in_executor(
+                      None,
+                      marshal.dumps,
+                      await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
+                    ),
+                    blurb
+                    )
+                    self.gencache = None
+                    await msg_ctx.thumbsup(msg.author, f'Generator {name} was approved!', should_ping)
+            await msg_ctx.thumbsdown(ctx.author, f'Generator {name} was rejected or not parsable.', should_ping, override=False)
+    
+    @mutils.command()
+    async def fix(self, ctx):
+        if ctx.channel.id != ASSETS:
+            return
+        async for msg in ctx.channel.history():
+            self._approve(ctx, msg)
+        await ctx.thumbsup()
+
+    
     @mutils.command()
     async def delrule(self, ctx, name):
+        and_condition = ''
         if not self.bot.is_owner(ctx.author):
-            return
+            and_condition = 'AND uploader = $2::bigint'
         try:
             if name.startswith('user:'):
-                await self.bot.pool.execute(
-                  '''DELETE FROM rules WHERE uploader = $1::bigint''',
-                  (await commands.MemberConverter().convert(ctx, name[1+name.index(':'):])).id
+                status = await self.bot.pool.execute(
+                  f'''DELETE FROM rules WHERE uploader = $1::bigint {and_condition}''',
+                  (await commands.MemberConverter().convert(ctx, name[1+name.index(':'):])).id,
+                  ctx.author.id
                 )
             else:
-                await self.bot.pool.execute('''DELETE FROM rules WHERE name = $1::text''', name)
+                status = await self.bot.pool.execute(
+                  f'''DELETE FROM rules WHERE name = $1::text {and_condition}''',
+                  name,
+                  ctx.author.id
+                )
         except:
             await ctx.thumbsdown()
             raise
+        if int(status.split()[-1]) == 0:
+            return await ctx.thumbsdown()
         self.rulecache = None
         await ctx.thumbsup()
     
@@ -771,15 +844,7 @@ class CA(commands.Cog):
             approved, should_ping = self.bot.approve_asset(fp, attachment.filename, blurb, ctx.author, 'rule generator')
             if approved:
                 code = fp.read()
-                await self.bot.pool.execute('''
-                  INSERT INTO algos (
-                      name, uploader, plaintext, module, blurb
-                  )
-                  SELECT $1::text, $2::bigint, $3::bytea, $4::bytea, $5::text
-                      ON CONFLICT (name)
-                      DO UPDATE
-                      SET uploader=$2::bigint, plaintext=$3::bytea, module=$4::bytea, blurb=COALESCE(algos.blurb, $5::text)
-                  ''',
+                await self._insert_generator(
                   name, ctx.author.id, code,
                   await self.loop.run_in_executor(
                     None,

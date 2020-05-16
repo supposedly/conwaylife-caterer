@@ -61,13 +61,19 @@ class Bot(commands.Bot):
         super().__init__(*args, **kwargs)
     
     async def on_message(self, message):
-        await self.invoke(await self.get_context(message, cls=Context))
+        await self.invoke(await self.custom_context(message))
+    
+    async def custom_context(self, message):
+        return await self.get_context(message, cls=Context)
     
     async def approve_asset(self, file, filename, blurb, kind, *, approval='✅', rejection='❌'):
         msg = await self.assets_chn.send(f'{kind.upper()}: {blurb}', file=discord.File(copy.copy(file), filename))
         await msg.add_reaction(approval)
         await msg.add_reaction(rejection)
         file.seek(0)
+        return await self.approve_msg(msg, approval=approval, rejection=rejection)
+    
+    async def approve_msg(self, msg, *, approval='✅', rejection='❌'):
         def check(rxn, usr):
             # ...not going to check role IDs anymore, because if someone has access to
             # the caterer-assets channel it's likely a given that they're trusted
@@ -80,6 +86,7 @@ class Bot(commands.Bot):
         if rxn.emoji == approval:
             return True, should_ping
         return False, should_ping
+
 
 
 bot = Bot(
