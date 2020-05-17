@@ -963,8 +963,11 @@ class CA(commands.Cog):
               WHERE name=$2::text
               ''',
               await self.loop.run_in_executor(None,
-                compile,
-                plaintext, f"<generator '{name}'>", 'exec'
+                marshal.dumps,
+                await self.loop.run_in_executor(None,
+                  compile,
+                  plaintext, f"<generator '{name}'>", 'exec'
+                ),
               ),
               name
             )
