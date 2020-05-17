@@ -209,7 +209,7 @@ class CA(commands.Cog):
         self.rulecache = None
         self.gencache = None
     
-    
+
     @staticmethod
     def state_from(val, n_states):
         if n_states < 3:
@@ -794,17 +794,14 @@ class CA(commands.Cog):
         coros = []
         async for msg in ctx.channel.history().filter(lambda msg: msg.author == self.bot.user):
             pre, blurb = msg.content.split('\n', 1)[0].split(':', 1)
-            try:
-                kind, name = pre.split(' ')
-            except ValueError:  # for old-style messages (will be safely removable after first invocation of reup)
-                kind, name = pre, msg.attachments[0].filename.rsplit('.', 1)[0]
+            kind, name = pre.split(' ')
             coros.append(self._reapprove(
               ctx,
               msg.created_at,  # technically still works (only a minor delay btwn user invoking !upload/!register and btwn caterer posting this msg)
               await msg.attachments[0].to_file(),
               name,
               blurb,
-              msg.mentions[0],
+              msg.mentions[-1],
               kind
             ))
             await msg.delete()
