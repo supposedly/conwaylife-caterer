@@ -498,7 +498,8 @@ class CA(commands.Cog):
               file=discord.File(f'{current}.gif')
               )
             newline = '\n' * bool(gif.content)
-            await gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
+            if 'tag' not in flags:
+                await gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
         except discord.errors.HTTPException as e:
             curlog.status = Status.FAILED
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
