@@ -783,8 +783,8 @@ class CA(commands.Cog):
                   ),
                   blurb
                 )
-            await ctx.thumbsup(author, self.BOTS_N_MUTE,  f'{kind.upper()} `{name}` was accepted!')
-        await ctx.thumbsdown(author, self.BOTS_N_MUTE,  f'{kind.upper()} `{name}` was rejected or not parsable.', override=False)
+            await ctx.thumbsup(author, f'{kind.upper()} `{name}` was accepted!', channel=self.BOTS_N_MUTE)
+        await ctx.thumbsdown(author, f'{kind.upper()} `{name}` was rejected or not parsable.', override=False, channel=self.BOTS_N_MUTE)
 
 
     @mutils.command()

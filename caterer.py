@@ -29,23 +29,23 @@ class Context(commands.Context):
         await self.update()
         return self.message.reactions
     
-    async def thumbsup(self, user=None, text='Success!', ping=False, *, override=True):
+    async def thumbsup(self, user=None, text='Success!', ping=False, *, channel=None, override=True):
         try:
             if not override and any(rxn.emoji in '👍👎' for rxn in await self.upd_rxns() if rxn.me):
                 return
             await self.message.add_reaction('👍')
             if user is not None and ping:
-                await self.send(f'{user.mention}: {text}')
+                await (self if channel is None else channel).send(f'{user.mention}: {text}')
         except discord.NotFound:
             pass
     
-    async def thumbsdown(self, user=None, text='Failure.', ping=False, *, override=True):
+    async def thumbsdown(self, user=None, text='Failure.', ping=False, *, channel=None, override=True):
         try:
             if not override and any(rxn.emoji in '👍👎' for rxn in await self.upd_rxns() if rxn.me):
                 return
             await self.message.add_reaction('👎')
             if user is not None and ping:
-                await self.send(f'{user.mention}: {text}')
+                await (self if channel is None else channel).send(f'{user.mention}: {text}')
         except discord.NotFound:
             pass
     
