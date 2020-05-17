@@ -498,7 +498,7 @@ class CA(commands.Cog):
               file=discord.File(f'{current}.gif')
               )
             newline = '\n' * bool(gif.content)
-            gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
+            await gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
         except discord.errors.HTTPException as e:
             curlog.status = Status.FAILED
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
@@ -812,7 +812,7 @@ class CA(commands.Cog):
     @mutils.command()
     async def delrule(self, ctx, name):
         and_condition = ''
-        if not self.bot.is_owner(ctx.author):
+        if not await self.bot.is_owner(ctx.author):
             and_condition = 'AND uploader = $2::bigint'
         try:
             if name.startswith('user:'):
@@ -898,7 +898,6 @@ class CA(commands.Cog):
             offset = 0
             say, msg = ctx.send, None
             while True:
-                print(self.gencache[offset:offset+10])
                 msg = await say(embed=discord.Embed(
                   title='Rules',
                   description='\n'.join(
@@ -941,7 +940,7 @@ class CA(commands.Cog):
     
     @mutils.command()
     async def delgen(self, ctx, name):
-        if not self.bot.is_owner(ctx.author):
+        if not await self.bot.is_owner(ctx.author):
             return
         try:
             await self.bot.pool.execute('''DELETE FROM algos WHERE name = $1::text''', name)
@@ -953,7 +952,7 @@ class CA(commands.Cog):
     
     @mutils.command()
     async def updatepyc(self, ctx):
-        if not self.bot.is_owner(ctx.author):
+        if not await self.bot.is_owner(ctx.author):
             return
         for plaintext, name in await self.bot.pool.fetch('''SELECT plaintext, name FROM algos'''):
             await self.bot.pool.execute(
