@@ -53,6 +53,7 @@ class Status(Enum):
 
 WRIGHT = 180809886374952960
 ASSETS = 424383992666783754
+BOTS_N_MUTE = 404518331605975040
 ROOT_2 = 2 ** 0.5
 
 # matches LtL rulestring
@@ -197,6 +198,7 @@ def genconvert(gen: int):
 class CA(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.BOTS_N_MUTE = self.bot.get_channel(BOTS_N_MUTE)
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.ppe = ProcessPoolExecutor()
         self.tpe = ThreadPoolExecutor() # or just None
@@ -207,12 +209,14 @@ class CA(commands.Cog):
         self.rulecache = None
         self.gencache = None
     
+    
     @staticmethod
     def state_from(val, n_states):
         if n_states < 3:
             return 'bo'[val] if isinstance(val, int) else int(val == 'o')
         return mutils.state_from(val)
     
+
     def get_rand_state(self, n_states: int, last_state: str, allowed_states: {int}) -> str:
         if last_state is None:
             return self.state_from(random.randrange(0, n_states), n_states)
@@ -221,6 +225,7 @@ class CA(commands.Cog):
             new = random.randrange(0, n_states)
         return self.state_from(new, n_states)
     
+
     def makesoup(self, rulestring: str, n_states: int, x: int, y: int, allowed_states: {int}) -> str:
         """Generates random soup as RLE with specified dimensions"""
         rle = f'x = {x}, y = {y}, rule = {rulestring}\n'
@@ -238,6 +243,7 @@ class CA(commands.Cog):
             rle += '$\n' if y > row + 1 else '!\n'
         return rle
     
+
     @staticmethod
     def _extend(n, *, thresh=50):
         """From BlinkerSpawn"""
@@ -246,6 +252,7 @@ class CA(commands.Cog):
         quotient = n // next(i for i in count(math.ceil(n/thresh)) if not n % i)
         return n + quotient * (thresh // quotient)
 
+
     def cancellation_check(self, ctx, orig_msg, rxn, usr):
         if rxn.message.id != orig_msg.id:
             return False
@@ -253,6 +260,7 @@ class CA(commands.Cog):
         if usr != ctx.message.author:
             return correct_emoji and (rxn.count > 3 or usr.id == WRIGHT)
         return correct_emoji
+
 
     async def do_gif(self, execs, current, gen, step, colors, track, bg, grid):
         start = time.perf_counter()
@@ -270,6 +278,7 @@ class CA(commands.Cog):
         end_makeframes = time.perf_counter()
         return start, end_parse, end_makeframes, oversized
     
+
     async def run_bgolly(self, current, algo, gen, step, rule):
         max_mem = int(os.popen('free -m').read().split()[7]) // 1.25 # TODO: use
         preface = f'{self.dir}/resources/bgolly'
@@ -279,14 +288,16 @@ class CA(commands.Cog):
         ruleflag = f's {self.dir}/' if algo == 'RuleLoader' else f'r {rule}'
         return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
     
+
     def moreinfo(self, ctx):
         return f"'{ctx.prefix}help sim' for more info"
     
+
     async def write_rule_from_generator(self, gen_name, rulestring, fp):
         module = types.ModuleType('<custom>')
         await self.loop.run_in_executor(None,
           exec,
-          await self.bot.loop.run_in_executor(None,
+          await self.loop.run_in_executor(None,
             marshal.loads,
             await self.bot.pool.fetchval('''SELECT module FROM algos WHERE name = $1::text''', gen_name)
           ),
@@ -298,6 +309,7 @@ class CA(commands.Cog):
             pass  # no need to modify rulestring then
         fp.write(await self.loop.run_in_executor(None, module.main, rulestring))
         return rulestring
+
 
     @mutils.group('Simulate an RLE and output to GIF', args=True)
     async def sim(
@@ -421,7 +433,7 @@ class CA(commands.Cog):
                 allowed_states -= exclude
             if len(allowed_states) < 2:
                 return await ctx.send('`Error: random soup cannot be generated with fewer than 2 states allowed`')
-            pat = await self.bot.loop.run_in_executor(
+            pat = await self.loop.run_in_executor(
               None, self.makesoup,
               rule_, n_states, *dims, allowed_states
             )
@@ -486,7 +498,7 @@ class CA(commands.Cog):
               file=discord.File(f'{current}.gif')
               )
             newline = '\n' * bool(gif.content)
-            gif.edit(f'By {ctx.author.mention}{newline}{gif.content}')
+            gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
         except discord.errors.HTTPException as e:
             curlog.status = Status.FAILED
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
@@ -564,6 +576,7 @@ class CA(commands.Cog):
             if algo == 'RuleLoader':
                 os.remove(f'{self.dir}/{rule}_{ctx.message.id}.rule')
     
+
     @sim.error
     async def sim_error(self, ctx, error):
         # Missing GEN:
@@ -576,6 +589,7 @@ class CA(commands.Cog):
                 return await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
             return await ctx.send(f'`Error: {error}.`')
         raise error
+
 
     @sim.command(args=True)
     async def rand(
@@ -646,6 +660,7 @@ class CA(commands.Cog):
                 )
         await ctx.send(embed=discord.Embed(title='Last 5 sims', description='\n'.join(entries)))
     
+
     @mutils.command('Show uploaded rules')
     async def rules(self, ctx, rule=None):
         """
@@ -700,6 +715,7 @@ class CA(commands.Cog):
                 )
               ))
     
+    
     async def _insert_rule(self, *args):
         query = '''
         INSERT INTO rules (
@@ -713,6 +729,7 @@ class CA(commands.Cog):
         await self.bot.pool.execute(query, *args)
         self.rulecache = None
     
+
     async def _insert_generator(self, *args):
         await self.bot.pool.execute('''
           INSERT INTO algos (
@@ -726,6 +743,7 @@ class CA(commands.Cog):
           *args
         )
     
+
     @mutils.command('Upload an asset (just ruletables for now)')
     async def upload(self, ctx, *, blurb=''):
         """
@@ -738,60 +756,62 @@ class CA(commands.Cog):
             return await ctx.send('Please provide a short justification/explanation of this rule!')
         if len(blurb) > 90:
             return await ctx.send('Please shorten your description. Max 90 characters.')
-        attachment, *_ = ctx.message.attachments
-        with io.BytesIO() as fp:
-            await attachment.save(fp, seek_begin=True)
-            approved, should_ping = await self.bot.approve_asset(fp, attachment.filename, blurb, 'rule')
-            if approved:
-                await self._insert_rule(ctx.author.id, blurb, fp.read(), *mutils.extract_rule_info(fp))
-                self.rulecache = None
-                await ctx.thumbsup(ctx.author, f'Rule `{attachment.filename}` was approved!', should_ping)
+        attachment = ctx.message.attachments[0]
+        file = await attachment.to_file()
+        approved, should_ping = await self.bot.approve_asset(file, blurb, ctx.author, 'rule')
+        if approved:
+            await self._insert_rule(ctx.author.id, blurb, attachment.read(), *mutils.extract_rule_info(file.fp))
+            self.rulecache = None
+            await ctx.thumbsup(ctx.author, f'Rule `{attachment.filename}` was approved!', should_ping)
         await ctx.thumbsdown(ctx.author,  f'Rule `{attachment.filename}` was rejected or not parsable.', override=False)
-    
-    
-    async def _approve(self, ctx, msg):
-        msg_ctx = await self.bot.custom_context(msg)
-        kind = 'generator' if msg.content.lower().startswith('rule generator') else 'rule'
-        blurb = msg.content.split(':', 1)[1]
-        approved, should_ping = await self.bot.approve_msg(msg)
-        if not approved:
-            return
-        attachment, *_ = msg.attachments
-        if kind == 'rule':
-            with io.BytesIO() as fp:
-                await attachment.save(fp, seek_begin=True)
-                if approved:
-                    await self._insert_rule(msg.author.id, blurb, fp.read(), *mutils.extract_rule_info(fp))
-                    self.rulecache = None
-                    await msg_ctx.thumbsup(msg.author, f'Rule `{attachment.filename}` was approved!', should_ping)
-                await msg_ctx.thumbsdown(msg.author,  f'Rule `{attachment.filename}` was rejected or not parsable.', override=False)
-        else:
-            name, blurb = blurb.split(None, 1)
-            with io.BytesIO() as fp:
-                await attachment.save(fp, seek_begin=True)
-                if approved:
-                    code = fp.read()
-                    await self._insert_generator(
-                    name, msg.author.id, code,
-                    await self.loop.run_in_executor(
-                      None,
-                      marshal.dumps,
-                      await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
-                    ),
-                    blurb
-                    )
-                    self.gencache = None
-                    await msg_ctx.thumbsup(msg.author, f'Generator {name} was approved!', should_ping)
-            await msg_ctx.thumbsdown(ctx.author, f'Generator {name} was rejected or not parsable.', should_ping, override=False)
-    
+
+
+    async def _reapprove(self, ctx, created_at, file, name, blurb, author, kind):
+        approved, should_ping = await self.bot.approve_asset(file, blurb, author, kind, created_at=created_at, name=name)
+        if approved:
+            content = file.fp.read()
+            file.reset()
+            if kind == 'rule':
+                await self._insert_rule(ctx.author.id, blurb, content, *mutils.extract_rule_info(file.fp))
+            elif kind == 'generator':
+                await self._insert_generator(
+                  name, ctx.author.id, content,
+                  await self.loop.run_in_executor(
+                    None,
+                    marshal.dumps,
+                    await self.loop.run_in_executor(None, compile, content, '<custom>', 'exec', 0, False, 2)
+                  ),
+                  blurb
+                )
+            await ctx.thumbsup(author, self.BOTS_N_MUTE,  f'{kind.upper()} `{name}` was accepted!')
+        await ctx.thumbsdown(author, self.BOTS_N_MUTE,  f'{kind.upper()} `{name}` was rejected or not parsable.', override=False)
+
+
     @mutils.command()
-    async def catchup(self, ctx):
+    async def reup(self, ctx):
         if ctx.channel.id != ASSETS:
-            return
-        async for msg in ctx.channel.history().filter(lambda msg: msg.author == self.bot):
-            await self._approve(ctx, msg)
+            return await ctx.thumbsdown()
+        coros = []
+        async for msg in ctx.channel.history().filter(lambda msg: msg.author == self.bot.user):
+            pre, blurb = msg.content.split('\n', 1)[0].split(':', 1)
+            try:
+                kind, name = pre.split(' ')
+            except ValueError:  # for old-style messages (will be safely removable after first invocation of reup)
+                kind, name = pre, msg.attachments[0].filename.rsplit('.', 1)[0]
+            coros.append(self._reapprove(
+              ctx,
+              msg.created_at,  # technically still works (only a minor delay btwn user invoking !upload/!register and btwn caterer posting this msg)
+              await msg.attachments[0].to_file(),
+              name,
+              blurb,
+              msg.mentions[0],
+              kind
+            ))
+            await msg.delete()
         await ctx.thumbsup()
-    
+        await asyncio.wait(coros)
+
+
     @mutils.command()
     async def delrule(self, ctx, name):
         and_condition = ''
@@ -839,22 +859,21 @@ class CA(commands.Cog):
         if not blurb:
             blurb = None
         attachment = ctx.message.attachments[0]
-        with io.BytesIO() as fp:
-            await attachment.save(fp, seek_begin=True)
-            approved, should_ping = self.bot.approve_asset(fp, attachment.filename, blurb, ctx.author, 'rule generator')
-            if approved:
-                code = fp.read()
-                await self._insert_generator(
-                  name, ctx.author.id, code,
-                  await self.loop.run_in_executor(
-                    None,
-                    marshal.dumps,
-                    await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
-                  ),
-                  blurb
-                )
-                self.gencache = None
-                await ctx.thumbsup(ctx.author, f'Generator {name} was approved!', should_ping)
+        file = await attachment.to_file()
+        approved, should_ping = self.bot.approve_asset(file, blurb, ctx.author, 'generator', name=name)
+        if approved:
+            code = attachment.read()
+            await self._insert_generator(
+              name, ctx.author.id, code,
+              await self.loop.run_in_executor(
+                None,
+                marshal.dumps,
+                await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
+              ),
+              blurb
+            )
+            self.gencache = None
+            await ctx.thumbsup(ctx.author, f'Generator {name} was approved!', should_ping)
         await ctx.thumbsdown(ctx.author, f'Generator {name} was rejected or not parsable.', should_ping, override=False)
     
 

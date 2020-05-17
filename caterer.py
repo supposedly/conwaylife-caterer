@@ -23,7 +23,7 @@ def get_prefix(bot, message):
 
 class Context(commands.Context):
     async def update(self):
-        self.message = await self.get_message(self.message.id)
+        self.message = await self.fetch_message(self.message.id)
     
     async def upd_rxns(self):
         await self.update()
@@ -51,7 +51,7 @@ class Context(commands.Context):
     
     async def invoke(self, *args, **kwargs):
         return await super().invoke(*args, **kwargs, __invoking=True)
-    
+
 
 class Bot(commands.Bot):
     def __init__(self, *args, **kwargs):
@@ -66,23 +66,28 @@ class Bot(commands.Bot):
     async def custom_context(self, message):
         return await self.get_context(message, cls=Context)
     
-    async def approve_asset(self, file, filename, blurb, kind, *, approval='✅', rejection='❌'):
-        msg = await self.assets_chn.send(f'{kind.upper()}: {blurb}', file=discord.File(copy.copy(file), filename))
+    async def approve_asset(self, file, blurb, author, kind, *, created_at=None, name=None, approval='✅', rejection='❌'):
+        if name is None:
+            name = file.filename.rsplit('.', 1)[0]
+        msg = await self.assets_chn.send(f'{kind.upper()} {name}: {blurb}', file=file)
+        await msg.edit(content=f'{msg.content}\nFrom {author.mention}')
         await msg.add_reaction(approval)
         await msg.add_reaction(rejection)
-        file.seek(0)
-        return await self.approve_msg(msg, approval=approval, rejection=rejection)
+        file.reset()
+        return await self.approve_msg(msg, created_at, approval=approval, rejection=rejection)
     
-    async def approve_msg(self, msg, *, approval='✅', rejection='❌'):
+    async def approve_msg(self, msg, created_at=None, *, approval='✅', rejection='❌'):
         def check(rxn, usr):
             # ...not going to check role IDs anymore, because if someone has access to
             # the caterer-assets channel it's likely a given that they're trusted
             return usr.id != self.user.id and rxn.message.id == msg.id and rxn.emoji in (approval, rejection)
+        if created_at is None:
+            created_at = msg.created_at
         rxn, _ = await self.wait_for('reaction_add', check=check)  # no timeout
         await msg.delete()
         # if it hasn't even been a minute yet, then they're probably still around to see
         # the thumbs-up, so don't ping
-        should_ping = (datetime.now() - msg.created_at).total_seconds() >= 60
+        should_ping = (datetime.now() - created_at).total_seconds() >= 60
         if rxn.emoji == approval:
             return True, should_ping
         return False, should_ping
