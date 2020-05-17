@@ -964,7 +964,7 @@ class CA(commands.Cog):
               ''',
               await self.loop.run_in_executor(None,
                 compile,
-                plaintext, f"<generator '{name}'>", 'exec', optimize=2
+                plaintext, f"<generator '{name}'>", 'exec'
               ),
               name
             )
