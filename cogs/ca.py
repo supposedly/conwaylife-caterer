@@ -505,7 +505,7 @@ class CA(commands.Cog):
             return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         
         def extension_or_deletion_check(rxn, usr):
-            if usr is ctx.message.author or usr.id == WRIGHT:
+            if usr == ctx.message.author or usr.id == WRIGHT:
                 if rxn.emoji in '➕⏩' and rxn.message.id == gif.id:
                     return True
                 return rxn.emoji == '\N{WASTEBASKET}' and rxn.message.id == announcement.id
