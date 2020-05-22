@@ -563,6 +563,8 @@ class CA(commands.Cog):
                         ) + ('\n(Truncated to fit under 8MB)' if oversized else ''),
                       file=discord.File(f'{current}.gif')
                       )
+                    if 'tag' not in flags:
+                        await gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
                 except discord.errors.HTTPException as e:
                     return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         except asyncio.TimeoutError:
