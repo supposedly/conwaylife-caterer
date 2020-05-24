@@ -763,7 +763,7 @@ class CA(commands.Cog):
         file = await attachment.to_file()
         approved, should_ping = await self.bot.approve_asset(file, blurb, ctx.author, 'rule')
         if approved:
-            await self._insert_rule(ctx.author.id, blurb, attachment.read(), *mutils.extract_rule_info(file.fp))
+            await self._insert_rule(ctx.author.id, blurb, await attachment.read(), *mutils.extract_rule_info(file.fp))
             self.rulecache = None
             await ctx.thumbsup(ctx.author, f'Rule `{attachment.filename}` was approved!', should_ping)
         await ctx.thumbsdown(ctx.author,  f'Rule `{attachment.filename}` was rejected or not parsable.', override=False)
@@ -862,7 +862,7 @@ class CA(commands.Cog):
         file = await attachment.to_file()
         approved, should_ping = self.bot.approve_asset(file, blurb, ctx.author, 'generator', name=name)
         if approved:
-            code = attachment.read()
+            code = await attachment.read()
             await self._insert_generator(
               name, ctx.author.id, code,
               await self.loop.run_in_executor(
