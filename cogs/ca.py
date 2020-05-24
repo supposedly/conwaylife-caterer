@@ -821,14 +821,15 @@ class CA(commands.Cog):
             if name.startswith('user:'):
                 status = await self.bot.pool.execute(
                   f'''DELETE FROM rules WHERE uploader = $1::bigint {and_condition}''',
-                  (await commands.MemberConverter().convert(ctx, name[1+name.index(':'):])).id,
-                  ctx.author.id
+                  *(
+                    (await commands.MemberConverter().convert(ctx, name[1+name.index(':'):])).id,
+                    ctx.author.id
+                  )[:1 + bool(and_condition)]
                 )
             else:
                 status = await self.bot.pool.execute(
                   f'''DELETE FROM rules WHERE name = $1::text {and_condition}''',
-                  name,
-                  ctx.author.id
+                  *(name, ctx.author.id)[:1 + bool(and_condition)]
                 )
         except:
             await ctx.thumbsdown()
