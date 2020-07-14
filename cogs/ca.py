@@ -633,6 +633,8 @@ class CA(commands.Cog):
                     rule = rmatch.group()
                     break
         x, y = map(int, dims.split('x'))
+        if x > 1500 or y > 1500:
+            return await ctx.send(f'`Error: Cannot simulate soup with dimension greater than 1500. {self.moreinfo(ctx)}`')
         include, exclude = set(), set()
         if 'include' in flags:
             include = mutils.flatten_range_list(flags.pop('include').split(','))
