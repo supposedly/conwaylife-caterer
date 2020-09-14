@@ -286,7 +286,11 @@ class CA(commands.Cog):
             rule = f"{rule}_{current.split('/')[-1]}"
         algo = algo.split('::')[0]
         ruleflag = f's {self.dir}/' if algo == 'RuleLoader' else f'r {rule}'
-        return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
+        if algo == "CAViewer":
+            preface = f'{self.dir}/resources/bin/CAViewer'
+            return os.popen(f"{preface} -m {gen} -s {step} -i {current}_in.rle -o {current}_out.rle").read()
+        else:
+            return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
     
 
     def moreinfo(self, ctx):
@@ -332,6 +336,7 @@ class CA(commands.Cog):
         #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
 
         <[FLAGS]>
+        -ca: Use CAViewer instead of the defauly bgolly.
         -h: Use HashLife instead of the default QuickLife.
         -time: Include time taken to create gif (in seconds w/hundredths) alongside GIF.
           all: Provide verbose output, showing time taken for each step alongside the type of executor used.
@@ -349,9 +354,17 @@ class CA(commands.Cog):
             execs = [self.opts.get(v, self.defaults[i]) for i, v in enumerate(flags['execs'])]
         else:
             execs = self.defaults
-        algo = 'HashLife' if 'h' in flags else 'QuickLife'
+
+        if 'h' in flags:
+            algo = 'HashLife'
+        elif 'ca' in flags:
+            algo = 'CAViewer'
+        else:
+            algo = 'QuickLife'
+
         track = 'track' in flags or 't' in flags
         grid = 'grid' in flags or 'g' in flags
+
         try:
             step, gen = (1, gen) if step is None else sorted((step, gen))
         except ValueError:
@@ -404,12 +417,13 @@ class CA(commands.Cog):
             n_states = 2 + int(rLtL.match(rule)[1])
         elif not rRULESTRING.fullmatch(rule):
             algo = 'RuleLoader'
+
         if algo == 'RuleLoader':
             try:
                 rulename, rulefile, n_states, colors = await self.bot.pool.fetchrow('''
                   SELECT name, file, n_states, colors FROM rules WHERE name = $1::text
                 ''', rule)
-            except ValueError: # not enough values to unpack
+            except ValueError:  # not enough values to unpack
                 return await ctx.send('`Error: Rule not found`')
             bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
