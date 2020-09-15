@@ -280,7 +280,7 @@ class CA(commands.Cog):
     
 
     async def run_bgolly(self, current, algo, gen, step, rule):
-        max_mem = int(os.popen('free -m').read().split()[7]) // 1.25 # TODO: use
+        # max_mem = int(os.popen('free -m').read().split()[7]) // 1.25 TODO: use
         preface = f'{self.dir}/resources/bgolly'
         if '::' in rule:
             rule = f"{rule}_{current.split('/')[-1]}"
@@ -288,7 +288,7 @@ class CA(commands.Cog):
         ruleflag = f's {self.dir}/' if algo == 'RuleLoader' else f'r {rule}'
         if algo == "CAViewer":
             preface = f'{self.dir}/resources/bin/CAViewer'
-            return os.popen(f"{preface} -m {gen} -s {step} -i {current}_in.rle -o {current}_out.rle").read()
+            return os.popen(f"{preface} sim -m {gen} -s {step} -i {current}_in.rle -o {current}_out.rle").read()
         else:
             return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
     
@@ -336,7 +336,7 @@ class CA(commands.Cog):
         #TODO: streamline GIF generation process, implement proper LZW compression, implement flags & gfycat upload
 
         <[FLAGS]>
-        -ca: Use CAViewer instead of the defauly bgolly.
+        -ca: Use CAViewer instead of the default bgolly.
         -h: Use HashLife instead of the default QuickLife.
         -time: Include time taken to create gif (in seconds w/hundredths) alongside GIF.
           all: Provide verbose output, showing time taken for each step alongside the type of executor used.
@@ -355,9 +355,9 @@ class CA(commands.Cog):
         else:
             execs = self.defaults
 
-        if 'h' in flags:
+        if '-h' in flags:
             algo = 'HashLife'
-        elif 'ca' in flags:
+        elif '-ca' in flags:
             algo = 'CAViewer'
         else:
             algo = 'QuickLife'
@@ -415,7 +415,7 @@ class CA(commands.Cog):
         elif rLtL.match(rule):
             algo = 'Larger than Life'
             n_states = 2 + int(rLtL.match(rule)[1])
-        elif not rRULESTRING.fullmatch(rule):
+        elif not rRULESTRING.fullmatch(rule) and algo != "CAViewer":
             algo = 'RuleLoader'
 
         if algo == 'RuleLoader':
@@ -464,13 +464,14 @@ class CA(commands.Cog):
         self.simlog.append(curlog)
         writrule = f'{rule}_{ctx.message.id}' if algo == 'RuleLoader' else rule
         with open(f'{current}_in.rle', 'w') as infile:
-            infile.write(pat if pat.startswith('x = ') else f'x=0,y=0,rule={writrule}\n{pat}')
+            infile.write(pat if pat.startswith('x = ') else f'x = 0, y = 0, rule = {writrule}\n{pat}')
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
-        if bg_err:
-            curlog.status = Status.FAILED
-            return await ctx.send(f'`{bg_err}`')
+        #if bg_err:
+        #    curlog.status = Status.FAILED
+        #    return await ctx.send(f'`{bg_err}`')
         await announcement.add_reaction('\N{WASTEBASKET}')
         curlog.status = Status.SIMMING
+
         try:
             resp = await mutils.await_event_or_coro(
                   self.bot,
@@ -493,6 +494,7 @@ class CA(commands.Cog):
           + '{time}'
           )
         curlog.status = Status.COMPLETED
+
         try:
             gif = await ctx.send(
               content.format(
