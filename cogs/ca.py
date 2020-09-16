@@ -8,8 +8,10 @@ import operator
 import os
 import random
 import re
+import sys
 import time
 import types
+import subprocess
 from ast import literal_eval
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -23,6 +25,7 @@ import png
 import numpy as np
 from discord.ext import commands
 from PIL import ImageFile
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 from cogs.resources import mutils
@@ -30,6 +33,7 @@ from cogs.resources import mutils
 
 class Log:
     __slots__ = 'invoker', 'rule', 'time', 'status'
+
     def __init__(self, invoker, rule, time, status):
         self.invoker = invoker
         self.rule = rule
@@ -61,15 +65,17 @@ rLtL = re.compile(r'R\d{1,3},C(\d{1,3}),M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re
 
 # matches either W\d{3} or B/S, and then if no B then either 2-state single-slash rulestring or generations rulestring
 rRULESTRING = re.compile(
-  r'MAP(?:[A-Z0-9+/]{86}|[A-Z0-9+/]{22}|[A-Z0-9+/]{6})'  # MAP rules
-  r'|W\d{3}'  # Wolfram 1D rules
-  r'|/?(?:(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?)))[HV]?',
-  re.I
-  )
+    r'MAP(?:[A-Z0-9+/]{86}|[A-Z0-9+/]{22}|[A-Z0-9+/]{6})'  # MAP rules
+    r'|W\d{3}'  # Wolfram 1D rules
+    r'|/?(?:(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?)))[HV]?',
+    re.I
+)
 
 # matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take way too many steps)
 # does not match rules with >24 states
-rXRLE = re.compile(r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)', re.I)
+rXRLE = re.compile(
+    r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
+    re.I)
 
 # splits RLE into its runs
 rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[ob.A-Z])')
@@ -78,6 +84,7 @@ rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[ob.A-Z])')
 # unrolls $ signs
 rDOLLARS = re.compile(r'(\d+)\$')
 
+
 # ---- #
 
 
@@ -85,47 +92,49 @@ class Trackbox:
     def __init__(self, n_gens, r, distance, x0, y0, dx, dy):
         self.n_gens = n_gens
         self.dist = distance
-        self.r, self.r_calc = r, r/ROOT_2
+        self.r, self.r_calc = r, r / ROOT_2
         self.x0, self.y0 = x0, y0
         self.dx, self.dy = dx, dy
-    
+
     @classmethod
     def from_lists(cls, positions, bboxes):
         n_gens = len(positions)
         dx, dy = positions[-1]
         m = dy / dx
         b = -m * positions[0][0]
+
         def x_prime(x, y):
             return x * dx / d + (y - b) * dy / d
+
         def y_prime(x, y):
             return (y - b) * dx / d - x * dy / d
+
         d = (dx ** 2 + dy ** 2) ** 0.5  # dx and dy double as "x2" and "y2" in distance formula
         r = max(
-          abs(min(x_prime(*pos) - d * (gen / n_gens) for gen, pos in enumerate(positions))),
-          max(x_prime(*pos) - d * (gen / n_gens) for gen, pos in enumerate(positions)),
-          abs(min(starmap(y_prime, positions))),
-          max(starmap(y_prime, positions))
+            abs(min(x_prime(*pos) - d * (gen / n_gens) for gen, pos in enumerate(positions))),
+            max(x_prime(*pos) - d * (gen / n_gens) for gen, pos in enumerate(positions)),
+            abs(min(starmap(y_prime, positions))),
+            max(starmap(y_prime, positions))
         )
         return cls(n_gens, r, d, dx, dy)
-    
+
     def __call__(self, gen):
         t = gen / self.n_gens
         return (
-          t * self.dx - self.r_calc,
-          t * self.dx + self.r_calc,
-          t * self.dy - self.r_calc,
-          t * self.dy + self.r_calc
-          )
+            t * self.dx - self.r_calc,
+            t * self.dx + self.r_calc,
+            t * self.dy - self.r_calc,
+            t * self.dy + self.r_calc
+        )
 
 
 def _replace(m):
     return '$' * int(m[1])
 
 
-def parse(current):
-    with open(f'{current}_out.rle', 'r') as pat:
-        patlist = [line.rstrip('\n') for line in pat]
-    
+def parse(lines, current):
+    patlist = [x.strip("\n") for x in lines if re.match("\\S+", x)]
+
     os.remove(f'{current}_out.rle')
     # `positions` needs to be a list, not a generator
     # because it's returned from this function, so
@@ -135,9 +144,9 @@ def parse(current):
     positions = list(map(eval, patlist[::3]))
     # [(5, 3), (7, 1), (5, 3), (7, 5), (3, 7), (5, 5), (1, 7), (3, 5), (5, 7), (7, 1)]
     bboxes = list(map(eval, patlist[1::3]))
-    
+
     # trackbox = Trackbox.from_lists(positions, bboxes)
-    
+
     # Determine the bounding box to make gifs from
     # The rectangle: xmin <= x <= xmax, ymin <= y <= ymax
     # where (x|y)(min|max) is the min/max coordinate across all gens.
@@ -147,43 +156,45 @@ def parse(current):
     ymaxes = starmap(operator.add, zip(ymins, heights))
     xmin, ymin, xmax, ymax = min(xmins), min(ymins), max(xmaxes), max(ymaxes)
     # Bounding box: top-left x and y, width and height
-    bbox = xmin, ymin, xmax-xmin, ymax-ymin
-    
+    bbox = xmin, ymin, xmax - xmin, ymax - ymin
+
     # ['4b3$o', '3o2b'] -> ['4b$$$o', '3o2b']
     # ['4b$$$o', '3o2b'] -> [['4b', '', '', '', 'o'], ['3o2b']]
-    return [i.replace('!', '').split('$') for i in (rDOLLARS.sub(_replace, j) for j in patlist[2::3])], positions, bbox, (maxwidth, maxheight)
+    return [i.replace('!', '').split('$') for i in
+            (rDOLLARS.sub(_replace, j) for j in patlist[2::3])], positions, bbox, (maxwidth, maxheight)
 
 
 def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, track, trackmaxes, grid):
     xmin, ymin, width, height = bbox
     if track:
         width, height = trackmaxes
-    duration = min(1/6, max(1/60, 5/gen/step) if gen else 1)
+    duration = min(1 / 6, max(1 / 60, 5 / gen / step) if gen else 1)
     with imageio.get_writer(f'{current}.gif', mode='I', duration=str(duration)) as gif_writer:
         for pat, (xpos, ypos) in zip(patlist, positions):
-            dx, dy = (1, 1) if track else (1+(xpos-xmin), 1+(ypos-ymin))
+            dx, dy = (1, 1) if track else (1 + (xpos - xmin), 1 + (ypos - ymin))
             frame = [[bg] * (2 + width) for _ in range(2 + height)]
+
             # Draw the pattern onto the frame by replacing segments of background rows
             for i, flat_row in enumerate(
-                [
-                  bg if char in '.b' else colors[char]
-                  for run, char in rRUNS.findall(row)
-                  for _ in range(int(run or 1))
-                ]
-              for row in pat
-              ):
-                frame[dy+i][dx:dx+len(flat_row)] = flat_row
+                    [
+                        bg if char in '.b' else colors[char]
+                        for run, char in rRUNS.findall(row)
+                        for _ in range(int(run or 1))
+                    ]
+                    for row in pat
+            ):
+                frame[dy + i][dx:dx + len(flat_row)] = flat_row
             anchor = min(height, width)
             mul = -(-100 // anchor) if anchor <= 100 else 1
             first_grid = 0 if grid else None
             gif_writer.append_data(
-              np.asarray(
-                mutils.scale(
-                  (mutils.scale(row, mul, grid=first_grid) for row in frame),
-                  mul, grid=(0, 0, 0) if grid else None
-                  ),
-                np.uint8
-              ))
+                np.asarray(
+                    mutils.scale(
+                        (mutils.scale(row, mul, grid=first_grid) for row in frame),
+                        mul, grid=(0, 0, 0) if grid else None
+                    ),
+                    np.uint8
+                ))
             if os.stat(f'{current}.gif').st_size > 7500000:
                 return True
     return False
@@ -201,21 +212,19 @@ class CA(commands.Cog):
         self.BOTS_N_MUTE = self.bot.get_channel(BOTS_N_MUTE)
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.ppe = ProcessPoolExecutor()
-        self.tpe = ThreadPoolExecutor() # or just None
+        self.tpe = ThreadPoolExecutor()  # or just None
         self.loop = bot.loop
         self.simlog = deque(maxlen=5)
-        self.defaults = (*[[self.ppe, 'ProcessPoolExecutor']]*2, [self.tpe, 'ThreadPoolExecutor'])
+        self.defaults = (*[[self.ppe, 'ProcessPoolExecutor']] * 2, [self.tpe, 'ThreadPoolExecutor'])
         self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
         self.rulecache = None
         self.gencache = None
-    
 
     @staticmethod
     def state_from(val, n_states):
         if n_states < 3:
             return 'bo'[val] if isinstance(val, int) else int(val == 'o')
         return mutils.state_from(val)
-    
 
     def get_rand_state(self, n_states: int, last_state: str, allowed_states: {int}) -> str:
         if last_state is None:
@@ -224,7 +233,6 @@ class CA(commands.Cog):
         while new == last_state or new not in allowed_states:
             new = random.randrange(0, n_states)
         return self.state_from(new, n_states)
-    
 
     def makesoup(self, rulestring: str, n_states: int, x: int, y: int, allowed_states: {int}) -> str:
         """Generates random soup as RLE with specified dimensions"""
@@ -234,7 +242,7 @@ class CA(commands.Cog):
             pos = x
             while pos > 0:
                 # below could also just be random.randint(1,x) but something likes this gives natural-ish-looking results
-                runlength = math.ceil(-math.log(1-random.random()))
+                runlength = math.ceil(-math.log(1 - random.random()))
                 if runlength > pos:
                     runlength = pos  # or just `break`, no big difference qualitatively
                 last_state = self.get_rand_state(n_states, last_state, allowed_states)
@@ -242,16 +250,14 @@ class CA(commands.Cog):
                 pos -= runlength
             rle += '$\n' if y > row + 1 else '!\n'
         return rle
-    
 
     @staticmethod
     def _extend(n, *, thresh=50):
         """From BlinkerSpawn"""
         if n <= thresh:
             return 2 * n
-        quotient = n // next(i for i in count(math.ceil(n/thresh)) if not n % i)
+        quotient = n // next(i for i in count(math.ceil(n / thresh)) if not n % i)
         return n + quotient * (thresh // quotient)
-
 
     def cancellation_check(self, ctx, orig_msg, rxn, usr):
         if rxn.message.id != orig_msg.id:
@@ -261,23 +267,46 @@ class CA(commands.Cog):
             return correct_emoji and (rxn.count > 3 or usr.id == WRIGHT)
         return correct_emoji
 
-
     async def do_gif(self, execs, current, gen, step, colors, track, bg, grid):
+        # Getting colors
+        lines = []
+        in_colors = False
+        with open(f"{current}_out.rle", "r") as file:
+            for line in file.readlines():
+                line = line.rstrip('\n')
+                if "@COLOR" in line:
+                    in_colors = True
+                    continue
+                if in_colors:
+                    # '0    255 255 255   random comments' ->
+                    # {0: (255, 255, 255)}
+                    state, rgb = line.split(None, 1)
+
+                    if state == 0:
+                        colors['.'] = tuple(map(int, rgb.split()[:3]))
+                        colors['b'] = tuple(map(int, rgb.split()[:3]))
+                    elif state == 1:
+                        colors['A'] = tuple(map(int, rgb.split()[:3]))
+                        colors['o'] = tuple(map(int, rgb.split()[:3]))
+                    else:
+                        colors[chr(int(state) + 64)] = tuple(map(int, rgb.split()[:3]))
+                else:
+                    lines.append(line)
+
         start = time.perf_counter()
         patlist, positions, bbox, trackmaxes = await self.loop.run_in_executor(
-          execs[0][0], parse,
-          current
-          )
+            execs[0][0], parse,
+            lines, current
+        )
         end_parse = time.perf_counter()
         oversized = await self.loop.run_in_executor(
-          execs[1][0], makeframes,
-          current, gen, step, patlist, positions, bbox,
-          len(str(gen)), colors, bg, track, trackmaxes,
-          grid
-          )
+            execs[1][0], makeframes,
+            current, gen, step, patlist, positions, bbox,
+            len(str(gen)), colors, bg, track, trackmaxes,
+            grid
+        )
         end_makeframes = time.perf_counter()
         return start, end_parse, end_makeframes, oversized
-    
 
     async def run_bgolly(self, current, algo, gen, step, rule):
         # max_mem = int(os.popen('free -m').read().split()[7]) // 1.25 TODO: use
@@ -288,25 +317,31 @@ class CA(commands.Cog):
         ruleflag = f's {self.dir}/' if algo == 'RuleLoader' else f'r {rule}'
         if algo == "CAViewer":
             preface = f'{self.dir}/resources/bin/CAViewer'
-            return os.popen(f"{preface} sim -m {gen} -s {step} -i {current}_in.rle -o {current}_out.rle").read()
+
+            p = subprocess.Popen(f"{preface} sim -g {gen} -s {step} -i {current}_in.rle -o {current}_out.rle".split(),
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out = p.communicate()
+
+            return out[1].decode("utf-8")
         else:
-            return os.popen(f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
-    
+            return os.popen(
+                f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
 
     def moreinfo(self, ctx):
         return f"'{ctx.prefix}help sim' for more info"
-    
 
     async def write_rule_from_generator(self, gen_name, rulestring, fp):
         module = types.ModuleType('<custom>')
         await self.loop.run_in_executor(None,
-          exec,
-          await self.loop.run_in_executor(None,
-            marshal.loads,
-            await self.bot.pool.fetchval('''SELECT module FROM algos WHERE name = $1::text''', gen_name)
-          ),
-          module.__dict__
-          )
+                                        exec,
+                                        await self.loop.run_in_executor(None,
+                                                                        marshal.loads,
+                                                                        await self.bot.pool.fetchval(
+                                                                            '''SELECT module FROM algos WHERE name = $1::text''',
+                                                                            gen_name)
+                                                                        ),
+                                        module.__dict__
+                                        )
         try:
             rulestring = await self.loop.run_in_executor(None, module.rulestring, rulestring)
         except AttributeError:
@@ -314,18 +349,17 @@ class CA(commands.Cog):
         fp.write(await self.loop.run_in_executor(None, module.main, rulestring))
         return rulestring
 
-
     @mutils.group('Simulate an RLE and output to GIF', args=True)
     async def sim(
-        self, ctx,
-        *,
-        gen: (r'^\d+$', int) = None,
-        pat: r'[\dob$]*[ob$][\dob$\n]*!?' = '',
-        step: (r'^\d+$', int) = None,
-        rule: r'(?:::)?[^-\s:][^\s:]*' = '',  # no flags, so no hyphen at start
-        flags,
-        **kwargs
-      ):
+            self, ctx,
+            *,
+            gen: (r'^\d+$', int) = None,
+            pat: r'[\dob$]*[ob$][\dob$\n]*!?' = '',
+            step: (r'^\d+$', int) = None,
+            rule: r'(?:::)?[^-\s:][^\s:]*' = '',  # no flags, so no hyphen at start
+            flags,
+            **kwargs
+    ):
         """
         # Simulates PAT with output to animated gif. #
         <[ARGS]>
@@ -384,7 +418,7 @@ class CA(commands.Cog):
                 return await ctx.send(f"`Error: No PAT given and none found in last 50 messages. {self.moreinfo(ctx)}`")
         elif pat and not rand:
             pat = pat.strip('`')
-        
+
         if not rule:
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rLtL.search(msg.content) or rRULESTRING.search(msg.content)
@@ -393,13 +427,13 @@ class CA(commands.Cog):
                     break
             else:
                 rule = ''
-        
+
         bg, fg = ((255, 255, 255), (0, 0, 0)) if 'bw' in flags else ((54, 57, 62), (255, 255, 255))
         colors = {'o': fg, 'b': bg}
-        
+
         current = f'{self.dir}/{ctx.message.id}'
         rule = ''.join(rule.split()) or 'B3/S23'
-        
+
         n_states = 2
         if '::' in given_rule:
             rulestring, name = given_rule.split('::')
@@ -431,12 +465,15 @@ class CA(commands.Cog):
         if algo == 'Larger than Life':
             n_states = int(rule.split('C')[1].split(',')[0])
             if n_states > 2:
-                colors = mutils.ColorRange(n_states, (255,255,0), (255,0,0)).to_dict()
+                colors = mutils.ColorRange(n_states, (255, 255, 0), (255, 0, 0)).to_dict()
         if rule.count('/') > 1 and '::' not in rule:
             algo = 'Generations'
             n_states = int(rule.split('/')[-1])
             colors = mutils.ColorRange(n_states).to_dict()
-        
+        if algo == 'CAViewer':
+            n_states = 5
+            colors = mutils.ColorRange(n_states).to_dict()
+
         if rand:
             rule_ = rule.split('::')[0]
             if algo == 'RuleLoader':
@@ -448,17 +485,17 @@ class CA(commands.Cog):
             if len(allowed_states) < 2:
                 return await ctx.send('`Error: random soup cannot be generated with fewer than 2 states allowed`')
             pat = await self.loop.run_in_executor(
-              None, self.makesoup,
-              rule_, n_states, *dims, allowed_states
+                None, self.makesoup,
+                rule_, n_states, *dims, allowed_states
             )
             dims = f'{dims[0]}\u00d7{dims[1]}'
-        
+
         details = (
-          (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
-          + f' in rule `{given_rule if display_given_rule else rule}` with '
-          + f'step `{step}` for `{1+gen}` generation(s)'
-          + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
-          )
+                (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
+                + f' in rule `{given_rule if display_given_rule else rule}` with '
+                + f'step `{step}` for `{1 + gen}` generation(s)'
+                + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
+        )
         announcement = await ctx.send(details)
         curlog = Log(ctx.author.mention, rule, ctx.message.created_at, Status.WAITING)
         self.simlog.append(curlog)
@@ -466,20 +503,20 @@ class CA(commands.Cog):
         with open(f'{current}_in.rle', 'w') as infile:
             infile.write(pat if pat.startswith('x = ') else f'x = 0, y = 0, rule = {writrule}\n{pat}')
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
-        #if bg_err:
-        #    curlog.status = Status.FAILED
-        #    return await ctx.send(f'`{bg_err}`')
+        if bg_err:
+            curlog.status = Status.FAILED
+            return await ctx.send(f'`{bg_err}`')
         await announcement.add_reaction('\N{WASTEBASKET}')
         curlog.status = Status.SIMMING
 
         try:
             resp = await mutils.await_event_or_coro(
-                  self.bot,
-                  event = 'reaction_add',
-                  coro = self.do_gif(execs, current, gen, step, colors, track, bg, grid),
-                  ret_check = lambda obj: isinstance(obj, discord.Message),
-                  event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
-                  )
+                self.bot,
+                event='reaction_add',
+                coro=self.do_gif(execs, current, gen, step, colors, track, bg, grid),
+                ret_check=lambda obj: isinstance(obj, discord.Message),
+                event_check=lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
+            )
         except Exception as e:
             curlog.status = Status.FAILED
             raise e from None
@@ -489,43 +526,44 @@ class CA(commands.Cog):
             curlog.status = Status.CANCELED
             return await resp['event'][0].message.delete()
         content = (
-            (ctx.message.author.mention if 'tag' in flags else '')
-          + (f' **{flags["id"]}** \n' if 'id' in flags else '')
-          + '{time}'
-          )
+                (ctx.message.author.mention if 'tag' in flags else '')
+                + (f' **{flags["id"]}** \n' if 'id' in flags else '')
+                + '{time}'
+        )
         curlog.status = Status.COMPLETED
 
         try:
             gif = await ctx.send(
-              content.format(
-                time=str(
-                  {
-                    'Times': '',
-                    '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
-                    '**Saving frames to GIF**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
-                    '(**Total**': f'{round(end_makeframes-start, 2)}s)'
-                  }
-                ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
-                if flags.get('time') == 'all'
-                  else f'{round(end_makeframes-start, 2)}s'
-                  if 'time' in flags
+                content.format(
+                    time=str(
+                        {
+                            'Times': '',
+                            '**Parsing frames**': f'{round(end_parse - start, 2)}s ({execs[0][1]})',
+                            '**Saving frames to GIF**': f'{round(end_makeframes - end_parse, 2)}s ({execs[1][1]})',
+                            '(**Total**': f'{round(end_makeframes - start, 2)}s)'
+                        }
+                    ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
+                    if flags.get('time') == 'all'
+                    else f'{round(end_makeframes - start, 2)}s'
+                    if 'time' in flags
                     else ''
                 ) + ('\n(Truncated to fit under 8MB)' if oversized else ''),
-              file=discord.File(f'{current}.gif')
-              )
+                file=discord.File(f'{current}.gif')
+            )
             newline = '\n' * bool(gif.content)
             if 'tag' not in flags:
                 await gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
         except discord.errors.HTTPException as e:
             curlog.status = Status.FAILED
-            return await ctx.send(f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
-        
+            return await ctx.send(
+                f'{ctx.message.author.mention}\n`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
+
         def extension_or_deletion_check(rxn, usr):
             if usr == ctx.message.author or usr.id == WRIGHT:
                 if rxn.emoji in '➕⏩' and rxn.message.id == gif.id:
                     return True
                 return rxn.emoji == '\N{WASTEBASKET}' and rxn.message.id == announcement.id
-        
+
         try:
             while True:
                 if gen < 2500 * step and not oversized:
@@ -542,43 +580,43 @@ class CA(commands.Cog):
                     step *= 2
                     oversized = False
                 details = (
-                  (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
-                  + f' in rule `{rule}` with step `{step}` for `{gen+bool(rand)}` generation(s)'
-                  + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
-                  )
+                        (f'Running `{dims}` soup' if rand else f'Running supplied pattern')
+                        + f' in rule `{rule}` with step `{step}` for `{gen + bool(rand)}` generation(s)'
+                        + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
+                )
                 await announcement.edit(content=details)
                 bg_err = await self.run_bgolly(current, algo, gen, step, rule)
                 if bg_err:
                     return await ctx.send(f'`{bg_err}`')
                 resp = await mutils.await_event_or_coro(
-                  self.bot,
-                  event = 'reaction_add',
-                  coro = self.do_gif(execs, current, gen, step, colors, track, bg, grid),
-                  ret_check = lambda obj: isinstance(obj, discord.Message),
-                  event_check = lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
-                  )
+                    self.bot,
+                    event='reaction_add',
+                    coro=self.do_gif(execs, current, gen, step, colors, track, bg, grid),
+                    ret_check=lambda obj: isinstance(obj, discord.Message),
+                    event_check=lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
+                )
                 try:
                     start, end_parse, end_makeframes, oversized = resp['coro']
                 except KeyError:
                     return await resp['event'][0].message.delete()
                 try:
                     gif = await ctx.send(
-                      content.format(
-                        time = str(
-                          {
-                            'Times': '',
-                            '**Parsing frames**': f'{round(end_parse-start, 2)}s ({execs[0][1]})',
-                            '**Saving frames to GIF**': f'{round(end_makeframes-end_parse, 2)}s ({execs[1][1]})',
-                            '(**Total**': f'{round(end_makeframes-start, 2)}s)'
-                          }
-                        ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
-                        if flags.get('time') == 'all'
-                          else f'{round(end_makeframes-start, 2)}s'
-                          if 'time' in flags
+                        content.format(
+                            time=str(
+                                {
+                                    'Times': '',
+                                    '**Parsing frames**': f'{round(end_parse - start, 2)}s ({execs[0][1]})',
+                                    '**Saving frames to GIF**': f'{round(end_makeframes - end_parse, 2)}s ({execs[1][1]})',
+                                    '(**Total**': f'{round(end_makeframes - start, 2)}s)'
+                                }
+                            ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
+                            if flags.get('time') == 'all'
+                            else f'{round(end_makeframes - start, 2)}s'
+                            if 'time' in flags
                             else ''
                         ) + ('\n(Truncated to fit under 8MB)' if oversized else ''),
-                      file=discord.File(f'{current}.gif')
-                      )
+                        file=discord.File(f'{current}.gif')
+                    )
                     if 'tag' not in flags:
                         await gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
                 except discord.errors.HTTPException as e:
@@ -587,14 +625,13 @@ class CA(commands.Cog):
             # trigger the finally block
             pass
         finally:
-            gif = await ctx.channel.fetch_message(gif.id) # refresh reactions
+            gif = await ctx.channel.fetch_message(gif.id)  # refresh reactions
             await announcement.remove_reaction('\N{WASTEBASKET}', ctx.guild.me)
             [await gif.remove_reaction(rxn, ctx.guild.me) for rxn in gif.reactions]
             os.remove(f'{current}.gif')
             os.remove(f'{current}_in.rle')
             if algo == 'RuleLoader':
                 os.remove(f'{self.dir}/{rule}_{ctx.message.id}.rule')
-    
 
     @sim.error
     async def sim_error(self, ctx, error):
@@ -602,24 +639,24 @@ class CA(commands.Cog):
         if isinstance(error, commands.MissingRequiredArgument):
             return await ctx.send(f'`Error: No {error.param.name.upper()} given. {self.moreinfo(ctx)}`')
         # Bad argument:
-        if isinstance(error, (commands.BadArgument, ZeroDivisionError)): # BadArgument on failure to convert to int, ZDE on gen=0
+        if isinstance(error, (
+                commands.BadArgument, ZeroDivisionError)):  # BadArgument on failure to convert to int, ZDE on gen=0
             if '"' in str(error):
                 badarg = str(error).split('"')[3].split('"')[0]
                 return await ctx.send(f'`Error: Invalid {badarg.upper()}. {self.moreinfo(ctx)}`')
             return await ctx.send(f'`Error: {error}.`')
         raise error
 
-
     @sim.command(args=True)
     async def rand(
-        self, ctx,
-        *,
-        dims: r'^\d+x\d+$' = '16x16',
-        gen: (r'^\d+$', int) = None,
-        step: (r'^\d+$', int) = None,
-        rule: r'(?:::)?[^-\s:][^\s:]*' = None,
-        flags
-      ):
+            self, ctx,
+            *,
+            dims: r'^\d+x\d+$' = '16x16',
+            gen: (r'^\d+$', int) = None,
+            step: (r'^\d+$', int) = None,
+            rule: r'(?:::)?[^-\s:][^\s:]*' = None,
+            flags
+    ):
         """
         # Simulates a random soup in given rule with output to GIF. Dims default to 16x16. #
         # If either flag is given but empty (e.g. `-include` rather than `-include:1,2,3..5`), it will count as not having been given. #
@@ -650,24 +687,25 @@ class CA(commands.Cog):
                     break
         x, y = map(int, dims.split('x'))
         if x > 1500 or y > 1500:
-            return await ctx.send(f'`Error: Cannot simulate soup with dimension greater than 1500. {self.moreinfo(ctx)}`')
+            return await ctx.send(
+                f'`Error: Cannot simulate soup with dimension greater than 1500. {self.moreinfo(ctx)}`')
         include, exclude = set(), set()
         if 'include' in flags:
             include = mutils.flatten_range_list(flags.pop('include').split(','))
         elif 'exclude' in flags:
             exclude = mutils.flatten_range_list(flags.pop('exclude').split(','))
         await ctx.invoke(
-          self.sim,
-          gen=int(gen),
-          step=int(step),
-          rule=rule or 'B3/S23',
-          flags=flags,
-          rand=True,
-          soup_dims=(x, y),
-          soup_include_states=include,
-          soup_exclude_states=exclude
-          )
-    
+            self.sim,
+            gen=int(gen),
+            step=int(step),
+            rule=rule or 'B3/S23',
+            flags=flags,
+            rand=True,
+            soup_dims=(x, y),
+            soup_include_states=include,
+            soup_exclude_states=exclude
+        )
+
     @sim.command('Gives a log of recent sim invocations')
     async def log(self, ctx):
         entries = []
@@ -678,9 +716,8 @@ class CA(commands.Cog):
                 f' in `{log.rule}`'
                 f" at `{log.time.strftime('%H:%M')}`:"
                 f' {comp[log.status.value]} {log.status.name.title()}'
-                )
+            )
         await ctx.send(embed=discord.Embed(title='Last 5 sims', description='\n'.join(entries)))
-    
 
     @mutils.command('Show uploaded rules')
     async def rules(self, ctx, rule=None):
@@ -693,21 +730,21 @@ class CA(commands.Cog):
         """
         if self.rulecache is None:
             self.rulecache = [
-              {'name': i['name'], 'blurb': i['blurb'], 'file': i['file'], 'uploader': i['uploader']}
-              for i in 
-              await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, file, blurb FROM rules''')
-              ]
+                {'name': i['name'], 'blurb': i['blurb'], 'file': i['file'], 'uploader': i['uploader']}
+                for i in
+                await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, file, blurb FROM rules''')
+            ]
         if rule is None:
             offset = 0
             say, msg = ctx.send, None
             while True:
                 msg = await say(embed=discord.Embed(
-                  title='Rules',
-                  description='\n'.join(
-                    f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
-                    for i in islice(self.rulecache, offset, offset + 10)
+                    title='Rules',
+                    description='\n'.join(
+                        f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
+                        for i in islice(self.rulecache, offset, offset + 10)
                     )
-                  )) or msg
+                )) or msg
                 say = msg.edit
                 left, right = await mutils.get_page(ctx, msg)
                 if left:
@@ -723,20 +760,19 @@ class CA(commands.Cog):
                 return await ctx.send(embed=discord.Embed(
                     title=rule['name'],
                     description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
-                    ),
-                  file=discord.File(b, rule['name'] + '.rule')
-                  )
+                ),
+                    file=discord.File(b, rule['name'] + '.rule')
+                )
         else:
             return await ctx.send(embed=discord.Embed(
-              title=f'Rules by {member}',
-              description='\n'.join(
-                f"• {d['name']}: {d['blurb']}"
-                for d in self.rulecache
-                if d['uploader'] == member.id
+                title=f'Rules by {member}',
+                description='\n'.join(
+                    f"• {d['name']}: {d['blurb']}"
+                    for d in self.rulecache
+                    if d['uploader'] == member.id
                 )
-              ))
-    
-    
+            ))
+
     async def _insert_rule(self, *args):
         query = '''
         INSERT INTO rules (
@@ -749,7 +785,6 @@ class CA(commands.Cog):
         '''
         await self.bot.pool.execute(query, *args)
         self.rulecache = None
-    
 
     async def _insert_generator(self, *args):
         await self.bot.pool.execute('''
@@ -761,9 +796,8 @@ class CA(commands.Cog):
               DO UPDATE
               SET uploader=$2::bigint, plaintext=$3::bytea, module=$4::bytea, blurb=COALESCE(algos.blurb, $5::text)
           ''',
-          *args
-        )
-    
+                                    *args
+                                    )
 
     @mutils.command('Upload an asset (just ruletables for now)')
     async def upload(self, ctx, *, blurb=''):
@@ -784,11 +818,11 @@ class CA(commands.Cog):
             await self._insert_rule(ctx.author.id, blurb, await attachment.read(), *mutils.extract_rule_info(file.fp))
             self.rulecache = None
             await ctx.thumbsup(ctx.author, f'Rule `{attachment.filename}` was approved!', should_ping)
-        await ctx.thumbsdown(ctx.author,  f'Rule `{attachment.filename}` was rejected or not parsable.', override=False)
-
+        await ctx.thumbsdown(ctx.author, f'Rule `{attachment.filename}` was rejected or not parsable.', override=False)
 
     async def _reapprove(self, ctx, created_at, file, name, blurb, author, kind):
-        approved, should_ping = await self.bot.approve_asset(file, blurb, author, kind, created_at=created_at, name=name)
+        approved, should_ping = await self.bot.approve_asset(file, blurb, author, kind, created_at=created_at,
+                                                             name=name)
         if approved:
             content = file.fp.read()
             file.reset()
@@ -796,17 +830,17 @@ class CA(commands.Cog):
                 await self._insert_rule(ctx.author.id, blurb, content, *mutils.extract_rule_info(file.fp))
             elif kind == 'generator':
                 await self._insert_generator(
-                  name, ctx.author.id, content,
-                  await self.loop.run_in_executor(
-                    None,
-                    marshal.dumps,
-                    await self.loop.run_in_executor(None, compile, content, '<custom>', 'exec', 0, False, 2)
-                  ),
-                  blurb
+                    name, ctx.author.id, content,
+                    await self.loop.run_in_executor(
+                        None,
+                        marshal.dumps,
+                        await self.loop.run_in_executor(None, compile, content, '<custom>', 'exec', 0, False, 2)
+                    ),
+                    blurb
                 )
             await ctx.thumbsup(author, f'{kind.upper()} `{name}` was accepted!', channel=self.BOTS_N_MUTE)
-        await ctx.thumbsdown(author, f'{kind.upper()} `{name}` was rejected or not parsable.', override=False, channel=self.BOTS_N_MUTE)
-
+        await ctx.thumbsdown(author, f'{kind.upper()} `{name}` was rejected or not parsable.', override=False,
+                             channel=self.BOTS_N_MUTE)
 
     @mutils.command()
     async def reup(self, ctx):
@@ -817,18 +851,18 @@ class CA(commands.Cog):
             pre, blurb = msg.content.split('\n', 1)[0].split(':', 1)
             kind, name = pre.split(' ')
             coros.append(self._reapprove(
-              ctx,
-              msg.created_at,  # technically still works (only a minor delay btwn user invoking !upload/!register and btwn caterer posting this msg)
-              await msg.attachments[0].to_file(),
-              name,
-              blurb,
-              msg.mentions[-1],
-              kind
+                ctx,
+                msg.created_at,
+                # technically still works (only a minor delay btwn user invoking !upload/!register and btwn caterer posting this msg)
+                await msg.attachments[0].to_file(),
+                name,
+                blurb,
+                msg.mentions[-1],
+                kind
             ))
             await msg.delete()
         await ctx.thumbsup()
         await asyncio.wait(coros)
-
 
     @mutils.command()
     async def delrule(self, ctx, name):
@@ -838,16 +872,16 @@ class CA(commands.Cog):
         try:
             if name.startswith('user:'):
                 status = await self.bot.pool.execute(
-                  f'''DELETE FROM rules WHERE uploader = $1::bigint {and_condition}''',
-                  *(
-                    (await commands.MemberConverter().convert(ctx, name[1+name.index(':'):])).id,
-                    ctx.author.id
-                  )[:1 + bool(and_condition)]
+                    f'''DELETE FROM rules WHERE uploader = $1::bigint {and_condition}''',
+                    *(
+                         (await commands.MemberConverter().convert(ctx, name[1 + name.index(':'):])).id,
+                         ctx.author.id
+                     )[:1 + bool(and_condition)]
                 )
             else:
                 status = await self.bot.pool.execute(
-                  f'''DELETE FROM rules WHERE name = $1::text {and_condition}''',
-                  *(name, ctx.author.id)[:1 + bool(and_condition)]
+                    f'''DELETE FROM rules WHERE name = $1::text {and_condition}''',
+                    *(name, ctx.author.id)[:1 + bool(and_condition)]
                 )
         except:
             await ctx.thumbsdown()
@@ -856,7 +890,6 @@ class CA(commands.Cog):
             return await ctx.thumbsdown()
         self.rulecache = None
         await ctx.thumbsup()
-    
 
     @mutils.command('Register a custom rulefile-generating python script')
     async def register(self, ctx, name, *, blurb):
@@ -883,18 +916,17 @@ class CA(commands.Cog):
         if approved:
             code = await attachment.read()
             await self._insert_generator(
-              name, ctx.author.id, code,
-              await self.loop.run_in_executor(
-                None,
-                marshal.dumps,
-                await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
-              ),
-              blurb
+                name, ctx.author.id, code,
+                await self.loop.run_in_executor(
+                    None,
+                    marshal.dumps,
+                    await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
+                ),
+                blurb
             )
             self.gencache = None
             await ctx.thumbsup(ctx.author, f'Generator {name} was approved!', should_ping)
         await ctx.thumbsdown(ctx.author, f'Generator {name} was rejected or not parsable.', should_ping, override=False)
-    
 
     @mutils.command('Show uploaded generators')
     async def generators(self, ctx, text=None, *, flags: mutils.parse_flags = None):
@@ -912,21 +944,21 @@ class CA(commands.Cog):
             flags = {}
         if self.gencache is None:
             self.gencache = [
-              {'name': i['name'], 'uploader': i['uploader'], 'blurb': i['blurb'], 'plaintext': i['plaintext']}
-              for i in 
-              await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, plaintext, blurb FROM algos''')
+                {'name': i['name'], 'uploader': i['uploader'], 'blurb': i['blurb'], 'plaintext': i['plaintext']}
+                for i in
+                await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, plaintext, blurb FROM algos''')
             ]
         if text is None:
             offset = 0
             say, msg = ctx.send, None
             while True:
                 msg = await say(embed=discord.Embed(
-                  title='Rules',
-                  description='\n'.join(
-                    f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
-                    for i in islice(self.gencache, offset, offset + 10)
+                    title='Rules',
+                    description='\n'.join(
+                        f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
+                        for i in islice(self.gencache, offset, offset + 10)
                     )
-                  )) or msg
+                )) or msg
                 say = msg.edit
                 left, right = await mutils.get_page(ctx, msg)
                 if left:
@@ -947,19 +979,19 @@ class CA(commands.Cog):
                 return await ctx.send(embed=discord.Embed(
                     title=gen['name'],
                     description=f"Uploader: {self.bot.get_user(gen['uploader'])}\nBlurb: {gen['blurb']}"
-                    ),
-                  file=discord.File(s, gen['name'] + '.py')
-                  )
+                ),
+                    file=discord.File(s, gen['name'] + '.py')
+                )
         else:
             return await ctx.send(embed=discord.Embed(
-              title=f'Generators by {member}',
-              description='\n'.join(
-                f"• {d['name']}: {d['blurb']}"
-                for d in self.gencache
-                if d['uploader'] == member.id
+                title=f'Generators by {member}',
+                description='\n'.join(
+                    f"• {d['name']}: {d['blurb']}"
+                    for d in self.gencache
+                    if d['uploader'] == member.id
                 )
-              ))
-    
+            ))
+
     @mutils.command()
     async def delgen(self, ctx, name):
         if not await self.bot.is_owner(ctx.author):
@@ -971,28 +1003,30 @@ class CA(commands.Cog):
             raise
         self.gencache = None
         await ctx.thumbsup()
-    
+
     @mutils.command()
     async def updatepyc(self, ctx):
         if not await self.bot.is_owner(ctx.author):
             return
         for plaintext, name in await self.bot.pool.fetch('''SELECT plaintext, name FROM algos'''):
             await self.bot.pool.execute(
-              '''
+                '''
               UPDATE algos
               SET module=$1::bytea
               WHERE name=$2::text
               ''',
-              await self.loop.run_in_executor(None,
-                marshal.dumps,
                 await self.loop.run_in_executor(None,
-                  compile,
-                  plaintext, f"<generator '{name}'>", 'exec'
-                ),
-              ),
-              name
+                                                marshal.dumps,
+                                                await self.loop.run_in_executor(None,
+                                                                                compile,
+                                                                                plaintext, f"<generator '{name}'>",
+                                                                                'exec'
+                                                                                ),
+                                                ),
+                name
             )
         await ctx.thumbsup()
+
 
 def setup(bot):
     bot.add_cog(CA(bot))
