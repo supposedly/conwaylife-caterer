@@ -72,15 +72,38 @@ rRULESTRING = re.compile(
 )
 
 # matches CAViewer's supported rulespaces
-rCAVIEWER = ""
-lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex.txt", "r").readlines()
-for i in range(len(lst)):
-    regex = lst[i]
-    temp = regex.strip('\n')
-    if i == len(lst) - 1: rCAVIEWER += f"({temp})"
-    else: rCAVIEWER += f"({temp})|"
-
-rCAVIEWER = re.compile(rCAVIEWER)
+# rCAVIEWER = ""
+# lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex.txt", "r").readlines()
+# for i in range(len(lst)):
+#     regex = lst[i]
+#     temp = regex.strip('\n')
+#     if i == len(lst) - 1: rCAVIEWER += f"({temp})"
+#     else: rCAVIEWER += f"({temp})|"
+# rCAVIEWER = re.compile(rCAVIEWER)
+#
+# (([BSbs][0-8]*/?[BSbs][0-8]*|[BSbs]?[0-8]*/[BSbs]?[0-8]*))
+# |(([BSbs][0-4]*/?[BSbs][0-4]*?|[BSbs]?[0-4]*/[BSbs]?[0-4]*)V)
+# |(([BSbs][0-6]*/?[BSbs][0-6]*|[BSbs]?[0-6]*/[BSbs]?[0-6]*)H)|
+rCAVIEWER = re.compile(r'''
+(R[0-9]+,C[0|2],S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)
+|(R[0-9]+,C[0|2],S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,N[ABbCGHLMNX23*+#])
+|(R[0-9]+,C[0|2],S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,NW[A-Fa-f0-9]+[HL]?)
+|(R[0-9]+,C[0-9]+,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)
+|(R[0-9]+,C[0-9]+,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,N[ABbCGHLMNX23*+#])
+|(R[0-9]+,C[0-9]+,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,NW[A-Fa-f0-9]+[HL]?)
+|(R[0-9]+,C[0-9]+,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,NW[A-Fa-f0-9]+[HL]?,[A-Fa-f0-9]+)
+|(R[0-9]+,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,G(0[-])?[1-9][0-9]*([-][1-9][0-9]*)*,N@([A-Fa-f0-9]+)?[HL]?)
+|(R[0-9]+,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,G(0[-])?[1-9][0-9]*([-][1-9][0-9]*)*,N[ABbCGHLMNX23*+#])
+|(R[0-9]+,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,G(0[-])?[1-9][0-9]*([-][1-9][0-9]*)*,NW[A-Fa-f0-9]+[HL]?)
+|(R[0-9]+,I[0-9]+,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)
+|(R[0-9]+,I[0-9]+,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,N[ABbCGHLMNX23*+#])
+|(R[0-9]+,I[0-9]+,S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,NW[A-Fa-f0-9]+[HL]?)
+|(R[0-9]+,D[0|1],S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)
+|(R[0-9]+,D[0|1],S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,N[ABbCGHLMNX23*+#])
+|(R[0-9]+,D[0|1],S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?,NW[A-Fa-f0-9]+[HL]?)
+|(W[0-9]+)
+|(R[1-9][0-9]*,C[2-9][0-9]*,W[0-9]+)
+''')
 
 # matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take way too many steps)
 # does not match rules with >24 states
