@@ -14,6 +14,10 @@ from discord.ext import commands
 from cogs.resources import mutils
 
 
+os.environ["DISCORD_TOKEN"] = "NzU0MjYzMzUzMjExMjI0MDY0.X1yMfA.NCe-XBoH1EUJx0wD_W2T4JrIvHE"
+os.environ['DATABASE_URL'] = "IDK"
+
+
 def get_prefix(bot, message):
     try:
         return ['ca.'] + ([('!', ';')[bot.user.id == 376485072561504257]] if message.guild.id == 357922255553953794 else [])
@@ -113,10 +117,7 @@ async def on_ready():
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         ####
-        bot.pool = await asyncpg.create_pool(
-          ssl=context,
-          dsn=os.getenv('DATABASE_URL'), max_size=15, loop=bot.loop
-        )
+        bot.pool = None
         bot.assets_chn = bot.get_channel(424383992666783754)
         bot.owner = (await bot.application_info()).owner
         for cog in ('meta', 'wiki', 'ca', 'admin'):

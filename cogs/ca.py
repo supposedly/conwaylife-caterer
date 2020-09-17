@@ -71,6 +71,17 @@ rRULESTRING = re.compile(
     re.I
 )
 
+# matches CAViewer's supported rulespaces
+rCAVIEWER = ""
+lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex.txt", "r").readlines()
+for i in range(len(lst)):
+    regex = lst[i]
+    temp = regex.strip('\n')
+    if i == len(lst) - 1: rCAVIEWER += f"({temp})"
+    else: rCAVIEWER += f"({temp})|"
+
+rCAVIEWER = re.compile(rCAVIEWER)
+
 # matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take way too many steps)
 # does not match rules with >24 states
 rXRLE = re.compile(
@@ -449,6 +460,8 @@ class CA(commands.Cog):
         elif rLtL.match(rule):
             algo = 'Larger than Life'
             n_states = 2 + int(rLtL.match(rule)[1])
+        elif rCAVIEWER.fullmatch(rule):
+            algo = 'CAViewer'
         elif not rRULESTRING.fullmatch(rule) and algo != "CAViewer":
             algo = 'RuleLoader'
 
