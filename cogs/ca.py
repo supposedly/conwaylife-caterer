@@ -88,6 +88,12 @@ rCAVIEWER = re.compile(
   r'''(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
+  r'''|(([BSbs][0-8]*/?[BSbs][0-8]*|[BSbs]?[0-8]*/[BSbs]?[0-8]*)History)'''
+  r'''|(([BSbs][0-4]*/?[BSbs][0-4]*?|[BSbs]?[0-4]*/[BSbs]?[0-4]*)VHistory)'''
+  r'''|(([BSbs][0-6]*/?[BSbs][0-6]*|[BSbs]?[0-6]*/[BSbs]?[0-6]*)HHistory)'''
+  r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?History)'''
+  r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#]History)'''
+  r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?History)'''
   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
@@ -352,7 +358,8 @@ class CA(commands.Cog):
         if algo == "CAViewer":
             preface = f'{self.dir}/resources/bin/CAViewer'
 
-            p = subprocess.Popen(f"{preface} sim -g {gen} -s {step} -i {current}_in.rle -o {current}_out.rle".split(),
+            # gen + 1 is a workaround until CAViewer's sim command is fixed
+            p = subprocess.Popen(f"{preface} sim -g {gen + 1} -s {step} -i {current}_in.rle -o {current}_out.rle".split(),
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out = p.communicate()
 
@@ -505,9 +512,6 @@ class CA(commands.Cog):
         if rule.count('/') > 1 and '::' not in rule:
             algo = 'Generations'
             n_states = int(rule.split('/')[-1])
-            colors = mutils.ColorRange(n_states).to_dict()
-        if algo == 'CAViewer':
-            n_states = 5
             colors = mutils.ColorRange(n_states).to_dict()
 
         if rand:
