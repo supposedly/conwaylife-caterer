@@ -503,6 +503,7 @@ class CA(commands.Cog):
             except ValueError:  # not enough values to unpack
                 return await ctx.send('`Error: Rule not found`')
             bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
+            bg = (54, 57, 62) if bg == (0, 0, 0) else bg
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
                 ruleout.write(rulefile)
         if algo == 'Larger than Life':
