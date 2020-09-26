@@ -567,7 +567,7 @@ class CA(commands.Cog):
             return await resp['event'][0].message.delete()
         content = (
                 (ctx.message.author.mention if 'tag' in flags else '')
-                + (f' **{flags["id"]}** \n' if 'id' in flags else '')
+                + (f' **{discord.utils.escape_mentions(flags["id"])}** \n' if 'id' in flags else '')
                 + '{time}'
         )
         curlog.status = Status.COMPLETED
