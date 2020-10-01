@@ -94,6 +94,12 @@ rCAVIEWER = re.compile(
   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?History)'''
   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#]History)'''
   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?History)'''
+  r'''|(([BSbs][0-8]*/?[BSbs][0-8]*|[BSbs]?[0-8]*/[BSbs]?[0-8]*)Symbiosis)'''
+  r'''|(([BSbs][0-4]*/?[BSbs][0-4]*?|[BSbs]?[0-4]*/[BSbs]?[0-4]*)VSymbiosis)'''
+  r'''|(([BSbs][0-6]*/?[BSbs][0-6]*|[BSbs]?[0-6]*/[BSbs]?[0-6]*)HSymbiosis)'''
+  r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?Symbiosis)'''
+  r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#]Symbiosis)'''
+  r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?Symbiosis)'''
   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
@@ -101,12 +107,21 @@ rCAVIEWER = re.compile(
   r'''|(R[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,G(0[-])?[1-9][0-9]*([-][1-9][0-9]*)*,N@([A-Fa-f0-9]+)?[HL]?)'''
   r'''|(R[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,G(0[-])?[1-9][0-9]*([-][1-9][0-9]*)*,N[ABbCGHLMNX23*+#])'''
   r'''|(R[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,G(0[-])?[1-9][0-9]*([-][1-9][0-9]*)*,NW[A-Fa-f0-9]+[HL]?)'''
+  r'''|(R[0-9]+,G[0-9]+,L[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RB(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RS(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
+  r'''|(R[0-9]+,G[0-9]+,L[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RB(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RS(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
+  r'''|(R[0-9]+,G[0-9]+,L[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RB(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RS(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
+  r'''|(R[0-9]+,G[0-9]+,L[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RB(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RS(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?,[A-Fa-f0-9]+)'''
   r'''|(R[0-9]+,I[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
   r'''|(R[0-9]+,I[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
   r'''|(R[0-9]+,I[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
   r'''|(R[0-9]+,D[0|1],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
   r'''|(R[0-9]+,D[0|1],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
   r'''|(R[0-9]+,D[0|1],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
+  r'''|(B((0|1-[a]+|1[a]*|2-[acehij]+|2[acehij]*|3-[acehijn]+|3[acehijn]*|4-[acehijnopqrtuv]+|4[acehijnopqrtuv]*|5-[acehijn]+|5[acehijn]*|6-[acehij]+|6[acehij]*|7-[a]+|7[a]*|8))*/S((0|1-[a]+|1[a]*|2-[acehij]+|2[acehij]*|3-[acehijn]+|3[acehijn]*|4-[acehijnopqrtuv]+|4[acehijnopqrtuv]*|5-[acehijn]+|5[acehijn]*|6-[acehij]+|6[acehij]*|7-[a]+|7[a]*|8))*(/NK)?)'''
+  r'''|(B((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*/S((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*(/NM)?)'''
+  r'''|(B((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*/S((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*(/NFC)?)'''
+  r'''|(B((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*/S((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*(/NFE)?)'''
+  r'''|(B((0|1-[ac]+|1[ac]*|2-[acehijn]+|2[acehijn]*|3-[pacehijno]+|3[pacehijno]*|4-[acehijnopqrtuvw]+|4[acehijnopqrtuvw]*|5-[pacehijno]+|5[pacehijno]*|6-[acehijn]+|6[acehijn]*|7-[ac]+|7[ac]*|8))*/S((0|1-[ac]+|1[ac]*|2-[acehijn]+|2[acehijn]*|3-[pacehijno]+|3[pacehijno]*|4-[acehijnopqrtuvw]+|4[acehijnopqrtuvw]*|5-[pacehijno]+|5[pacehijno]*|6-[acehijn]+|6[acehijn]*|7-[ac]+|7[ac]*|8))*(/NC2)?)'''
   r'''|(W[0-9]+)'''
   r'''|(R[1-9][0-9]*,C[2-9][0-9]*,W[0-9]+)'''
 )
@@ -358,8 +373,7 @@ class CA(commands.Cog):
         if algo == "CAViewer":
             preface = f'{self.dir}/resources/bin/CAViewer'
 
-            # gen + 1 is a workaround until CAViewer's sim command is fixed
-            p = subprocess.Popen(f"{preface} sim -g {gen + 1} -s {step} -i {current}_in.rle -o {current}_out.rle".split(),
+            p = subprocess.Popen(f"{preface} sim -g {gen} -s {step} -i {current}_in.rle -o {current}_out.rle".split(),
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out = p.communicate()
 
@@ -509,7 +523,7 @@ class CA(commands.Cog):
             n_states = int(rule.split('C')[1].split(',')[0])
             if n_states > 2:
                 colors = mutils.ColorRange(n_states, (255, 255, 0), (255, 0, 0)).to_dict()
-        if rule.count('/') > 1 and '::' not in rule:
+        if rule.count('/') > 1 and '::' not in rule and algo != "CAViewer":
             algo = 'Generations'
             n_states = int(rule.split('/')[-1])
             colors = mutils.ColorRange(n_states).to_dict()
@@ -1031,6 +1045,28 @@ class CA(commands.Cog):
                     if d['uploader'] == member.id
                 )
             ))
+
+    @mutils.command('Generates a *.rule file with CAViewer')
+    async def generate_apgtable(self, ctx, rule, name):
+        """
+        # Generates an apgtable for apgsearch with CAViewer. #
+        <[ARGS]>
+        RULE: The rule for CAViewer to generate the ruletable for
+        NAME: The name of the outputted rulefile
+        """
+
+        preface = f'{self.dir}/resources/bin/CAViewer'
+
+        p = subprocess.Popen(f"{preface} apgtable -r {rule} -o {self.dir}/resources/{name}.rule".split(),
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out = p.communicate()
+
+        # An error occured
+        if out[1].decode("utf-8"): return await ctx.send(f'`{out[1].decode("utf-8")}`')
+
+        with open(f"{self.dir}/resources/{name}.rule") as f:
+            return await ctx.send(file=discord.File(f, name + '.rule'))
+
 
     @mutils.command()
     async def delgen(self, ctx, name):
