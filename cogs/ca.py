@@ -504,7 +504,7 @@ class CA(commands.Cog):
         elif rLtL.match(rule):
             algo = 'Larger than Life'
             n_states = 2 + int(rLtL.match(rule)[1])
-        elif rCAVIEWER.fullmatch(rule):
+        elif not rRULESTRING.fullmatch(rule) and rCAVIEWER.fullmatch(rule):
             algo = 'CAViewer'
         elif not rRULESTRING.fullmatch(rule) and algo != "CAViewer":
             algo = 'RuleLoader'
