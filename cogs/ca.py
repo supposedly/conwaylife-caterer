@@ -362,6 +362,7 @@ class CA(commands.Cog):
 
     async def run_bgolly(self, current, algo, gen, step, rule):
         # max_mem = int(os.popen('free -m').read().split()[7]) // 1.25 TODO: use
+        timeout = 10 * 60
         preface = f'{self.dir}/resources/bgolly'
         if '::' in rule:
             rule = f"{rule}_{current.split('/')[-1]}"
@@ -370,14 +371,14 @@ class CA(commands.Cog):
         if algo == "CAViewer":
             preface = f'{self.dir}/resources/bin/CAViewer'
 
-            p = subprocess.Popen(f"{preface} sim -g {gen} -s {step} -i {current}_in.rle -o {current}_out.rle".split(),
+            p = subprocess.Popen(f"timeout {timeout} {preface} sim -g {gen} -s {step} -i {current}_in.rle -o {current}_out.rle".split(),
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out = p.communicate()
 
             return out[1].decode("utf-8")
         else:
             return os.popen(
-                f'{preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
+                f'timeout {timeout} {preface} -a "{algo}" -{ruleflag} -m {gen} -i {step} -o {current}_out.rle {current}_in.rle').read()
 
     def moreinfo(self, ctx):
         return f"'{ctx.prefix}help sim' for more info"
@@ -568,6 +569,9 @@ class CA(commands.Cog):
                 ret_check=lambda obj: isinstance(obj, discord.Message),
                 event_check=lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
             )
+        except FileNotFoundError as e:
+            curlog.status = Status.FAILED
+            return await ctx.send(f'Timed out, probably... `{str(e)}`')
         except Exception as e:
             curlog.status = Status.FAILED
             raise e from None
