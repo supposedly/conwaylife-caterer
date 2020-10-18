@@ -362,7 +362,7 @@ class CA(commands.Cog):
 
     async def run_bgolly(self, current, algo, gen, step, rule):
         # max_mem = int(os.popen('free -m').read().split()[7]) // 1.25 TODO: use
-        timeout = 10 * 60
+        timeout = 5 * 60
         preface = f'{self.dir}/resources/bgolly'
         if '::' in rule:
             rule = f"{rule}_{current.split('/')[-1]}"
