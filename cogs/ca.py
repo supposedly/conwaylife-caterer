@@ -452,6 +452,8 @@ class CA(commands.Cog):
         track = 'track' in flags or 't' in flags
         grid = 'grid' in flags or 'g' in flags
 
+        person_to_tag = ""
+
         try:
             step, gen = (1, gen) if step is None else sorted((step, gen))
         except ValueError:
@@ -463,6 +465,7 @@ class CA(commands.Cog):
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rXRLE.search(msg.content)
                 if rmatch:
+                    person_to_tag = msg.message.author
                     pat = rmatch.group(2)
                     if rmatch.group(1):
                         rule = rmatch.group(1)
@@ -607,7 +610,7 @@ class CA(commands.Cog):
             )
             newline = '\n' * bool(gif.content)
             if 'tag' not in flags:
-                await gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
+                await gif.edit(content=f'By {person_to_tag.mention}{newline}{gif.content}')
         except discord.errors.HTTPException as e:
             curlog.status = Status.FAILED
             return await ctx.send(
