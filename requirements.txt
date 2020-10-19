@@ -5,5 +5,5 @@ pypng
 bs4
 lxml
 asyncpg
-discord.py>=1.3.4
+discord.py>=1.5.0
 yarl

@@ -465,7 +465,7 @@ class CA(commands.Cog):
             async for msg in ctx.channel.history(limit=50):
                 rmatch = rXRLE.search(msg.content)
                 if rmatch:
-                    person_to_tag = msg.message.author
+                    person_to_tag = msg.author
                     pat = rmatch.group(2)
                     if rmatch.group(1):
                         rule = rmatch.group(1)
