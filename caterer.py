@@ -123,7 +123,7 @@ async def on_ready():
         )
         bot.assets_chn = bot.get_channel(424383992666783754)
         bot.owner = (await bot.application_info()).owner
-        for cog in ('meta', 'wiki', 'ca', 'admin'):
+        for cog in ('meta', 'wiki', 'ca', 'admin', 'db'):
             try:
                 bot.load_extension(f'cogs.{cog}')
             except Exception:
