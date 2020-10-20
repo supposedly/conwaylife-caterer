@@ -11,6 +11,8 @@ args = {
   'upload': 'name >blurb',
   'register': 'name ?>blurb',
   'wiki': '?+query (-type:?format)',
+  '5s': 'velocity',
+  'sossp': 'period'
 }
 
 # ---------- #
@@ -24,6 +26,7 @@ aliases = {
   'sim rand': ['r', 'random'],
   'generators': ['gens', 'generator', 'gen'],
   'generate_apgtable': ['apgtable'],
+  'sssss': ['5s'],
   'todo': ['todos'],
   'todo add': ['new'],
   'todo del': ['rm', 'remove', 'delete'],

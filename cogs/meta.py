@@ -317,6 +317,20 @@ class Utils(commands.Cog):
            [Conwaylife.com forums](http://conwaylife.com/forums)
            [Support server/testnet](https://discord.gg/6A6hM72)
         
+        **Natively Supported Rulespaces**
+          + INT (R1 Moore, R1 Hex, R2 Cross, R2 Knight, R2 Far Corners, R3 Far Edges)
+          + INT Generations (R1 Moore)
+          + 1D Cellular Automaton (Multi-state, arbitary range)
+          + HROT
+          + HROT Generations
+          + HROT Extended Generations
+          + HROT Regenerating Generations
+          + Integer HROT
+          + Deficient HROT
+          + [R]DeadlyEnemies (Planed)
+          + [R]Symbiosis (HROT)
+          + [R]History (HROT)
+
          **By Wright**
         ```FORTRAN
         {f"'{ctx.prefix}help' for command info": ^57}```

@@ -1071,7 +1071,6 @@ class CA(commands.Cog):
         with open(f"{self.dir}/resources/{name}.rule") as f:
             return await ctx.send(file=discord.File(f, name + '.rule'))
 
-
     @mutils.command()
     async def delgen(self, ctx, name):
         if not await self.bot.is_owner(ctx.author):
