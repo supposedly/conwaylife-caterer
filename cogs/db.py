@@ -1,4 +1,6 @@
 import os
+import re
+import urllib.request
 import subprocess
 
 import discord
@@ -20,10 +22,16 @@ class DB(commands.Cog):
         VELOCITY: The velocity of the spaceship
         """
 
+        if re.match("\\d*c/\\d+", velocity): velocity += "o"
+        elif re.match("\\d*c", velocity): velocity += "/1o"
+
         preface = f'{self.dir}/resources/bin/CAViewer'
-        if velocity[-1] == "o": database = f'{self.dir}/resources/db/orthogonal.sss.txt'
-        elif velocity[-1] == "d": database = f'{self.dir}/resources/db/diagonal.sss.txt'
-        else: database = f'{self.dir}/resources/db/oblique.sss.txt'
+        if velocity[-1] == "o":
+            database = f'{self.dir}/resources/db/orthogonal.sss.txt'
+        elif velocity[-1] == "d":
+            database = f'{self.dir}/resources/db/diagonal.sss.txt'
+        else:
+            database = f'{self.dir}/resources/db/oblique.sss.txt'
 
         p = subprocess.Popen(
             f"{preface} 5s -v {velocity} -db {database}".split(),

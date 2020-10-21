@@ -560,7 +560,7 @@ class CA(commands.Cog):
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             curlog.status = Status.FAILED
-            return await ctx.send(f'`{bg_err}`')
+            return await ctx.send(f'Error: ```{bg_err}```')
         await announcement.add_reaction('\N{WASTEBASKET}')
         curlog.status = Status.SIMMING
 
@@ -574,7 +574,7 @@ class CA(commands.Cog):
             )
         except FileNotFoundError as e:
             curlog.status = Status.FAILED
-            return await ctx.send(f'Timed out, probably... `{str(e)}`')
+            return await ctx.send(f'Error: Timed out, probably... `{str(e)}`')
         except Exception as e:
             curlog.status = Status.FAILED
             raise e from None
