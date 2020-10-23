@@ -305,6 +305,21 @@ class Utils(commands.Cog):
          **Version numbers:**
            python {platform.python_version()}
            discord.py {DISCORD_PUBLIC_VERSION} (rewrite)
+
+        **Natively Supported Rulespaces**
+          + 1D Cellular Automaton (Multi-state, arbitary range)
+          + Alternating Rules (As many alternates as you like)
+          + INT (R1 Moore, R1 Hex, R2 Cross, R2 Knight, R2 Far Corners, R3 Far Edges)
+          + INT Generations (R1 Moore)
+          + HROT
+          + HROT Generations
+          + HROT Extended Generations
+          + HROT Regenerating Generations
+          + Integer HROT
+          + Deficient HROT
+          + [R]DeadlyEnemies (Planned)
+          + [R]Symbiosis (HROT)
+          + [R]History (HROT)
         
          **Thanks to:**
            + Scorbie (GitHub contributor)
@@ -316,20 +331,6 @@ class Utils(commands.Cog):
            [GitHub repo](https://github.com/eltrhn/conwaylife-caterer)
            [Conwaylife.com forums](http://conwaylife.com/forums)
            [Support server/testnet](https://discord.gg/6A6hM72)
-        
-        **Natively Supported Rulespaces**
-          + INT (R1 Moore, R1 Hex, R2 Cross, R2 Knight, R2 Far Corners, R3 Far Edges)
-          + INT Generations (R1 Moore)
-          + 1D Cellular Automaton (Multi-state, arbitary range)
-          + HROT
-          + HROT Generations
-          + HROT Extended Generations
-          + HROT Regenerating Generations
-          + Integer HROT
-          + Deficient HROT
-          + [R]DeadlyEnemies (Planed)
-          + [R]Symbiosis (HROT)
-          + [R]History (HROT)
 
          **By Wright**
         ```FORTRAN
