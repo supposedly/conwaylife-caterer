@@ -115,28 +115,32 @@ def parse_args(args: list, regex: [re.compile], defaults: list) -> ([str], [str]
     return new, args
 
 def parse_flags(flags, *, prefix='-', delim=':', quote="'"):
-    # verified with hypothesis:
-    # @given(st.from_regex(r"\A(-[a-z]+:(' ?[a-z]+ ?'|[a-z]+) )*-[a-z]+:(' ?[a-z]+ ?'|[a-z]+)\Z"))
     if isinstance(flags, str):
         flags = flags.split()
-    op = f"{delim}{quote}"
-    openers = (i for i, v in enumerate(flags) if op in v and v.startswith(prefix))
-    closers = (i for i, v in enumerate(flags) if v.endswith(quote) and op not in v)
+    op = f'{delim}{quote}'
     d = {}
-    while True:
-        try:
-            begin = next(openers)
-        except (IndexError, StopIteration):
-            break
-        begin_val = flags[begin]
-        end = begin if begin_val.endswith(quote) and begin_val.count(quote) > 1 else next(closers)
-        name = begin_val[len(prefix):begin_val.index(delim)]
-        val = ' '.join(flags[begin:1+end])[1+begin_val.index(delim):].strip(quote)
-        d[name] = val
-    for i in flags:
-        if i.startswith(prefix) and op not in i:
-            name, val = i[len(prefix):].split(delim, 1) if delim in i else (i, '')
-            d[name] = val
+    in_value = False
+    flag = None
+    running_value = []
+    for term in flags:
+        if not in_value and term.startswith(prefix):
+            if op in term:
+                flag, term = term[len(prefix):].split(op, 1)
+                in_value = True
+            elif delim in term:
+                flag, term = term[len(prefix):].split(delim, 1)
+                d[flag] = term if term else False
+            else:
+                d[term[len(prefix):]] = True
+        if in_value:
+            if term.endswith(quote):
+                running_value.append(term[:-len(quote)])
+                d[flag] = ' '.join(running_value)
+                flag = None
+                in_value = False
+                running_value.clear()
+            else:
+                running_value.append(term)
     return d
 
 # ----------------------------------------------------------------------------------- #
