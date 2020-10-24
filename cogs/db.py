@@ -80,6 +80,8 @@ class DB(commands.Cog):
         -sort: Sorts the output. Choose from [period, slope, population]
         """
 
+        await ctx.send("Searching GliderDB... Do not invoke command again until output is received.")
+
         flags = ctx.message.content.split(" ")
 
         period = -1
