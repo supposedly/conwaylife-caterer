@@ -8,6 +8,8 @@ from discord.ext import commands
 
 from cogs.resources import mutils
 
+WRIGHT = 180809886374952960
+
 
 class DB(commands.Cog):
     def __init__(self, bot):
@@ -109,22 +111,18 @@ class DB(commands.Cog):
                        f"Parameters: Period: {period}, dx: {dx}, dy: {dy}, min: {min_rule}, max: {max_rule}, "
                        f"sort: {sort}")
 
-        preface = f'{self.dir}/resources/bin/CAViewer'
-        database = f'{self.dir}/resources/db/new-gliders.db.txt'
-        if sort != "":
-            p = subprocess.Popen(
-                f"{preface} db -db {database} -p {period} -dx {dx} -dy {dy} --max_rule {max_rule} "
-                f"--min_rule {min_rule} --sort {sort}".split(),
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        else:
-            p = subprocess.Popen(
-                f"{preface} db -db {database} -p {period} -dx {dx} -dy {dy} --max_rule {max_rule} "
-                f"--min_rule {min_rule}".split(),
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out = p.communicate()
+        try:
+            resp = await mutils.await_event_or_coro(
+                self.bot,
+                event='reaction_add',
+                coro=self.invoke_db(period, dx, dy, min_rule, max_rule, sort)
+            )
+        except Exception as e:
+            return await ctx.send(f"Error: `{str(e)}`")
 
-        err = out[1].decode("utf-8")
-        if err: return await ctx.send(f"```{err}```")
+        out = resp["event"]
+
+        if out[1].decode("utf-8"): return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
 
         rle = ""
         output = out[0].decode("utf-8")
@@ -142,6 +140,30 @@ class DB(commands.Cog):
 
         await ctx.send(f"This query found {count} ships in total.")
 
+    async def invoke_db(self, period, dx, dy, min_rule, max_rule, sort):
+        preface = f'{self.dir}/resources/bin/CAViewer'
+        database = f'{self.dir}/resources/db/new-gliders.db.txt'
+        if sort != "":
+            p = subprocess.Popen(
+                f"{preface} db -db {database} -p {period} -dx {dx} -dy {dy} --max_rule {max_rule} "
+                f"--min_rule {min_rule} --sort {sort}".split(),
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        else:
+            p = subprocess.Popen(
+                f"{preface} db -db {database} -p {period} -dx {dx} -dy {dy} --max_rule {max_rule} "
+                f"--min_rule {min_rule}".split(),
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out = p.communicate()
+
+        return [out[0], out[1]]
+
+    def cancellation_check(self, ctx, orig_msg, rxn, usr):
+        if rxn.message.id != orig_msg.id:
+            return False
+        correct_emoji = rxn.emoji == '\N{WASTEBASKET}'
+        if usr != ctx.message.author:
+            return correct_emoji and (rxn.count > 3 or usr.id == WRIGHT)
+        return correct_emoji
 
 def setup(bot):
     bot.add_cog(DB(bot))
