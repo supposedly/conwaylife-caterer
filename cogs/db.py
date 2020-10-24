@@ -94,9 +94,7 @@ class DB(commands.Cog):
         except Exception as e:
             return await ctx.send(f"Error: `{str(e)}`")
 
-        await ctx.send("Searching GliderDB... Do not invoke command again until output is received. "
-                       f"Parameters: Period: {period}, dx: {dx}, dy: {dy}, min: {min_rule}, max: {max_rule}, "
-                       f"sort: {sort}")
+        await ctx.send("Searching GliderDB... Do not invoke command again until output is received.")
 
         try:
             resp = await mutils.await_event_or_coro(
@@ -104,6 +102,8 @@ class DB(commands.Cog):
                 event='reaction_add',
                 coro=self.invoke_db(period, dx, dy, min_rule, max_rule, sort)
             )
+        except MemoryError:
+            return await ctx.send(f"Error: Ran out of memory :frowning:")
         except Exception as e:
             return await ctx.send(f"Error: `{str(e)}`")
 
@@ -143,7 +143,7 @@ class DB(commands.Cog):
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out = await self.bot.loop.run_in_executor(None, p.communicate)
 
-        return [out[0], out[1]]
+        return out
 
     def cancellation_check(self, ctx, orig_msg, rxn, usr):
         if rxn.message.id != orig_msg.id:
