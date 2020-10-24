@@ -1,4 +1,5 @@
 import asyncio
+import concurrent
 import copy
 import io
 import json
@@ -560,7 +561,7 @@ class CA(commands.Cog):
         bg_err = await self.run_bgolly(current, algo, gen, step, rule)
         if bg_err:
             curlog.status = Status.FAILED
-            return await ctx.send(f'Error: ```{bg_err}```')
+            return await ctx.send(f'```{bg_err}```')
         await announcement.add_reaction('\N{WASTEBASKET}')
         curlog.status = Status.SIMMING
 
@@ -572,12 +573,18 @@ class CA(commands.Cog):
                 ret_check=lambda obj: isinstance(obj, discord.Message),
                 event_check=lambda rxn, usr: self.cancellation_check(ctx, announcement, rxn, usr)
             )
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             curlog.status = Status.FAILED
-            return await ctx.send(f'Error: Timed out, probably... `{str(e)}`')
+            return await ctx.send(f'Error: Timed out')
+        except concurrent.futures.process.BrokenProcessPool:
+            curlog.status = Status.FAILED
+            return await ctx.send("Error: You almost made me crash... :angry:")
+        except MemoryError:
+            curlog.status = Status.FAILED
+            return await ctx.send("Error: You made me run out of memory... :angry:")
         except Exception as e:
             curlog.status = Status.FAILED
-            raise e from None
+            return await ctx.send(f"Error: `{str(e)}`")
         try:
             start, end_parse, end_makeframes, oversized = resp['coro']
         except (KeyError, ValueError):
