@@ -80,29 +80,34 @@ class DB(commands.Cog):
         -sort: Sorts the output. Choose from [period, slope, population]
         """
 
-        await ctx.send("Searching GliderDB... Do not invoke command again until output is received.")
-
         flags = ctx.message.content.split(" ")
 
-        period = -1
-        if "-p" in flags: period = int(flags[flags.index("-p") + 1])
+        try:
+            period = -1
+            if "-p" in flags: period = int(flags[flags.index("-p") + 1])
 
-        dx = -1
-        if "-dx" in flags: dx = int(flags[flags.index("-dx") + 1])
+            dx = -1
+            if "-dx" in flags: dx = int(flags[flags.index("-dx") + 1])
 
-        dy = -1
-        if "-dy" in flags: dy = int(flags[flags.index("-dy") + 1])
+            dy = -1
+            if "-dy" in flags: dy = int(flags[flags.index("-dy") + 1])
 
-        min_rule = "non"
-        if "-min" in flags: min_rule = flags[flags.index("-min") + 1]
+            min_rule = "non"
+            if "-min" in flags: min_rule = flags[flags.index("-min") + 1]
 
-        max_rule = "non"
-        if "-max" in flags: max_rule = flags[flags.index("-max") + 1]
+            max_rule = "non"
+            if "-max" in flags: max_rule = flags[flags.index("-max") + 1]
 
-        sort = ""
-        if "-sort" in flags: max_rule = flags[flags.index("-sort") + 1]
-        if not re.match("(period|slope|population|\\s*)", sort):
-            return await ctx.send("Error: -sort must be one of [period, slope, population]")
+            sort = ""
+            if "-sort" in flags: max_rule = flags[flags.index("-sort") + 1]
+            if not re.match("(period|slope|population|\\s*)", sort):
+                return await ctx.send("Error: -sort must be one of [period, slope, population]")
+        except Exception as e:
+            return await ctx.send(f"Error: `{str(e)}`")
+
+        await ctx.send("Searching GliderDB... Do not invoke command again until output is received. "
+                       f"Parameters: Period: {period}, dx: {dx}, dy: {dy}, min: {min_rule}, max: {max_rule}, "
+                       f"sort: {sort}")
 
         preface = f'{self.dir}/resources/bin/CAViewer'
         database = f'{self.dir}/resources/db/new-gliders.db.txt'
