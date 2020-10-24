@@ -262,6 +262,8 @@ def give_args(callback):
             continue
         regexes[key] = re.compile(val) if isinstance(val, str) else [re.compile(i) for i in val]
         converters[key] = None
+    if defaults is None:
+        defaults = {}
     
     async def silhouette(self, ctx=None, *dpyargs, __invoking=False, **kwargs):
         # XXX TODO: fix hacky (figure out how to get ctx to always pass self.cog when invoking)
