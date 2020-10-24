@@ -69,8 +69,8 @@ class DB(commands.Cog):
         if err: return await ctx.send(f"```{err}```")
         else: return await ctx.send(f"```{out[0].decode('utf-8')}```")
 
-    @mutils.command('Query the GliderDB database')
-    async def gliderdb(self, ctx):
+    @mutils.command('Query the GliderDB database', args=True)
+    async def gliderdb(self, ctx, *, flags):
         """
         # Queries the Outer Totalistic GliderDB database #
         <[FLAGS]>
@@ -82,26 +82,13 @@ class DB(commands.Cog):
         -sort: Sorts the output. Choose from [period, slope, population]
         """
 
-        flags = ctx.message.content.split(" ")
-
         try:
-            period = -1
-            if "-p" in flags: period = int(flags[flags.index("-p") + 1])
-
-            dx = -1
-            if "-dx" in flags: dx = int(flags[flags.index("-dx") + 1])
-
-            dy = -1
-            if "-dy" in flags: dy = int(flags[flags.index("-dy") + 1])
-
-            min_rule = "non"
-            if "-min" in flags: min_rule = flags[flags.index("-min") + 1]
-
-            max_rule = "non"
-            if "-max" in flags: max_rule = flags[flags.index("-max") + 1]
-
-            sort = ""
-            if "-sort" in flags: max_rule = flags[flags.index("-sort") + 1]
+            period = int(flags.get('p', -1))
+            dx = int(flags.get('dx', -1))
+            dy = int(flags.get('dy', -1))
+            min_rule = flags.get('min', 'non')
+            max_rule = flags.get('max', 'non')
+            sort = flags.get('-sort', '')
             if not re.match("(period|slope|population|\\s*)", sort):
                 return await ctx.send("Error: -sort must be one of [period, slope, population]")
         except Exception as e:
@@ -122,7 +109,8 @@ class DB(commands.Cog):
 
         out = resp["event"]
 
-        if out[1].decode("utf-8"): return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
+        if out[1].decode("utf-8"):
+            return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
 
         rle = ""
         output = out[0].decode("utf-8")
@@ -138,7 +126,7 @@ class DB(commands.Cog):
             else:
                 rle += line + "\n"
 
-        await ctx.send(f"This query found {count} ships in total.")
+        await ctx.send(f"This query found {count - 1} ships in total.")
 
     async def invoke_db(self, period, dx, dy, min_rule, max_rule, sort):
         preface = f'{self.dir}/resources/bin/CAViewer'
@@ -153,7 +141,7 @@ class DB(commands.Cog):
                 f"{preface} db -db {database} -p {period} -dx {dx} -dy {dy} --max_rule {max_rule} "
                 f"--min_rule {min_rule}".split(),
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out = p.communicate()
+        out = await self.bot.loop.run_in_executor(None, p.communicate)
 
         return [out[0], out[1]]
 
