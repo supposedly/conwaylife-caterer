@@ -10,6 +10,10 @@ from cogs.resources import mutils
 
 WRIGHT = 180809886374952960
 
+rXRLE = re.compile(
+    r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
+    re.I)
+
 
 class DB(commands.Cog):
     def __init__(self, bot):
@@ -28,8 +32,10 @@ class DB(commands.Cog):
             return await ctx.send("```#C (1,0)c/137\n#C Population: 22/7\nx = 3, y = 14, rule = "
                                   "B3/S23\n3o$ob4obob5ob9o!```")
 
-        if re.match("^\\d*c/\\d+$", velocity): velocity += "o"
-        elif re.match("^\\d*c$", velocity): velocity += "/1o"
+        if re.match("^\\d*c/\\d+$", velocity):
+            velocity += "o"
+        elif re.match("^\\d*c$", velocity):
+            velocity += "/1o"
 
         preface = f'{self.dir}/resources/bin/CAViewer'
         if velocity[-1] == "o":
@@ -45,8 +51,10 @@ class DB(commands.Cog):
         out = p.communicate()
 
         err = out[1].decode("utf-8")
-        if err: return await ctx.send(f"```{err}```")
-        else: return await ctx.send(f"```{out[0].decode('utf-8')}```")
+        if err:
+            return await ctx.send(f"```{err}```")
+        else:
+            return await ctx.send(f"```{out[0].decode('utf-8')}```")
 
     @mutils.command('Query the SOSSP database')
     async def sossp(self, ctx, period):
@@ -66,8 +74,10 @@ class DB(commands.Cog):
         out = p.communicate()
 
         err = out[1].decode("utf-8")
-        if err: return await ctx.send(f"```{err}```")
-        else: return await ctx.send(f"```{out[0].decode('utf-8')}```")
+        if err:
+            return await ctx.send(f"```{err}```")
+        else:
+            return await ctx.send(f"```{out[0].decode('utf-8')}```")
 
     @mutils.command('Query the GliderDB database', args=True)
     async def gliderdb(self, ctx, *, flags):
@@ -127,6 +137,47 @@ class DB(commands.Cog):
                 rle += line + "\n"
 
         await ctx.send(f"This query found {count - 1} ships in total.")
+
+    @mutils.command('Generates an entry for the GliderDB database')
+    async def entry(self, ctx):
+        pat = ""
+        async for msg in ctx.channel.history(limit=50):
+            rmatch = rXRLE.search(msg.content)
+            if rmatch:
+                pat = rmatch.group()
+                break
+        if not pat:
+            return await ctx.send(f"`Error: No PAT found in last 50 messages.`")
+
+        current = f'{self.dir}/{ctx.message.id}'
+        with open(f'{current}_in.rle', 'w') as infile:
+            infile.write(pat)
+
+        try:
+            resp = await mutils.await_event_or_coro(
+                self.bot,
+                event='reaction_add',
+                coro=self.gen_entry(f'{current}_in.rle')
+            )
+        except MemoryError:
+            return await ctx.send(f"Error: Ran out of memory :frowning:")
+        except Exception as e:
+            return await ctx.send(f"Error: `{str(e)}`")
+
+        out = resp["event"]
+        if out[1].decode("utf-8"):
+            return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
+
+        return await ctx.send("`" + out[0].decode("utf-8") + "`")
+
+    async def gen_entry(self, file):
+        preface = f'{self.dir}/resources/bin/CAViewer'
+        p = subprocess.Popen(
+            f"{preface} entry -i {file}".split(),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out = await self.bot.loop.run_in_executor(None, p.communicate)
+
+        return out
 
     async def invoke_db(self, period, dx, dy, min_rule, max_rule, sort):
         preface = f'{self.dir}/resources/bin/CAViewer'
