@@ -145,13 +145,6 @@ class DB(commands.Cog):
 
         return out
 
-    def cancellation_check(self, ctx, orig_msg, rxn, usr):
-        if rxn.message.id != orig_msg.id:
-            return False
-        correct_emoji = rxn.emoji == '\N{WASTEBASKET}'
-        if usr != ctx.message.author:
-            return correct_emoji and (rxn.count > 3 or usr.id == WRIGHT)
-        return correct_emoji
 
 def setup(bot):
     bot.add_cog(DB(bot))
