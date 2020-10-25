@@ -199,16 +199,16 @@ class DB(commands.Cog):
     async def invoke_db(self, period, dx, dy, min_rule, max_rule, sort, database):
         preface = f'{self.dir}/resources/bin/CAViewer'
 
-        max_mem = int(os.popen('free --kilo').read().split()[7]) - 10000  # Leave 10 MB just in case
+        max_mem = int(os.popen('free --kilo').read().split()[7]) - 100000  # Leave 100 MB just in case
 
         if sort != "":
             p = subprocess.Popen(
-                f"ulimit -v {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
+                f"ulimit -Sv {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
                 f"--max_rule {max_rule} --min_rule {min_rule} --sort {sort}",
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         else:
             p = subprocess.Popen(
-                f"ulimit -v {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
+                f"ulimit -Sv {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
                 f"--max_rule {max_rule} --min_rule {min_rule}",
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         out = await self.bot.loop.run_in_executor(None, p.communicate)
