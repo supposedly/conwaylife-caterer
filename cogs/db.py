@@ -1,10 +1,7 @@
 import os
 import re
-import urllib.request
 import subprocess
-import resource
 
-import discord
 from discord.ext import commands
 
 from cogs.resources import mutils
@@ -141,8 +138,6 @@ class DB(commands.Cog):
         rle = ""
         output = out[0].decode("utf-8")
 
-        await ctx.send(f"{resource.getrusage(resource.RUSAGE_SELF).ru_maxrss} KB of memory used")
-
         count = 0
         for line in output.split("\n"):
             if re.match("^\\s*$", line):
@@ -204,18 +199,18 @@ class DB(commands.Cog):
     async def invoke_db(self, period, dx, dy, min_rule, max_rule, sort, database):
         preface = f'{self.dir}/resources/bin/CAViewer'
 
-        # 100 MB Limit
-        os.popen("ulimit -Sv 100000")
+        max_mem = int(os.popen('free').read().split()[7])
+
         if sort != "":
             p = subprocess.Popen(
-                f"{preface} db -db {database} -p {period} -dx {dx} -dy {dy} --max_rule {max_rule} "
-                f"--min_rule {min_rule} --sort {sort}".split(),
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                f"ulimit -Sv {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
+                f"--max_rule {max_rule} --min_rule {min_rule} --sort {sort}",
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         else:
             p = subprocess.Popen(
-                f"{preface} db -db {database} -p {period} -dx {dx} -dy {dy} --max_rule {max_rule} "
-                f"--min_rule {min_rule}".split(),
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                f"ulimit -Sv {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
+                f"--max_rule {max_rule} --min_rule {min_rule}",
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         out = await self.bot.loop.run_in_executor(None, p.communicate)
 
         return out
