@@ -203,12 +203,12 @@ class DB(commands.Cog):
 
         if sort != "":
             p = subprocess.Popen(
-                f"ulimit -m {max_mem} -v {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
+                f"ulimit -m {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
                 f"--max_rule {max_rule} --min_rule {min_rule} --sort {sort}",
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         else:
             p = subprocess.Popen(
-                f"ulimit -m {max_mem} -v {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
+                f"ulimit -m {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
                 f"--max_rule {max_rule} --min_rule {min_rule}",
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         out = await self.bot.loop.run_in_executor(None, p.communicate)
