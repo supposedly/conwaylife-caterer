@@ -82,7 +82,7 @@ class DB(commands.Cog):
     @mutils.command('Query the GliderDB database', args=True)
     async def gliderdb(self, ctx, *, flags):
         """
-        # Queries the Outer Totalistic GliderDB database #
+        # Queries the (Higher Range) Outer Totalistic (Generations) GliderDB database #
         <[FLAGS]>
         -p: The period of the spaceship
         -dx: The displacement in the x-direction
@@ -90,6 +90,9 @@ class DB(commands.Cog):
         -min: The minimum rule to look for
         -max: The maximum rule to look for
         -sort: Sorts the output. Choose from [period, slope, population]
+        -r: Range of the rule to query (for HROT DB)
+        -n: The neighbourhood of the database to query (for HROT DB)
+        -gen: Query the generations GliderDB instead
         """
 
         try:
@@ -98,19 +101,31 @@ class DB(commands.Cog):
             dy = int(flags.get('dy', -1))
             min_rule = flags.get('min', 'non')
             max_rule = flags.get('max', 'non')
-            sort = flags.get('-sort', '')
+            sort = flags.get('sort', '')
             if not re.match("(period|slope|population|\\s*)", sort):
-                return await ctx.send("Error: -sort must be one of [period, slope, population]")
+                return await ctx.send("Error: sort must be one of [period, slope, population]")
         except Exception as e:
             return await ctx.send(f"Error: `{str(e)}`")
 
         await ctx.send("Searching GliderDB... Do not invoke command again until output is received.")
 
+        if flags.get('gen', ''):  # Check for generations query
+            database = f'{self.dir}/resources/db/generations-gliders.db.txt'
+        elif flags.get('r', 1) != 1:  # For HROT
+            database = f'{self.dir}/resources/db/R{flags.get("r", 2)}-N{flags.get("n", "M")}-gliders.db.txt'
+        else:
+            database = f'{self.dir}/resources/db/new-gliders.db.txt'
+
+        try:
+            open(database, "r")
+        except FileNotFoundError:
+            return await ctx.send(f"Error: DB file could not be found!")
+
         try:
             resp = await mutils.await_event_or_coro(
                 self.bot,
                 event='reaction_add',
-                coro=self.invoke_db(period, dx, dy, min_rule, max_rule, sort)
+                coro=self.invoke_db(period, dx, dy, min_rule, max_rule, sort, database)
             )
         except MemoryError:
             return await ctx.send(f"Error: Ran out of memory :frowning:")
@@ -140,6 +155,10 @@ class DB(commands.Cog):
 
     @mutils.command('Generates an entry for the GliderDB database')
     async def entry(self, ctx):
+        """
+        # Generates an entry for the GliderDB database #
+        """
+
         pat = ""
         async for msg in ctx.channel.history(limit=50):
             rmatch = rXRLE.search(msg.content)
@@ -168,7 +187,7 @@ class DB(commands.Cog):
         if out[1].decode("utf-8"):
             return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
 
-        return await ctx.send("`" + out[0].decode("utf-8") + "`")
+        return await ctx.send("```" + out[0].decode("utf-8") + "```")
 
     async def gen_entry(self, file):
         preface = f'{self.dir}/resources/bin/CAViewer'
@@ -179,9 +198,8 @@ class DB(commands.Cog):
 
         return out
 
-    async def invoke_db(self, period, dx, dy, min_rule, max_rule, sort):
+    async def invoke_db(self, period, dx, dy, min_rule, max_rule, sort, database):
         preface = f'{self.dir}/resources/bin/CAViewer'
-        database = f'{self.dir}/resources/db/new-gliders.db.txt'
         if sort != "":
             p = subprocess.Popen(
                 f"{preface} db -db {database} -p {period} -dx {dx} -dy {dy} --max_rule {max_rule} "
