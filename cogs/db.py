@@ -203,6 +203,9 @@ class DB(commands.Cog):
 
     async def invoke_db(self, period, dx, dy, min_rule, max_rule, sort, database):
         preface = f'{self.dir}/resources/bin/CAViewer'
+
+        # 100 MB Limit
+        os.popen("ulimit -Sv 100000")
         if sort != "":
             p = subprocess.Popen(
                 f"{preface} db -db {database} -p {period} -dx {dx} -dy {dy} --max_rule {max_rule} "
