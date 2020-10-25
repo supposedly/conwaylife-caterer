@@ -2,6 +2,7 @@ import os
 import re
 import urllib.request
 import subprocess
+import resource
 
 import discord
 from discord.ext import commands
@@ -139,6 +140,8 @@ class DB(commands.Cog):
 
         rle = ""
         output = out[0].decode("utf-8")
+
+        await ctx.send(f"{resource.getrusage(resource.RUSAGE_SELF).ru_maxrss} KB of memory used")
 
         count = 0
         for line in output.split("\n"):
