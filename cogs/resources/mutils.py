@@ -91,18 +91,29 @@ import re
 
 
 @typecasted
-def parse_args(args: list, regex: [re.compile], defaults: list) -> ([str], [str]):
+def parse_args(args: list, regex: [re.compile], defaults: list, *, flag_parser = None) -> ([str], [str]):
     """
     Sorts `args` according to order in `regex`.
     
     If no matches for a given regex are found in `args`, the item
     in `defaults` with the same index is dropped in to replace it.
     
-    Extraneous arguments in `args` are left untouched, and the
-    second item in this func's return tuple will consist of these
-    extraneous args, if there are any.
+    If flag_parser is None:
+        Extraneous arguments in `args` are left untouched, and the
+        third item in this func's return tuple will consist of these
+        extraneous args, if there are any. The second item will always
+        be None.
+    If flag_parser is not None:
+        Flags will be parsed first in order for multi-word flag values
+        containing whitespace not to be misconstrued as arguments.
+        flag_parser() is expected to pop elements from the list it is passed.
+        flag_parser()'s return value will be provided as the second item in
+        this func's return tuple, and any extraneous arguments in `args`
+        will be returned as the third tuple item.
     """
     assert len(regex) == len(defaults)
+    # mutates args
+    flags = None if flag_parser is None else flag_parser(args)
     new, regex = [], [i if isinstance(i, (list, tuple)) else [i] for i in regex]
     for ridx, rgx in enumerate(regex): 
         for aidx, arg in enumerate(args):
@@ -112,17 +123,21 @@ def parse_args(args: list, regex: [re.compile], defaults: list) -> ([str], [str]
                 break
         else: 
              new.append(defaults[ridx])
-    return new, args
+    if flag_parser is None:
+        return new, None, args
+    return new, flags, args
 
-def parse_flags(flags, *, prefix='-', delim=':', quote="'"):
+def parse_flags(flags, *, prefix='-', delim=':', quote="'", mutate=True):
     if isinstance(flags, str):
         flags = flags.split()
+        mutate = False
     op = f'{delim}{quote}'
     d = {}
     in_value = False
     flag = None
     running_value = []
-    for term in flags:
+    to_pop = set()
+    for i, term in enumerate(flags):
         if not in_value and term.startswith(prefix):
             if op in term:
                 flag, term = term[len(prefix):].split(op, 1)
@@ -132,6 +147,7 @@ def parse_flags(flags, *, prefix='-', delim=':', quote="'"):
                 d[flag] = term if term else False
             else:
                 d[term[len(prefix):]] = True
+            to_pop.add(i)
         if in_value:
             if term.endswith(quote):
                 running_value.append(term[:-len(quote)])
@@ -141,7 +157,11 @@ def parse_flags(flags, *, prefix='-', delim=':', quote="'"):
                 running_value.clear()
             else:
                 running_value.append(term)
-    return d
+            to_pop.add(i)
+    if mutate:
+        flags[:] = (v for i, v in enumerate(flags) if i not in to_pop)
+        return d
+    return d, [v for i, v in enumerate(flags) if i not in to_pop]
 
 # ----------------------------------------------------------------------------------- #
 
@@ -271,14 +291,22 @@ def give_args(callback):
             self, ctx = self.cog, self
         if __invoking: # bypass converters
             return await callback(self, ctx, *dpyargs, **kwargs)
-        [*args_], flags = parse_args(
+        [*args_], flags, _ = parse_args(
             dpyargs,
             map(regexes.get, arguments),
-            map(defaults.get, arguments)
+            map(defaults.get, arguments),
+            flag_parser=parse_flags if 'flags' in arguments else None
             )
-        params = {**kwargs, **{k: converters[k](v) if callable(converters[k]) and v is not None else v for k, v in zip(arguments, args_) if k != 'flags'}}
+        params = {
+            **kwargs,
+            **{
+                k: converters[k](v) if callable(converters[k]) and v is not None else v
+                for k, v in zip(arguments, args_)
+                if k != 'flags'
+              }
+            }
         if 'flags' in arguments:
-            params['flags'] = parse_flags(flags)
+            params['flags'] = flags
         return await callback(self, ctx, **params)
     
     silhouette.wrapped_ = callback
