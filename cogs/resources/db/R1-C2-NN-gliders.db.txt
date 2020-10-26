@@ -1,0 +1,14 @@
+:Naszvadi, 2016:B02/S0V:B02/S0V:8:0:-4:5:3:bobo2$2ob2o!
+:Naszvadi, 2017:B0124/S13V:B0124/S13V:4:-2:0:4:5:bo$3o$2bo$o2bo$b2o!
+:Naszvadi, 2017:B024/S1V:B024/S1V:4:0:-2:3:2:obo$o!
+:Naszvadi, 2017:B02/SV:B024/SV:4:0:-2:4:3:bo$obo$2b2o!
+:Naszvadi, 2017:B02/S0V:B02/S0V:8:0:-4:5:3:bobo2$2ob2o!
+:Naszvadi, 2017:B02/S1V:B02/S1V:12:1:1:4:4:2o$obo2$2b2o!
+:Naszvadi, 2020:B04/S1V:B04/S1V:4:1:0:9:8:5bo$3b2obo$5bo$bo$o2bo$bo$2b3o$5b2obo!
+:Naszvadi, 2020:B02/S0V:B02/S0V:8:4:0:3:5:o$obo2$obo$o!
+:Naszvadi, 2020:B02/SV:B024/S0V:2:1:0:2:6:o$2o3$2o$o!
+:Aidan Pierce, 2020:B04/S1V:B04/S1V:6:1:0:21:20:8bo$7bobobo2bo$8bo2bo$5bob3o$4b7obobo$6b5ob2o2bobo$b2o2bob3o4bo5bo$6b2o5bob2o3bo$o4bo14bo$b2obo$b2obo$o4bo14bo$6b2o5bob2o3bo$b2o2bob3o4bo5bo$6b5ob2o2bobo$4b7obobo$5bob3o$8bo2bo$7bobobo2bo$8bo!
+:Aidan Pierce, 2020:B02/S01V:B02/S01V:4:1:0:32:16:7bobo$2bo3b2ob2o10bo$o2b4obo3bo7b2o$o2bob3ob5o6b2o$2bo4bo2b2o2b2o5b3o6b2o$6bo2b2obob3o6bo4b3o$5b4ob2o3bo2bo5b2obob2o$4b2o3b2o4b3o2bob9o$4b2o3b2o4b3o2bob9o$5b4ob2o3bo2bo5b2obob2o$6bo2b2obob3o6bo4b3o$2bo4bo2b2o2b2o5b3o6b2o$o2bob3ob5o6b2o$o2b4obo3bo7b2o$2bo3b2ob2o10bo$7bobo!
+:Naszvadi, 2020:B02/S1V:B02/S1V:4:1:0:4:10:bo2$2o$o2bo$3o$3o$o2bo$2o2$bo!
+:Naszvadi, 2020:B03/S0V:B03/S0V:8:-4:0:16:25:4bobobo3b4o$13bo$6bobobob2o$12b4o$13bo$12b4o$6bobobob2o$13bo$4bobobo3b4o8$ob3o2bo6b2o$3b2obo$o3b2o2b2o4b2o2$5bo3bo4b2o2$o3b2o2b2o4b2o$3b2obo$ob3o2bo6b2o!
+:Naszvadi, 2020:B03/S0V:B03/S0V:8:-4:0:12:9:obobo3b4o$9bo$2bobobob2o$8b4o$9bo$8b4o$2bobobob2o$9bo$obobo3b4o!

@@ -14,6 +14,8 @@ from discord.ext import commands
 from cogs.resources import mutils
 
 
+os.environ["DISCORD_TOKEN"] = "NzU0MjYzMzUzMjExMjI0MDY0.X1yMfA.7G5YqikUdqYrJWGsWVsdNlgRhdY"
+
 def get_prefix(bot, message):
     try:
         return ['ca.'] + (
@@ -117,10 +119,7 @@ async def on_ready():
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         ####
-        bot.pool = await asyncpg.create_pool(
-            ssl=context,
-            dsn=os.getenv('DATABASE_URL'), max_size=15, loop=bot.loop
-        )
+        bot.pool = None
         bot.assets_chn = bot.get_channel(424383992666783754)
         bot.owner = (await bot.application_info()).owner
         for cog in ('meta', 'wiki', 'ca', 'admin', 'db'):

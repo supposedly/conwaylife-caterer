@@ -88,31 +88,41 @@ class DB(commands.Cog):
         -min: The minimum rule to look for
         -max: The maximum rule to look for
         -sort: Sorts the output. Choose from [period, slope, population]
-        -r: Range of the rule to query (for HROT DB)
-        -n: The neighbourhood of the database to query (for HROT DB)
-        -gen: Query the generations GliderDB instead
+
+        -r: Range of the database to query
+        -n: The neighbourhood of the database to query
+        -c: Number of states of the database to query
+        -osc: Query the oscillator database instead
         """
 
         try:
             period = int(flags.get('p', -1))
             dx = int(flags.get('dx', -1))
             dy = int(flags.get('dy', -1))
-            min_rule = flags.get('min', 'non')
-            max_rule = flags.get('max', 'non')
+            min_rule = flags.get('min', 'none')
+            max_rule = flags.get('max', 'none')
             sort = flags.get('sort', '')
             if not re.match("(period|slope|population|\\s*)", sort):
                 return await ctx.send("Error: sort must be one of [period, slope, population]")
+
+            states = int(flags.get("c", 2) if flags.get("c", 2) != 0 else 2)
+            rule_range = int(flags.get("r", 1))
+            neighbourhood = flags.get("n", "M").upper()
         except Exception as e:
             return await ctx.send(f"Error: `{str(e)}`")
 
         await ctx.send("Searching GliderDB... Do not invoke command again until output is received.")
 
-        if flags.get('gen', ''):  # Check for generations query
-            database = f'{self.dir}/resources/db/generations-gliders.db.txt'
-        elif flags.get('r', 1) != 1:  # For HROT
-            database = f'{self.dir}/resources/db/R{flags.get("r", 2)}-N{flags.get("n", "M")}-gliders.db.txt'
+        word = 'ships'
+        if 'osc' in flags:
+            word = 'oscillators'
+            database = f'{self.dir}/resources/db/R{rule_range}-' \
+                       f'C{states}-' \
+                       f'N{neighbourhood}-oscillators.db.txt'
         else:
-            database = f'{self.dir}/resources/db/new-gliders.db.txt'
+            database = f'{self.dir}/resources/db/R{rule_range}-' \
+                       f'C{states}-' \
+                       f'N{neighbourhood}-gliders.db.txt'
 
         try:
             open(database, "r")
@@ -142,14 +152,14 @@ class DB(commands.Cog):
         for line in output.split("\n"):
             if re.match("^\\s*$", line):
                 count += 1
-                if count < 21 and rle != "": await ctx.send(f"```{rle}```")
-                if count == 21: await ctx.send("20 ships have been outputted. "
-                                               "No more ships will be outputted to avoid cluttering the channel.")
+                if count < 16 and rle != "": await ctx.send(f"```{rle}```")
+                if count == 16: await ctx.send(f"15 {word} have been outputted. "
+                                               f"No more {word} will be outputted to avoid cluttering the channel.")
                 rle = ""
             else:
                 rle += line + "\n"
 
-        await ctx.send(f"This query found {count - 1} ships in total.")
+        await ctx.send(f"This query found {count - 1} {word} in total.")
 
     @mutils.command('Generates an entry for the GliderDB database')
     async def entry(self, ctx):
