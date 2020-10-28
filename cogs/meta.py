@@ -317,7 +317,8 @@ class Utils(commands.Cog):
           + HROT Regenerating Generations
           + Integer HROT
           + Deficient HROT
-          + [R]DeadlyEnemies (Planned)
+          + Multi-state Cyclic HROT (BMS Notation)
+          + [R]DeadlyEnemies (HROT)
           + [R]Symbiosis (HROT)
           + [R]History (HROT)
         

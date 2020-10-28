@@ -194,7 +194,7 @@ def parse(lines, current):
     # it gets pickled by run_in_executor -- and
     # generators can't be pickled
     # [(0, 0), (-1, 1), (0, 0), (-1, -1), (1, -2), (0, -1), (2, -2), (1, -1), (0, -2), (-1, 1)]
-    positions = list(map(eval, patlist[::3]))
+    positions = list(map(lambda x: eval(x) if x != '-2147483648,-2147483648' else (0, 0), patlist[::3]))
     # [(5, 3), (7, 1), (5, 3), (7, 5), (3, 7), (5, 5), (1, 7), (3, 5), (5, 7), (7, 1)]
     bboxes = list(map(eval, patlist[1::3]))
 
@@ -617,7 +617,10 @@ class CA(commands.Cog):
             )
             newline = '\n' * bool(gif.content)
             if 'tag' not in flags:
-                await gif.edit(content=f'By {person_to_tag.mention}{newline}{gif.content}')
+                if person_to_tag != "":
+                    await gif.edit(content=f'By {person_to_tag.mention}{newline}{gif.content}')
+                else:
+                    await gif.edit(content=f'By {ctx.message.author.mention}{newline}{gif.content}')
         except discord.errors.HTTPException as e:
             curlog.status = Status.FAILED
             return await ctx.send(
