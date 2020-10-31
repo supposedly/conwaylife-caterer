@@ -148,17 +148,7 @@ class Wiki(commands.Cog):
         await ctx.channel.trigger_typing()
         em = discord.Embed()
         em.color = 0x000000
-        
-        if query[:1].lower() + query[1:] == 'methusynthesis':
-            em.set_footer(text=f'(redirected from "{query}")')
-            query = 'methusynthesae'
-        if query[:1].lower() + query[1:] == 'methusynthesae':
-            em.title = 'Methusynthesae'
-            em.description = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they *are* patterns, and **don't** form other patterns."
-            em.url = 'http:/conwaylife.com/forums/viewtopic.php?f=2&t=1600'
-            em.set_thumbnail(url='attachment://methusynthesis1.png')
-            return await ctx.send(file=discord.File('./cogs/resources/methusynthesis1.png', 'methusynthesis1.png'), embed=em)
-        
+
         if not query: # get pattern of the week instead
             async with self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=text&format=json&section=0&page=Main_Page') as resp:
                 data = await resp.text()
