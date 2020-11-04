@@ -78,8 +78,10 @@ lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex.txt", 
 for i in range(len(lst)):
     regex = lst[i]
     temp = regex.strip('\n')
-    if i == len(lst) - 1: rCAVIEWER += f"({temp})"
-    else: rCAVIEWER += f"({temp})|"
+    if i == len(lst) - 1:
+        rCAVIEWER += f"({temp})"
+    else:
+        rCAVIEWER += f"({temp})|"
 rCAVIEWER = re.compile(rCAVIEWER)
 
 # rCAVIEWER = re.compile(
@@ -136,6 +138,11 @@ rRUNS = re.compile(r'([0-9]*)([a-z][A-Z]|[ob.A-Z])')
 
 # unrolls $ signs
 rDOLLARS = re.compile(r'(\d+)\$')
+
+# matches *.rule files
+rRULE = re.compile(
+    r'@RULE ([A-Za-z0-9_]+)\n+[\s\S]*'
+)
 
 
 # ---- #
@@ -372,8 +379,9 @@ class CA(commands.Cog):
         if algo == "CAViewer":
             preface = f'{self.dir}/resources/bin/CAViewer'
 
-            p = subprocess.Popen(f"timeout {timeout} {preface} sim -g {gen} -s {step} -i {current}_in.rle -o {current}_out.rle".split(),
-                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p = subprocess.Popen(
+                f"timeout {timeout} {preface} sim -g {gen} -s {step} -i {current}_in.rle -o {current}_out.rle".split(),
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out = p.communicate()
 
             return out[1].decode("utf-8")
@@ -443,9 +451,9 @@ class CA(commands.Cog):
         else:
             execs = self.defaults
 
-        if '-h' in flags:
+        if 'h' in flags:
             algo = 'HashLife'
-        elif '-ca' in flags:
+        elif 'ca' in flags:
             algo = 'CAViewer'
         else:
             algo = 'QuickLife'
@@ -518,6 +526,7 @@ class CA(commands.Cog):
                 ''', rule)
             except ValueError:  # not enough values to unpack
                 return await ctx.send('`Error: Rule not found`')
+
             bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
                 ruleout.write(rulefile)
@@ -529,6 +538,16 @@ class CA(commands.Cog):
             algo = 'Generations'
             n_states = int(rule.split('/')[-1])
             colors = mutils.ColorRange(n_states).to_dict()
+        if algo == 'CAViewer':
+            rule_content = None
+            async for msg in ctx.channel.history(limit=50):
+                # Account for code tags
+                if rRULE.search(msg.content): rule_content = msg.content.replace("`", "")
+
+            if rule_content is not None and False:  # TODO Make this work
+                with open(f"{self.dir}/Temporary.rule", "w+") as f:
+                    f.write(rule_content)
+                rule = "Temporary"
 
         if rand:
             rule_ = rule.split('::')[0]
