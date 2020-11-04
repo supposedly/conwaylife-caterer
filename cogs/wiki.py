@@ -278,9 +278,9 @@ class Wiki(commands.Cog):
         [or]
         SEARCH: Triggered automatically if input is not a number, and displays DYKs containing given text. To search for a number, prefix it with a single period; .12, for instance, searches for DYKs containing "12".
         """
-        nums = nums or [random.randint(0, 91)]
+        nums = nums or [random.randint(0, wiki_dyk.count - 1)]
         em = discord.Embed(title='Did you know...\n', description='', color=0xffffff)
-        for item in ((n-1) % 92 if n else 91 for n in nums):
+        for item in ((n-1) % wiki_dyk.count if n else wiki_dyk.count - 1 for n in nums):
             em.description += f'**#{item + 1}:** {wiki_dyk.trivia[item]}\n'
         await ctx.send(embed=em)
     
