@@ -895,12 +895,14 @@ class CA(commands.Cog):
         BLURB: Short description of this rule. Min 10 characters, max 90.
         """
         if len(blurb) < 10:
-            return await ctx.send('Please provide a short justification/explanation of this rule!')
+            return await ctx.send('Please provide a short justification/explanation of this rule! Min 10 characters.')
         if len(blurb) > 90:
             return await ctx.send('Please shorten your description. Max 90 characters.')
+        await ctx.message.add_reaction('⌛')
         attachment = ctx.message.attachments[0]
         file = await attachment.to_file()
         approved, should_ping = await self.bot.approve_asset(file, blurb, ctx.author, 'rule')
+        await ctx.message.remove_reaction('⌛', ctx.guild.me)
         if approved:
             await self._insert_rule(ctx.author.id, blurb, await attachment.read(), *mutils.extract_rule_info(file.fp))
             self.rulecache = None
