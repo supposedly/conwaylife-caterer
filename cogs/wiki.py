@@ -155,7 +155,7 @@ class Wiki(commands.Cog):
         if query[:1].lower() + query[1:] == 'methusynthesae':
             em.title = 'Methusynthesae'
             em.description = "**Methusynthesae** are patterns/methuselah that basically/mildly are spaceship reactions, though it is a bit hard to explain the relation. It is way different from syntheses because they *are* patterns, and **don't** form other patterns."
-            em.url = 'http:/conwaylife.com/forums/viewtopic.php?f=2&t=1600'
+            em.url = 'http://conwaylife.com/forums/viewtopic.php?f=2&t=1600'
             em.set_thumbnail(url='attachment://methusynthesis1.png')
             return await ctx.send(file=discord.File('./cogs/resources/methusynthesis1.png', 'methusynthesis1.png'), embed=em)
         
