@@ -444,7 +444,6 @@ class CA(commands.Cog):
         given_rule, display_given_rule = rule, False
         rand = kwargs.get('rand')
         dims = kwargs.get('soup_dims')
-        colors = {}
         if 'execs' in flags:
             flags['execs'] = flags['execs'].split(',')
             execs = [self.opts.get(v, self.defaults[i]) for i, v in enumerate(flags['execs'])]
