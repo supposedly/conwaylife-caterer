@@ -320,16 +320,17 @@ class Utils(commands.Cog):
           + Multi-state Cyclic HROT (BMS Notation)
           + [R]DeadlyEnemies (HROT)
           + [R]Symbiosis (HROT)
-          + [R]History (HROT)
+          + [R]History (HROT, INT)
+          + [R]Energetic (INT)
         
          **Thanks to:**
-           + Scorbie (GitHub contributor)
+           + Scorbie, Bubblegum and Lemon41625 (GitHub contributor)
            + Conwaylife Lounge members (ideas & encouragement and stuff)
            + d-api and dpy servers (noob question support)
            + Hosted by Heroku
         
          **Links:**
-           [GitHub repo](https://github.com/eltrhn/conwaylife-caterer)
+           [GitHub repo](https://github.com/supposedly/conwaylife-caterer)
            [Conwaylife.com forums](http://conwaylife.com/forums)
            [Support server/testnet](https://discord.gg/6A6hM72)
 
