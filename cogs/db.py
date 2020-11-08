@@ -1,6 +1,8 @@
 import os
 import re
 import subprocess
+import urllib.request
+import urllib.error
 
 from discord.ext import commands
 
@@ -116,24 +118,30 @@ class DB(commands.Cog):
         word = 'ships'
         if 'osc' in flags:
             word = 'oscillators'
-            database = f'{self.dir}/resources/db/R{rule_range}-' \
+            database = f'https://raw.githubusercontent.com/jedlimlx/HROT-Glider-DB/master/R{rule_range}-' \
                        f'C{states}-' \
                        f'N{neighbourhood}-oscillators.db.txt'
         else:
-            database = f'{self.dir}/resources/db/R{rule_range}-' \
+            database = f'https://raw.githubusercontent.com/jedlimlx/HROT-Glider-DB/master/R{rule_range}-' \
                        f'C{states}-' \
                        f'N{neighbourhood}-gliders.db.txt'
 
         try:
-            open(database, "r")
-        except FileNotFoundError:
+            with open(f"{self.dir}/resources/db/database.txt", "w") as f:
+                fp = urllib.request.urlopen(database)
+                mybytes = fp.read()
+                fp.close()
+
+                f.write(mybytes.decode("utf-8"))
+        except urllib.error.HTTPError:
             return await ctx.send(f"Error: DB file could not be found!")
 
         try:
             resp = await mutils.await_event_or_coro(
                 self.bot,
                 event='reaction_add',
-                coro=self.invoke_db(period, dx, dy, min_rule, max_rule, sort, database)
+                coro=self.invoke_db(period, dx, dy, min_rule, max_rule, sort,
+                                    f"{self.dir}/resources/db/database.txt")
             )
         except MemoryError:
             return await ctx.send(f"Error: Ran out of memory :frowning:")
