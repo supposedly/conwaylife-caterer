@@ -5,6 +5,8 @@ __pycache__/
 .env/
 .vscode/
 
+cogs/resources/db/database.txt
+
 *.gif
 *.rle
 *.rule

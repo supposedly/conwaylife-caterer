@@ -318,10 +318,10 @@ class Utils(commands.Cog):
           + Integer HROT
           + Deficient HROT
           + Multi-state Cyclic HROT (BMS Notation)
-          + [R]DeadlyEnemies (HROT)
-          + [R]Symbiosis (HROT)
-          + [R]History (HROT, INT)
-          + [R]Energetic (INT)
+          + [R]DeadlyEnemies ((HR)OT)
+          + [R]Symbiosis ((HR)OT)
+          + [R]History ((HR)OT, INT)
+          + [R]Energetic (INT, OT)
         
          **Thanks to:**
            + Scorbie, Bubblegum and Lemon41625 (GitHub contributor)
