@@ -527,7 +527,6 @@ class CA(commands.Cog):
                 ''', rule)
             except TypeError:  # rule not found
                 # first, attempt to load rule form wiki
-                # TODO: finish
                 try:
                     async with self.session.get(f"https://conwaylife.com/w/api.php?action=parse&format=json&page=RULE:{rule}") as resp:
                         b = await resp.json()
