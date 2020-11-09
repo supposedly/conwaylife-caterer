@@ -558,9 +558,26 @@ class CA(commands.Cog):
                             break
 
                     if not success:
-                        raise ValueError("`Error: n_states not found`")
+                        raise ValueError("Error: n_states not found")
 
                     n_states = int(n_states)
+
+                    # obtain colors
+                    colors_segment = segmented["COLORS"].splitlines()
+                    colors = {}
+                    for line in colors_segment:
+                        while "  " in line:
+                            line = line.replace("  ", " ")
+                        sections = line.split(" ")
+                        if len(sections) < 4:  # not enough values
+                            continue
+                        sections = sections[0:4]
+                        try:
+                            for idx in range(4):
+                                sections[idx] = int(sections[idx])
+                        except ValueError:
+                            continue
+                        colors[str(sections[0])] = (sections[1], sections[2], sections[3])
                 except KeyError:  # rule not found
                     return await ctx.send('`Error: Rule not found`')
                 except ValueError:
