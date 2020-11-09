@@ -20,6 +20,7 @@ from enum import Enum
 from itertools import count, islice, starmap
 
 import aiofiles
+import aiohttp
 import discord
 import imageio
 import png
@@ -279,6 +280,7 @@ class CA(commands.Cog):
         self.opts = {'tpe': [self.tpe, 'ThreadPoolExecutor'], 'ppe': [self.ppe, 'ProcessPoolExecutor']}
         self.rulecache = None
         self.gencache = None
+        self.session = aiohttp.ClientSession()
 
     @staticmethod
     def state_from(val, n_states):
@@ -523,8 +525,46 @@ class CA(commands.Cog):
                 rulename, rulefile, n_states, colors = await self.bot.pool.fetchrow('''
                   SELECT name, file, n_states, colors FROM rules WHERE name = $1::text
                 ''', rule)
-            except ValueError:  # not enough values to unpack
-                return await ctx.send('`Error: Rule not found`')
+            except TypeError:  # rule not found
+                # first, attempt to load rule form wiki
+                # TODO: finish
+                try:
+                    async with self.session.get(f"https://conwaylife.com/w/api.php?action=parse&format=json&page=RULE:{rule}") as resp:
+                        b = await resp.json()
+                        contents = b["parse"]["text"]["*"]
+                        d = contents.replace("<p>", "\n").replace("</p>", "\n")
+                        tmp = "@RULE" + "@RULE".join(d.split("@RULE")[1:])
+                    rulefile = tmp
+                    segmented = mutils.segment(tmp)
+                    rulename = segmented["RULE"].split("\n")[0]
+
+                    extract_number = re.compile("^\d+")
+                    success = False
+
+                    # attempt to obtain n_states from ruletable
+                    for line in segmented["TABLE"].splitlines():
+                        if line.replace(" ", "").startswith("n_states:"):
+                            x = line.replace("n_states", "").replace(":", "").strip()  # lazy coding
+                            n_states = extract_number.match(x).group()
+                            success = True
+                            break
+
+                    # similar thing to ruletree
+                    for line in segmented["TREE"].splitlines():
+                        if line.replace(" ", "").startswith("num_states="):
+                            x = line.replace("num_states", "").replace("=", "").strip()  # lazy coding
+                            n_states = extract_number.match(x).group()
+                            success = True
+                            break
+
+                    if not success:
+                        raise ValueError("`Error: n_states not found`")
+
+                    n_states = int(n_states)
+                except KeyError:  # rule not found
+                    return await ctx.send('`Error: Rule not found`')
+                except ValueError:
+                    return await ctx.send("`Error: Invalid rule`")
 
             bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:

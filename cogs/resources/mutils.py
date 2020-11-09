@@ -471,3 +471,20 @@ def parse_nutshell_range(s):
 
 def flatten_range_list(li):
     return {t for s in li for t in ([int(s)] if s.isnumeric() else parse_nutshell_range(s))}
+
+# for parsing ruletables
+
+def segment(table): # segments a ruletable
+    lines = table.splitlines()
+    seg = {}
+    current_segment = "0"
+    for i in lines:
+        if i.startswith("@"):
+            current_segment = i.split(" ")[0][1:]
+            seg[current_segment] = " ".join(i.split(" ")[1:])
+        else:
+            if current_segment == "0":
+                ...
+            else:
+                seg[current_segment] += "\n" + i
+    return seg
