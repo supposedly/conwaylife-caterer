@@ -577,8 +577,8 @@ class CA(commands.Cog):
                         colors[str(sections[0])] = (sections[1], sections[2], sections[3])
                 except KeyError:  # rule not found
                     return await ctx.send('`Error: Rule not found`')
-                except ValueError:
-                    return await ctx.send("`Error: Invalid rule`")
+                except ValueError as e:
+                    return await ctx.send(str(e))
 
             bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
