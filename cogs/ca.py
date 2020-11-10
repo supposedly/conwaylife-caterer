@@ -528,11 +528,9 @@ class CA(commands.Cog):
             except TypeError:  # rule not found
                 # first, attempt to load rule form wiki
                 try:
-                    async with self.session.get(f"https://conwaylife.com/w/api.php?action=parse&format=json&page=RULE:{rule}") as resp:
+                    async with self.session.get(f"https://conwaylife.com/w/api.php?action=parse&format=json&prop=wikitext&page=RULE:{rule}") as resp:
                         b = await resp.json()
-                        contents = b["parse"]["text"]["*"]
-                        d = contents.replace("<p>", "\n").replace("</p>", "\n")
-                        tmp = "@RULE" + "@RULE".join(d.split("@RULE")[1:])
+                        rulefile = b["parse"]["text"]["*"]
                     rulefile = tmp
                     segmented = mutils.segment(tmp)
                     rulename = segmented["RULE"].split("\n")[0]
