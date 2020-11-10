@@ -532,21 +532,10 @@ class CA(commands.Cog):
                 ) as resp:
                     b = await resp.json()
                 try:
-                    async with self.session.get(f"https://conwaylife.com/w/api.php?action=parse&format=json&prop=wikitext&page=RULE:{rule}") as resp:
-                        b = await resp.json()
-                        rulefile = bytes(b["parse"]["wikitext"]["*"], 'utf-8')
-                    with await self.loop.run_in_executor(None, io.StringIO, rulefile) as rulefile_fp:
-                        rulename, n_states, colors = await self.loop.run_in_executor(None, mutils.extract_rule_info, rulefile_fp)
-
-                    if not n_states:
-                        raise ValueError("Error: n_states not found in rule fetched from wiki")
-                    if not rulename:
-                        raise ValueError("Error: rulename not found in rule fetched from wiki")
-                    if not rulename:
-                        raise ValueError("Error: rulename not found in rule fetched from wiki")
-                    
+                    rulefile = bytes(b["parse"]["wikitext"]["*"], 'utf-8')
                 except KeyError:  # rule not found
                     return await ctx.send('`Error: Rule not found`')
+                
                 rulename, n_states, colors = await self.loop.run_in_executor(
                   None,
                   mutils.extract_rule_info,
@@ -556,10 +545,8 @@ class CA(commands.Cog):
                     return await ctx.send('Error: n_states not found in rule fetched from wiki')
                 if not rulename:
                     return await ctx.send('Error: rulename not found in rule fetched from wiki')
-                if not rulename:
-                    return await ctx.send('Error: rulename not found in rule fetched from wiki')
-                    
-            bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
+                bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
+            
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
                 ruleout.write(rulefile)
         if algo == 'Larger than Life':
