@@ -324,7 +324,7 @@ class Utils(commands.Cog):
           + [R]Energetic (INT, OT)
         
          **Thanks to:**
-           + Scorbie, Bubblegum and Lemon41625 (GitHub contributor)
+           + Scorbie, Bubblegum, EvinZL, and Lemon41625 (code-contributors)
            + Conwaylife Lounge members (ideas & encouragement and stuff)
            + d-api and dpy servers (noob question support)
            + Hosted by Heroku
@@ -332,9 +332,6 @@ class Utils(commands.Cog):
          **Links:**
            [GitHub repo](https://github.com/supposedly/conwaylife-caterer)
            [Conwaylife.com forums](http://conwaylife.com/forums)
-           [Support server/testnet](https://discord.gg/6A6hM72)
-
-         **By Wright**
         ```FORTRAN
         {f"'{ctx.prefix}help' for command info": ^57}```
         '''
