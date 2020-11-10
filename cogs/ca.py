@@ -531,50 +531,16 @@ class CA(commands.Cog):
                     async with self.session.get(f"https://conwaylife.com/w/api.php?action=parse&format=json&prop=wikitext&page=RULE:{rule}") as resp:
                         b = await resp.json()
                         rulefile = b["parse"]["text"]["*"]
-                    rulefile = tmp
-                    segmented = mutils.segment(tmp)
-                    rulename = segmented["RULE"].split("\n")[0]
+                    with await self.loop.run_in_executor(None, io.StringIO, rulefile) as rulefile_fp:
+                        rulename, n_states, colors = await self.loop.run_in_executor(None, mutils.extract_rule_info, rulefile_fp)
 
-                    extract_number = re.compile("^\d+")
-                    success = False
-
-                    # attempt to obtain n_states from ruletable
-                    for line in segmented["TABLE"].splitlines():
-                        if line.replace(" ", "").startswith("n_states:"):
-                            x = line.replace("n_states", "").replace(":", "").strip()  # lazy coding
-                            n_states = extract_number.match(x).group()
-                            success = True
-                            break
-
-                    # similar thing to ruletree
-                    for line in segmented["TREE"].splitlines():
-                        if line.replace(" ", "").startswith("num_states="):
-                            x = line.replace("num_states", "").replace("=", "").strip()  # lazy coding
-                            n_states = extract_number.match(x).group()
-                            success = True
-                            break
-
-                    if not success:
-                        raise ValueError("Error: n_states not found")
-
-                    n_states = int(n_states)
-
-                    # obtain colors
-                    colors_segment = segmented["COLORS"].splitlines()
-                    colors = {}
-                    for line in colors_segment:
-                        while "  " in line:
-                            line = line.replace("  ", " ")
-                        sections = line.split(" ")
-                        if len(sections) < 4:  # not enough values
-                            continue
-                        sections = sections[0:4]
-                        try:
-                            for idx in range(4):
-                                sections[idx] = int(sections[idx])
-                        except ValueError:
-                            continue
-                        colors[str(sections[0])] = (sections[1], sections[2], sections[3])
+                    if not n_states:
+                        raise ValueError("Error: n_states not found in rule fetched from wiki")
+                    if not rulename:
+                        raise ValueError("Error: rulename not found in rule fetched from wiki")
+                    if not rulename:
+                        raise ValueError("Error: rulename not found in rule fetched from wiki")
+                    
                 except KeyError:  # rule not found
                     return await ctx.send('`Error: Rule not found`')
                 except ValueError as e:
