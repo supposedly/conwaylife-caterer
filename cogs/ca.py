@@ -530,7 +530,7 @@ class CA(commands.Cog):
                 try:
                     async with self.session.get(f"https://conwaylife.com/w/api.php?action=parse&format=json&prop=wikitext&page=RULE:{rule}") as resp:
                         b = await resp.json()
-                        rulefile = b["parse"]["text"]["*"]
+                        rulefile = b["parse"]["wikitext"]["*"]
                     with await self.loop.run_in_executor(None, io.StringIO, rulefile) as rulefile_fp:
                         rulename, n_states, colors = await self.loop.run_in_executor(None, mutils.extract_rule_info, rulefile_fp)
 
