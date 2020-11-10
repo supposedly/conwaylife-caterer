@@ -331,14 +331,20 @@ def extract_rule_info(fp, colors_as_json=True):
     """
     Extract rulename and colors from a ruletable file.
     """
-    if isinstance(fp, discord.File):
+    if isinstance(fp, bytes):
+        fp = fp.splitlines()
+    elif isinstance(fp, discord.File):
         fp.reset()
         fp = fp.fp
     else:
         fp.seek(0)
     in_colors = False
     name, n_states, colors  = None, 0, {}
-    lines = (i.decode().strip().split('#')[0] for i in fp) if colors_as_json else (i.strip().split('#', 1)[0] for i in fp)
+    lines = (
+      (i.decode().strip().split('#', 1)[0] for i in fp)
+      if colors_as_json else
+      (i.strip().split('#', 1)[0] for i in fp)
+    )
     for line in lines:
         if not line:
             continue
