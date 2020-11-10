@@ -164,6 +164,8 @@ class Wiki(commands.Cog):
                 data = await resp.text()
             
             pgtxt = json.loads(data)["parse"]["text"]["*"]
+            pgtxt = pgtxt.split("/Snippet")[0]; query = pgtxt.split(pgtxt.rindex(" "))[1] # this line is an extremely lazy workaround
+            """
             data = data.split('Download.')[0]
             try:
                 pgimg = (rPGIMG.search(data) or rPGIMGFALLBACK.search(data) or rTHUMB.search(data)).group()
@@ -175,7 +177,7 @@ class Wiki(commands.Cog):
             em.title="This week's featured article"
             em.url = f'{WIKI_URL}{info.group(1)}' # pgtitle=info.group(2)
             em.description = self.clean(pgtxt.split('a></div>')[1].split('<div align')[0], potw=True, WIKI_URL=WIKI_URL, API_SUF=API_SUF)
-            return await ctx.send(embed=em)
+            return await ctx.send(embed=em)"""
         
         async with self.session.get(f'{WIKI_URL}{API_SUF}?action=parse&prop=text&format=json&section=0&page={query}') as resp:
             prelim = await resp.text()
