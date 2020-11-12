@@ -1,7 +1,4 @@
 import asyncio
-import collections
-import subprocess
-
 import pkg_resources
 import platform
 import re
@@ -11,7 +8,6 @@ from itertools import islice
 
 import asyncpg
 import discord
-import select
 from discord.ext import commands
 
 from cogs.resources import mutils
@@ -27,20 +23,6 @@ class Utils(commands.Cog):
         self.invite = discord.utils.oauth_url(bot.user.id, permissions=discord.Permissions(permissions=388160))
       # https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
         self.bot.changelog = self.bot.changelog_last_updated = self.bot.todos = None
-        self.loop = bot.loop
-        self.logs = collections.deque(maxlen=100)
-        self.logtask = self.loop.create_task(self.get_heroku_logs())
-
-    async def get_heroku_logs(self):
-        with subprocess.Popen('./open-logs.sh', stdout=subprocess.PIPE, bufsize=1, universal_newlines=True) as proc:
-            while not self.is_closed():
-                readables, _, _ = select.select([proc.stdout], [], [], 2.0)
-                if not readables:  # []
-                    await asyncio.sleep(2)
-                    continue
-                line = proc.stdout.readline()
-                if 'app[api]' not in line.split(': ')[0]:
-                    self.logs.appendleft(f':{line.split(" ")[1].split("[")[0]} {line.split(": ", 1)[1]}')
 
     @staticmethod
     def fmt(dt_obj):
@@ -259,34 +241,8 @@ class Utils(commands.Cog):
     @mutils.command()
     async def logs(self, ctx, start: int = 0):
         """# Displays recent logs for debugging #"""
-
-        start = max(0, min(len(self.logs) - 20, start))
-        log = await ctx.send(
-            f'**{len(self.logs) - start - 20}..{len(self.logs) - start} of {len(self.logs)} log entries**\n'
-            '```css\n'
-            + ''.join(reversed(list(islice(self.logs, start, 20 + start))))
-            + '```'
-        )
-        while True:
-            available = '⬆⬇'[start >= len(self.logs) - 20: 1 + bool(start)]
-            [await log.add_reaction(i) for i in available]
-            try:
-                rxn, usr = await self.wait_for(
-                    'reaction_add',
-                    timeout=30.0,
-                    check=lambda rxn, usr: all(
-                        (rxn.emoji in available, usr is ctx.message.author, rxn.message.id == log.id))
-                )
-            except asyncio.TimeoutError:
-                return await log.clear_reactions()
-            await log.clear_reactions()
-            start = max(0, min(len(self.logs) - 20, start + 10 * ((rxn.emoji == '⬆') - (rxn.emoji == '⬇'))))
-            await log.edit(content=
-                           f'**{len(self.logs) - start - 20}..{len(self.logs) - start} of {len(bot.logs)} log entries**\n'
-                           '```css\n'
-                           + ''.join(reversed(list(islice(self.logs, start, 20 + start))))
-                           + '```'
-                           )
+        # see ./logging-minibot.py
+        pass
     
     @mutils.command('Display this message')
     async def help(self, ctx, *, name=None):
