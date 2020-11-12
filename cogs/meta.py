@@ -27,6 +27,7 @@ class Utils(commands.Cog):
         self.invite = discord.utils.oauth_url(bot.user.id, permissions=discord.Permissions(permissions=388160))
       # https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
         self.bot.changelog = self.bot.changelog_last_updated = self.bot.todos = None
+        self.loop = bot.loop
         self.logs = collections.deque(maxlen=100)
         self.logtask = self.loop.create_task(self.get_heroku_logs())
 
