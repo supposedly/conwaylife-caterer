@@ -363,10 +363,10 @@ class CA(commands.Cog):
         )
         end_parse = time.perf_counter()
         oversized = await self.loop.run_in_executor(
-            execs[1][0], makeframes,
-            current, gen, step, patlist, positions, bbox,
-            len(str(gen)), colors, bg, track, trackmaxes,
-            grid
+          execs[1][0], makeframes,
+          current, gen, step, patlist, positions, bbox,
+          len(str(gen)), colors, bg, track, trackmaxes,
+          grid
         )
         end_makeframes = time.perf_counter()
         return start, end_parse, end_makeframes, oversized
@@ -508,7 +508,7 @@ class CA(commands.Cog):
             algo = f'RuleLoader::{name}'
             with open(f'{self.dir}/{rulestring}_{ctx.message.id}.rule', 'w+') as ruleout:
                 rulestring = await self.write_rule_from_generator(name, rulestring, ruleout)
-                _, n_states, colors = mutils.extract_rule_info(ruleout, False, False)
+                _, n_states, colors = mutils.extract_rule_info(ruleout, False)
                 bg, colors = mutils.colorpatch(colors, n_states, fg, bg)
             rule = f'{rulestring}_{ctx.message.id}'
             given_rule = rulestring
@@ -540,15 +540,14 @@ class CA(commands.Cog):
                 rulename, n_states, colors = await self.loop.run_in_executor(
                   None,
                   mutils.extract_rule_info,
-                  rulefile,
-                  False  # don't return colors as a JSON string
+                  rulefile
                 )
                 if not n_states:
                     return await ctx.send('Error: n_states not found in rule fetched from wiki')
                 if not rulename:
                     return await ctx.send('Error: rulename not found in rule fetched from wiki')
-                bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
-            
+
+            bg, colors = mutils.colorpatch(json.loads(colors), n_states, fg, bg)
             with open(f'{self.dir}/{rulename}_{ctx.message.id}.rule', 'wb') as ruleout:
                 ruleout.write(rulefile)
         if algo == 'Larger than Life':
@@ -624,7 +623,8 @@ class CA(commands.Cog):
             return await ctx.send("Error: You made me run out of memory... :angry:")
         except Exception as e:
             curlog.status = Status.FAILED
-            return await ctx.send(f"Error: `{str(e)}`")
+            # return await ctx.send(f"Error: `{str(e)}`")
+            raise e
         try:
             start, end_parse, end_makeframes, oversized = resp['coro']
         except (KeyError, ValueError):
