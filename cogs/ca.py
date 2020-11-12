@@ -507,7 +507,7 @@ class CA(commands.Cog):
             algo = f'RuleLoader::{name}'
             with open(f'{self.dir}/{rulestring}_{ctx.message.id}.rule', 'w+') as ruleout:
                 rulestring = await self.write_rule_from_generator(name, rulestring, ruleout)
-                _, n_states, colors = mutils.extract_rule_info(ruleout, False)
+                _, n_states, colors = mutils.extract_rule_info(ruleout, False, False)
                 bg, colors = mutils.colorpatch(colors, n_states, fg, bg)
             rule = f'{rulestring}_{ctx.message.id}'
             given_rule = rulestring
@@ -539,7 +539,8 @@ class CA(commands.Cog):
                 rulename, n_states, colors = await self.loop.run_in_executor(
                   None,
                   mutils.extract_rule_info,
-                  rulefile
+                  rulefile,
+                  False  # don't return colors as a JSON string
                 )
                 if not n_states:
                     return await ctx.send('Error: n_states not found in rule fetched from wiki')
