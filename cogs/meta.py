@@ -23,7 +23,7 @@ class Utils(commands.Cog):
         self.invite = discord.utils.oauth_url(bot.user.id, permissions=discord.Permissions(permissions=388160))
       # https://discordapp.com/oauth2/authorize?client_id=359067638216785920&scope=bot&permissions=388160
         self.bot.changelog = self.bot.changelog_last_updated = self.bot.todos = None
-    
+
     @staticmethod
     def fmt(dt_obj):
         """Return a string abbreviating given date to the largest appropriate unit"""
@@ -130,8 +130,7 @@ class Utils(commands.Cog):
         else:
             self.bot.todos = None # TODO: Maybe just pop the newly-removed todo and recalculate nums
             await ctx.thumbsup()
-        
-    
+
     @todo.command(name='del')
     @commands.is_owner()
     async def guillermo_del_todo(self, ctx, cmd: str.lower, num: int):
