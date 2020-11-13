@@ -107,6 +107,9 @@ bot = Bot(
 def ignore_bots(ctx):
     return not ctx.author.bot
 
+@bot.check
+async def ignore_dms(ctx):
+    return ctx.guild is not None
 
 @bot.event
 async def on_ready():
