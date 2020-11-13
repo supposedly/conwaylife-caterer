@@ -27,6 +27,7 @@ import png
 import numpy as np
 from discord.ext import commands
 from PIL import ImageFile
+from inspect import cleandoc
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -67,10 +68,10 @@ rLtL = re.compile(r'R\d{1,3},C(\d{1,3}),M[01],S\d+\.\.\d+,B\d+\.\.\d+,N[NM]', re
 
 # matches either W\d{3} or B/S, and then if no B then either 2-state single-slash rulestring or generations rulestring
 rRULESTRING = re.compile(
-  r'MAP(?:[A-Z0-9+/]{86}|[A-Z0-9+/]{22}|[A-Z0-9+/]{6})'  # MAP rules
-  r'|W\d{3}'  # Wolfram 1D rules
-  r'|/?(?:(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?)))[HV]?',
-  re.I
+    r'MAP(?:[A-Z0-9+/]{86}|[A-Z0-9+/]{22}|[A-Z0-9+/]{6})'  # MAP rules
+    r'|W\d{3}'  # Wolfram 1D rules
+    r'|/?(?:(B)?(?:[0-8]-?[cekainyqjrtwz]*)+(?(1)/?(S)?(?:[0-8]-?[cekainyqjrtwz]*)*|/(S)?(?:[0-8]-?[cekainyqjrtwz]*)*(?(2)|(?(3)|/[\d]{1,3})?)))[HV]?',
+    re.I
 )
 
 # matches CAViewer's supported rulespaces
@@ -100,8 +101,8 @@ rCAVIEWER += ")?"
 rCAVIEWER = re.compile(rCAVIEWER)
 
 rXRLE = re.compile(
-  r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
-  re.I
+    r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
+    re.I
 )
 
 # splits RLE into its runs
@@ -113,7 +114,7 @@ rDOLLARS = re.compile(r'(\d+)\$')
 
 # matches *.rule files
 rRULE = re.compile(
-  r'@RULE ([A-Za-z0-9_]+)\n+[\s\S]*'
+    r'@RULE ([A-Za-z0-9_]+)\n+[\s\S]*'
 )
 
 
@@ -153,10 +154,10 @@ class Trackbox:
     def __call__(self, gen):
         t = gen / self.n_gens
         return (
-          t * self.dx - self.r_calc,
-          t * self.dx + self.r_calc,
-          t * self.dy - self.r_calc,
-          t * self.dy + self.r_calc
+            t * self.dx - self.r_calc,
+            t * self.dx + self.r_calc,
+            t * self.dy - self.r_calc,
+            t * self.dy + self.r_calc
         )
 
 
@@ -208,12 +209,12 @@ def makeframes(current, gen, step, patlist, positions, bbox, pad, colors, bg, tr
 
             # Draw the pattern onto the frame by replacing segments of background rows
             for i, flat_row in enumerate(
-              [
-                bg if char in '.b' else colors[char]
-                for run, char in rRUNS.findall(row)
-                for _ in range(int(run or 1))
-              ]
-              for row in pat
+                    [
+                        bg if char in '.b' else colors[char]
+                        for run, char in rRUNS.findall(row)
+                        for _ in range(int(run or 1))
+                    ]
+                    for row in pat
             ):
                 frame[dy + i][dx:dx + len(flat_row)] = flat_row
             anchor = min(height, width)
@@ -333,10 +334,10 @@ class CA(commands.Cog):
         )
         end_parse = time.perf_counter()
         oversized = await self.loop.run_in_executor(
-          execs[1][0], makeframes,
-          current, gen, step, patlist, positions, bbox,
-          len(str(gen)), colors, bg, track, trackmaxes,
-          grid
+            execs[1][0], makeframes,
+            current, gen, step, patlist, positions, bbox,
+            len(str(gen)), colors, bg, track, trackmaxes,
+            grid
         )
         end_makeframes = time.perf_counter()
         return start, end_parse, end_makeframes, oversized
@@ -368,15 +369,15 @@ class CA(commands.Cog):
     async def write_rule_from_generator(self, gen_name, rulestring, fp):
         module = types.ModuleType('<custom>')
         await self.loop.run_in_executor(None,
-          exec,
-          await self.loop.run_in_executor(None,
-            marshal.loads,
-            await self.bot.pool.fetchval(
-              '''SELECT module FROM algos WHERE name = $1::text''',
-              gen_name)
-            ),
-          module.__dict__
-          )
+                                        exec,
+                                        await self.loop.run_in_executor(None,
+                                                                        marshal.loads,
+                                                                        await self.bot.pool.fetchval(
+                                                                            '''SELECT module FROM algos WHERE name = $1::text''',
+                                                                            gen_name)
+                                                                        ),
+                                        module.__dict__
+                                        )
         try:
             rulestring = await self.loop.run_in_executor(None, module.rulestring, rulestring)
         except AttributeError:
@@ -499,18 +500,18 @@ class CA(commands.Cog):
             except TypeError:  # rule not found
                 # first, attempt to load rule from wiki
                 async with self.session.get(
-                  f'https://conwaylife.com/w/api.php?action=parse&format=json&prop=wikitext&page=RULE:{rule}'
+                        f'https://conwaylife.com/w/api.php?action=parse&format=json&prop=wikitext&page=RULE:{rule}'
                 ) as resp:
                     b = await resp.json()
                 try:
                     rulefile = bytes(b["parse"]["wikitext"]["*"], 'utf-8')
                 except KeyError:  # rule not found
                     return await ctx.send('`Error: Rule not found`')
-                
+
                 rulename, n_states, colors = await self.loop.run_in_executor(
-                  None,
-                  mutils.extract_rule_info,
-                  rulefile
+                    None,
+                    mutils.extract_rule_info,
+                    rulefile
                 )
                 if not n_states:
                     return await ctx.send('Error: n_states not found in rule fetched from wiki')
@@ -611,12 +612,12 @@ class CA(commands.Cog):
             gif = await ctx.send(
                 content.format(
                     time=str(
-                      {
-                        'Times': '',
-                        '**Parsing frames**': f'{round(end_parse - start, 2)}s ({execs[0][1]})',
-                        '**Saving frames to GIF**': f'{round(end_makeframes - end_parse, 2)}s ({execs[1][1]})',
-                        '(**Total**': f'{round(end_makeframes - start, 2)}s)'
-                      }
+                        {
+                            'Times': '',
+                            '**Parsing frames**': f'{round(end_parse - start, 2)}s ({execs[0][1]})',
+                            '**Saving frames to GIF**': f'{round(end_makeframes - end_parse, 2)}s ({execs[1][1]})',
+                            '(**Total**': f'{round(end_makeframes - start, 2)}s)'
+                        }
                     ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
                     if flags.get('time') == 'all'
                     else f'{round(end_makeframes - start, 2)}s'
@@ -681,12 +682,12 @@ class CA(commands.Cog):
                     gif = await ctx.send(
                         content.format(
                             time=str(
-                              {
-                                'Times': '',
-                                '**Parsing frames**': f'{round(end_parse - start, 2)}s ({execs[0][1]})',
-                                '**Saving frames to GIF**': f'{round(end_makeframes - end_parse, 2)}s ({execs[1][1]})',
-                                '(**Total**': f'{round(end_makeframes - start, 2)}s)'
-                              }
+                                {
+                                    'Times': '',
+                                    '**Parsing frames**': f'{round(end_parse - start, 2)}s ({execs[0][1]})',
+                                    '**Saving frames to GIF**': f'{round(end_makeframes - end_parse, 2)}s ({execs[1][1]})',
+                                    '(**Total**': f'{round(end_makeframes - start, 2)}s)'
+                                }
                             ).replace("'", '').replace(',', '\n').replace('{', '\n').replace('}', '\n')
                             if flags.get('time') == 'all'
                             else f'{round(end_makeframes - start, 2)}s'
@@ -773,15 +774,15 @@ class CA(commands.Cog):
         elif 'exclude' in flags:
             exclude = mutils.flatten_range_list(flags.pop('exclude').split(','))
         await ctx.invoke(
-          self.sim,
-          gen=int(gen),
-          step=int(step),
-          rule=rule or 'B3/S23',
-          flags=flags,
-          rand=True,
-          soup_dims=(x, y),
-          soup_include_states=include,
-          soup_exclude_states=exclude
+            self.sim,
+            gen=int(gen),
+            step=int(step),
+            rule=rule or 'B3/S23',
+            flags=flags,
+            rand=True,
+            soup_dims=(x, y),
+            soup_include_states=include,
+            soup_exclude_states=exclude
         )
 
     @sim.command('Gives a log of recent sim invocations')
@@ -790,10 +791,10 @@ class CA(commands.Cog):
         comp = ('⌛', '💬', '🗑', '✅', '❌')
         for log in self.simlog:
             entries.append(
-              f'• {log.invoker}'
-              f' in `{log.rule}`'
-              f" at `{log.time.strftime('%H:%M')}`:"
-              f' {comp[log.status.value]} {log.status.name.title()}'
+                f'• {log.invoker}'
+                f' in `{log.rule}`'
+                f" at `{log.time.strftime('%H:%M')}`:"
+                f' {comp[log.status.value]} {log.status.name.title()}'
             )
         await ctx.send(embed=discord.Embed(title='Last 5 sims', description='\n'.join(entries)))
 
@@ -808,20 +809,20 @@ class CA(commands.Cog):
         """
         if self.rulecache is None:
             self.rulecache = [
-              {'name': i['name'], 'blurb': i['blurb'], 'file': i['file'], 'uploader': i['uploader']}
-              for i in
-              await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, file, blurb FROM rules''')
+                {'name': i['name'], 'blurb': i['blurb'], 'file': i['file'], 'uploader': i['uploader']}
+                for i in
+                await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, file, blurb FROM rules''')
             ]
         if rule is None:
             offset = 0
             say, msg = ctx.send, None
             while True:
                 msg = await say(embed=discord.Embed(
-                  title='Rules',
-                  description='\n'.join(
-                    f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
-                    for i in islice(self.rulecache, offset, offset + 10)
-                  )
+                    title='Rules',
+                    description='\n'.join(
+                        f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
+                        for i in islice(self.rulecache, offset, offset + 10)
+                    )
                 )) or msg
                 say = msg.edit
                 left, right = await mutils.get_page(ctx, msg)
@@ -836,18 +837,18 @@ class CA(commands.Cog):
             with io.BytesIO(rule['file']) as b:
                 b.seek(0)
                 return await ctx.send(embed=discord.Embed(
-                  title=rule['name'],
-                  description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
+                    title=rule['name'],
+                    description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
                 ),
-                  file=discord.File(b, rule['name'] + '.rule')
+                    file=discord.File(b, rule['name'] + '.rule')
                 )
         else:
             return await ctx.send(embed=discord.Embed(
                 title=f'Rules by {member}',
                 description='\n'.join(
-                  f"• {d['name']}: {d['blurb']}"
-                  for d in self.rulecache
-                  if d['uploader'] == member.id
+                    f"• {d['name']}: {d['blurb']}"
+                    for d in self.rulecache
+                    if d['uploader'] == member.id
                 )
             ))
 
@@ -910,13 +911,13 @@ class CA(commands.Cog):
                 await self._insert_rule(ctx.author.id, blurb, content, *mutils.extract_rule_info(file.fp))
             elif kind == 'generator':
                 await self._insert_generator(
-                  name, ctx.author.id, content,
-                  await self.loop.run_in_executor(
-                    None,
-                    marshal.dumps,
-                    await self.loop.run_in_executor(None, compile, content, '<custom>', 'exec', 0, False, 2)
-                  ),
-                  blurb
+                    name, ctx.author.id, content,
+                    await self.loop.run_in_executor(
+                        None,
+                        marshal.dumps,
+                        await self.loop.run_in_executor(None, compile, content, '<custom>', 'exec', 0, False, 2)
+                    ),
+                    blurb
                 )
             await ctx.thumbsup(author, f'{kind.upper()} `{name}` was accepted!', channel=self.BOTS_N_MUTE)
         await ctx.thumbsdown(author, f'{kind.upper()} `{name}` was rejected or not parsable.', override=False,
@@ -931,14 +932,14 @@ class CA(commands.Cog):
             pre, blurb = msg.content.split('\n', 1)[0].split(':', 1)
             kind, name = pre.split(' ')
             coros.append(self._reapprove(
-              ctx,
-              msg.created_at,
-              # technically still works (only a minor delay btwn user invoking !upload/!register and btwn caterer posting this msg)
-              await msg.attachments[0].to_file(),
-              name,
-              blurb,
-              msg.mentions[-1],
-              kind
+                ctx,
+                msg.created_at,
+                # technically still works (only a minor delay btwn user invoking !upload/!register and btwn caterer posting this msg)
+                await msg.attachments[0].to_file(),
+                name,
+                blurb,
+                msg.mentions[-1],
+                kind
             ))
             await msg.delete()
         await ctx.thumbsup()
@@ -952,11 +953,11 @@ class CA(commands.Cog):
         try:
             if name.startswith('user:'):
                 status = await self.bot.pool.execute(
-                  f'''DELETE FROM rules WHERE uploader = $1::bigint {and_condition}''',
-                  *(
-                    (await commands.MemberConverter().convert(ctx, name[1 + name.index(':'):])).id,
-                    ctx.author.id
-                   )[:1 + bool(and_condition)]
+                    f'''DELETE FROM rules WHERE uploader = $1::bigint {and_condition}''',
+                    *(
+                         (await commands.MemberConverter().convert(ctx, name[1 + name.index(':'):])).id,
+                         ctx.author.id
+                     )[:1 + bool(and_condition)]
                 )
             else:
                 status = await self.bot.pool.execute(
@@ -996,13 +997,13 @@ class CA(commands.Cog):
         if approved:
             code = await attachment.read()
             await self._insert_generator(
-              name, ctx.author.id, code,
-              await self.loop.run_in_executor(
-                None,
-                marshal.dumps,
-                await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
-              ),
-              blurb
+                name, ctx.author.id, code,
+                await self.loop.run_in_executor(
+                    None,
+                    marshal.dumps,
+                    await self.loop.run_in_executor(None, compile, code, '<custom>', 'exec', 0, False, 2)
+                ),
+                blurb
             )
             self.gencache = None
             await ctx.thumbsup(ctx.author, f'Generator {name} was approved!', should_ping)
@@ -1024,9 +1025,9 @@ class CA(commands.Cog):
             flags = {}
         if self.gencache is None:
             self.gencache = [
-              {'name': i['name'], 'uploader': i['uploader'], 'blurb': i['blurb'], 'plaintext': i['plaintext']}
-              for i in
-              await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, plaintext, blurb FROM algos''')
+                {'name': i['name'], 'uploader': i['uploader'], 'blurb': i['blurb'], 'plaintext': i['plaintext']}
+                for i in
+                await self.bot.pool.fetch(f'''SELECT DISTINCT ON (name) name, uploader, plaintext, blurb FROM algos''')
             ]
         if text is None:
             offset = 0
@@ -1035,8 +1036,8 @@ class CA(commands.Cog):
                 msg = await say(embed=discord.Embed(
                     title='Rules',
                     description='\n'.join(
-                      f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
-                      for i in islice(self.gencache, offset, offset + 10)
+                        f"• {i['name']} ({get_member_bismuth(ctx.guild, i['uploader'])}): {i['blurb']}"
+                        for i in islice(self.gencache, offset, offset + 10)
                     )
                 )) or msg
                 say = msg.edit
@@ -1057,18 +1058,18 @@ class CA(commands.Cog):
             with io.StringIO(gen['plaintext']) as s:
                 s.seek(0)
                 return await ctx.send(embed=discord.Embed(
-                  title=gen['name'],
-                  description=f"Uploader: {self.bot.get_user(gen['uploader'])}\nBlurb: {gen['blurb']}"
+                    title=gen['name'],
+                    description=f"Uploader: {self.bot.get_user(gen['uploader'])}\nBlurb: {gen['blurb']}"
                 ),
-                  file=discord.File(s, gen['name'] + '.py')
+                    file=discord.File(s, gen['name'] + '.py')
                 )
         else:
             return await ctx.send(embed=discord.Embed(
                 title=f'Generators by {member}',
                 description='\n'.join(
-                  f"• {d['name']}: {d['blurb']}"
-                  for d in self.gencache
-                  if d['uploader'] == member.id
+                    f"• {d['name']}: {d['blurb']}"
+                    for d in self.gencache
+                    if d['uploader'] == member.id
                 )
             ))
 
@@ -1084,8 +1085,8 @@ class CA(commands.Cog):
         preface = f'{self.dir}/resources/bin/CAViewer'
 
         p = subprocess.Popen(
-          f"{preface} apgtable -r {rule} -o {self.dir}/resources/{name}.rule".split(),
-          stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            f"{preface} apgtable -r {rule} -o {self.dir}/resources/{name}.rule".split(),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         out = p.communicate()
 
@@ -1111,7 +1112,18 @@ class CA(commands.Cog):
 
         # An error occured
         if out[1].decode("utf-8"): return await ctx.send(f'`{out[1].decode("utf-8")}`')
-        else: return await ctx.send(f'```{out[0].decode("utf-8")}```')
+
+        desc = out[0].decode("utf-8")
+
+        # Bold the key text
+        for text in re.findall("[\S ]+:", desc):
+            desc = desc.replace(text, f"**{text}**")
+
+        # Place the weights / neighbourhood in a code block
+        text = ' \n'.join(re.findall("(?:(?:[0-9]+ )+[0-9]+\n?)+", desc))
+        desc = desc.replace(text, f"```{text}```")
+
+        return await ctx.send(embed=discord.Embed(description=desc))
 
     @mutils.command()
     async def delgen(self, ctx, name):
@@ -1131,21 +1143,21 @@ class CA(commands.Cog):
             return
         for plaintext, name in await self.bot.pool.fetch('''SELECT plaintext, name FROM algos'''):
             await self.bot.pool.execute(
-              '''
+                '''
               UPDATE algos
               SET module=$1::bytea
               WHERE name=$2::text
               ''',
-              await self.loop.run_in_executor(
-                None,
-                marshal.dumps,
-                await self.loop.run_in_executor(None,
-                  compile,
-                  plaintext, f"<generator '{name}'>",
-                  'exec'
-                  ),
+                await self.loop.run_in_executor(
+                    None,
+                    marshal.dumps,
+                    await self.loop.run_in_executor(None,
+                                                    compile,
+                                                    plaintext, f"<generator '{name}'>",
+                                                    'exec'
+                                                    ),
                 ),
-              name
+                name
             )
         await ctx.thumbsup()
 
