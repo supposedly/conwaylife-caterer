@@ -74,7 +74,8 @@ rRULESTRING = re.compile(
 )
 
 # matches CAViewer's supported rulespaces
-rCAVIEWER = ""
+rCAVIEWER = "("
+
 lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex.txt", "r").readlines()
 for i in range(len(lst)):
     regex = lst[i]
@@ -83,52 +84,21 @@ for i in range(len(lst)):
         rCAVIEWER += f"({temp})"
     else:
         rCAVIEWER += f"({temp})|"
+
+# for the bounded grids
+rCAVIEWER += ")(:"
+lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex2.txt", "r").readlines()
+for i in range(len(lst)):
+    regex = lst[i]
+    temp = regex.strip('\n')
+    if i == len(lst) - 1:
+        rCAVIEWER += f"({temp})"
+    else:
+        rCAVIEWER += f"({temp})|"
+rCAVIEWER += ")?"
+
 rCAVIEWER = re.compile(rCAVIEWER)
 
-# rCAVIEWER = re.compile(
-#   r'''(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
-#   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
-#   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
-#   r'''|(([BSbs][0-8]*/?[BSbs][0-8]*|[BSbs]?[0-8]*/[BSbs]?[0-8]*)History)'''
-#   r'''|(([BSbs][0-4]*/?[BSbs][0-4]*?|[BSbs]?[0-4]*/[BSbs]?[0-4]*)VHistory)'''
-#   r'''|(([BSbs][0-6]*/?[BSbs][0-6]*|[BSbs]?[0-6]*/[BSbs]?[0-6]*)HHistory)'''
-#   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?History)'''
-#   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#]History)'''
-#   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?History)'''
-#   r'''|(([BSbs][0-8]*/?[BSbs][0-8]*|[BSbs]?[0-8]*/[BSbs]?[0-8]*)Symbiosis)'''
-#   r'''|(([BSbs][0-4]*/?[BSbs][0-4]*?|[BSbs]?[0-4]*/[BSbs]?[0-4]*)VSymbiosis)'''
-#   r'''|(([BSbs][0-6]*/?[BSbs][0-6]*|[BSbs]?[0-6]*/[BSbs]?[0-6]*)HSymbiosis)'''
-#   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?Symbiosis)'''
-#   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#]Symbiosis)'''
-#   r'''|(R[0-9]+,C[0|2],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?Symbiosis)'''
-#   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
-#   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
-#   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
-#   r'''|(R[0-9]+,C[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?,[A-Fa-f0-9]+)'''
-#   r'''|(R[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,G(0[-])?[1-9][0-9]*([-][1-9][0-9]*)*,N@([A-Fa-f0-9]+)?[HL]?)'''
-#   r'''|(R[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,G(0[-])?[1-9][0-9]*([-][1-9][0-9]*)*,N[ABbCGHLMNX23*+#])'''
-#   r'''|(R[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,G(0[-])?[1-9][0-9]*([-][1-9][0-9]*)*,NW[A-Fa-f0-9]+[HL]?)'''
-#   r'''|(R[0-9]+,G[0-9]+,L[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RB(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RS(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
-#   r'''|(R[0-9]+,G[0-9]+,L[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RB(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RS(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
-#   r'''|(R[0-9]+,G[0-9]+,L[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RB(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RS(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
-#   r'''|(R[0-9]+,G[0-9]+,L[0-9]+,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RB(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,RS(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?,[A-Fa-f0-9]+)'''
-#   r'''|(R[0-9]+,I[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
-#   r'''|(R[0-9]+,I[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
-#   r'''|(R[0-9]+,I[0-9]+,S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
-#   r'''|(R[0-9]+,D[0|1],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N@([A-Fa-f0-9]+)?[HL]?)'''
-#   r'''|(R[0-9]+,D[0|1],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,N[ABbCGHLMNX23*+#])'''
-#   r'''|(R[0-9]+,D[0|1],S(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,B(((\d,(?=\d))|(\d-(?=\d))|\d)+)?,NW[A-Fa-f0-9]+[HL]?)'''
-#   r'''|(B((0|1-[a]+|1[a]*|2-[acehij]+|2[acehij]*|3-[acehijn]+|3[acehijn]*|4-[acehijnopqrtuv]+|4[acehijnopqrtuv]*|5-[acehijn]+|5[acehijn]*|6-[acehij]+|6[acehij]*|7-[a]+|7[a]*|8))*/S((0|1-[a]+|1[a]*|2-[acehij]+|2[acehij]*|3-[acehijn]+|3[acehijn]*|4-[acehijnopqrtuv]+|4[acehijnopqrtuv]*|5-[acehijn]+|5[acehijn]*|6-[acehij]+|6[acehij]*|7-[a]+|7[a]*|8))*(/NK)?)'''
-#   r'''|(B((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*/S((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*(/NM)?)'''
-#   r'''|(B((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*/S((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*(/NFC)?)'''
-#   r'''|(B((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*/S((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*(/NFE)?)'''
-#   r'''|(B((0|1-[ac]+|1[ac]*|2-[acehijn]+|2[acehijn]*|3-[pacehijno]+|3[pacehijno]*|4-[acehijnopqrtuvw]+|4[acehijnopqrtuvw]*|5-[pacehijno]+|5[pacehijno]*|6-[acehijn]+|6[acehijn]*|7-[ac]+|7[ac]*|8))*/S((0|1-[ac]+|1[ac]*|2-[acehijn]+|2[acehijn]*|3-[pacehijno]+|3[pacehijno]*|4-[acehijnopqrtuvw]+|4[acehijnopqrtuvw]*|5-[pacehijno]+|5[pacehijno]*|6-[acehijn]+|6[acehijn]*|7-[ac]+|7[ac]*|8))*(/NC2)?)'''
-#   r'''|(W[0-9]+)'''
-#   r'''|(R[1-9][0-9]*,C[2-9][0-9]*,W[0-9]+)'''
-# )
-
-# matches multiline XRLE; currently cannot, however, match headerless patterns (my attempts thus far have forced re to take way too many steps)
-# does not match rules with >24 states
 rXRLE = re.compile(
     r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
     re.I)
@@ -1120,6 +1090,24 @@ class CA(commands.Cog):
 
         with open(f"{self.dir}/resources/{name}.rule") as f:
             return await ctx.send(file=discord.File(f, name + '.rule'))
+
+    @mutils.command('Gets information about a rule')
+    async def rule_info(self, ctx, rule):
+        """
+        # Gets information about a rule. #
+        <[ARGS]>
+        RULE: The rule to get information about
+        """
+
+        preface = f'{self.dir}/resources/bin/CAViewer'
+
+        p = subprocess.Popen(f"{preface} info -r {rule}".split(),
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out = p.communicate()
+
+        # An error occured
+        if out[1].decode("utf-8"): return await ctx.send(f'`{out[1].decode("utf-8")}`')
+        else: return await ctx.send(f'```{out[0].decode("utf-8")}```')
 
     @mutils.command()
     async def delgen(self, ctx, name):
