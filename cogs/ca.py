@@ -1125,6 +1125,59 @@ class CA(commands.Cog):
 
         return await ctx.send(embed=discord.Embed(description=desc))
 
+    @mutils.command('Identifies a pattern')
+    async def identify(self, ctx):
+        """
+        # Identifies a pattern #
+        """
+        pat = ""
+        async for msg in ctx.channel.history(limit=50):
+            rmatch = rXRLE.search(msg.content)
+            if rmatch:
+                pat = rmatch.group()
+                break
+        if not pat:
+            return await ctx.send(f"`Error: No PAT found in last 50 messages.`")
+
+        current = f'{self.dir}/{ctx.message.id}'
+        with open(f'{current}_in.rle', 'w') as infile:
+            infile.write(pat)
+
+        try:
+            resp = await mutils.await_event_or_coro(
+                self.bot,
+                event='reaction_add',
+                coro=self.identify_func(f'{current}_in.rle')
+            )
+        except MemoryError:
+            return await ctx.send(f"Error: Ran out of memory :frowning:")
+        except Exception as e:
+            return await ctx.send(f"Error: `{str(e)}`")
+
+        out = resp["event"]
+        if out[1].decode("utf-8"):
+            return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
+
+        desc = out[0].decode("utf-8")
+
+        lines = desc.split("\n")
+        title = lines[0]
+        desc = "\n".join(lines[1:])
+
+        # Bold the key text
+        for text in re.findall("[\S ]+:", desc):
+            desc = desc.replace(text, f"**{text}**")
+
+        return await ctx.send(embed=discord.Embed(title=title,description=desc))
+
+    async def identify_func(self, file):
+        preface = f'{self.dir}/resources/bin/CAViewer'
+        p = subprocess.Popen(
+            f"{preface} identify -i {file} -g 500".split(),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out = await self.bot.loop.run_in_executor(None, p.communicate)
+        return out
+
     @mutils.command()
     async def delgen(self, ctx, name):
         if not await self.bot.is_owner(ctx.author):

@@ -309,7 +309,7 @@ class Utils(commands.Cog):
           + 1D Cellular Automaton (Multi-state, arbitary range)
           + Alternating Rules (As many alternates as you like) 
           + INT (R1 Moore, R1 Hex, R2 Cross, R2 Knight, R2 Far Corners, R3 Far Edges)
-          + INT Generations (R1 Moore)
+          + INT Generations (R1 Moore, R1 Hex, R2 Cross, R2 Knight, R2 Far Corners, R3 Far Edges)
           + HROT
           + HROT Generations
           + HROT Extended Generations
