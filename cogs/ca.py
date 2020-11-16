@@ -1125,10 +1125,12 @@ class CA(commands.Cog):
 
         return await ctx.send(embed=discord.Embed(description=desc))
 
-    @mutils.command('Identifies a pattern')
-    async def identify(self, ctx):
+    @mutils.command('Identifies a pattern', args=True)
+    async def identify(self, ctx, *, flags):
         """
         # Identifies a pattern #
+        <[FLAGS]>
+        -m: Maximum period to try to detect
         """
         pat = ""
         async for msg in ctx.channel.history(limit=50):
@@ -1147,7 +1149,7 @@ class CA(commands.Cog):
             resp = await mutils.await_event_or_coro(
                 self.bot,
                 event='reaction_add',
-                coro=self.identify_func(f'{current}_in.rle')
+                coro=self.identify_func(f'{current}_in.rle', int(flags.get('m', 200)))
             )
         except MemoryError:
             return await ctx.send(f"Error: Ran out of memory :frowning:")
@@ -1170,10 +1172,10 @@ class CA(commands.Cog):
 
         return await ctx.send(embed=discord.Embed(title=title,description=desc))
 
-    async def identify_func(self, file):
+    async def identify_func(self, file, max_period):
         preface = f'{self.dir}/resources/bin/CAViewer'
         p = subprocess.Popen(
-            f"{preface} identify -i {file} -g 500".split(),
+            f"{preface} identify -i {file} -g {max_period}".split(),
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out = await self.bot.loop.run_in_executor(None, p.communicate)
         return out
