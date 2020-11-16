@@ -1157,6 +1157,7 @@ class CA(commands.Cog):
             return await ctx.send(f"Error: `{str(e)}`")
 
         out = resp["event"]
+        if "null" in out[0].decode("utf-8"): return await ctx.send("Identification Failed! :slight_frown:")
         if out[1].decode("utf-8"):
             return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
 
@@ -1170,7 +1171,7 @@ class CA(commands.Cog):
         for text in re.findall("[\S ]+:", desc):
             desc = desc.replace(text, f"**{text}**")
 
-        return await ctx.send(embed=discord.Embed(title=title,description=desc))
+        return await ctx.send(embed=discord.Embed(title=title, description=desc))
 
     async def identify_func(self, file, max_period):
         preface = f'{self.dir}/resources/bin/CAViewer'
