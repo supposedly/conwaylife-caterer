@@ -48,4 +48,5 @@ R[0-9]+,C[0-9]+,B((l(-[0-9]+)*|[0-9]+),?)*,(M((l(-[0-9]+)*|[0-9]+),?)*,)+S((l(-[
 [Gg][0-9]+[_/]?[BbSs]?((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*[_/]?[BbSs]?((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*[_/]?N?FE|[BbSs]?((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*[_/]?[BbSs]?((0|1-[ce]+|1[ce]*|2-[aceikn]+|2[aceikn]*|3-[aqrceiyjkn]+|3[aqrceiyjkn]*|4-[aceijknqrtwyz]+|4[aceijknqrtwyz]*|5-[aqrceiyjkn]+|5[aqrceiyjkn]*|6-[aceikn]+|6[aceikn]*|7-[ce]+|7[ce]*|8))*([_/]?[Gg]|[_/][Gg]?)[0-9]+[_/]?N?FE
 W[0-9]+
 R[1-9][0-9]*,C[2-9][0-9]*,W[0-9]+
+\{(\{(\{([0-9]+,\s*){2,}[0-9]+}(,\s*)?)+}(,\s*)?)+}[VMHL]?
 .+\|.+(\|.*)*

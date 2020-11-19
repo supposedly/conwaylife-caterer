@@ -101,7 +101,7 @@ rCAVIEWER += ")?"
 rCAVIEWER = re.compile(rCAVIEWER)
 
 rXRLE = re.compile(
-    r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
+    r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^\n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
     re.I
 )
 
@@ -1157,7 +1157,7 @@ class CA(commands.Cog):
             return await ctx.send(f"Error: `{str(e)}`")
 
         out = resp["event"]
-        if "null" in out[0].decode("utf-8"): return await ctx.send("Identification Failed! :slight_frown:")
+        if "null" in out[0].decode("utf-8"): return await ctx.send("Identification Failed! :vsad:")
         if out[1].decode("utf-8"):
             return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
 
