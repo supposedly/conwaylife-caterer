@@ -1,33 +1,27 @@
 import asyncio
 import concurrent
-import copy
 import io
 import json
-import math
 import marshal
+import math
 import operator
 import os
 import random
 import re
-import sys
+import subprocess
 import time
 import types
-import subprocess
-from ast import literal_eval
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from enum import Enum
 from itertools import count, islice, starmap
 
-import aiofiles
 import aiohttp
 import discord
 import imageio
-import png
 import numpy as np
-from discord.ext import commands
 from PIL import ImageFile
-from inspect import cleandoc
+from discord.ext import commands
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -87,7 +81,7 @@ for i in range(len(lst)):
         rCAVIEWER += f"({temp})|"
 
 # for the bounded grids
-rCAVIEWER += ")(:"
+rCAVIEWER += ")((:"
 lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex2.txt", "r").readlines()
 for i in range(len(lst)):
     regex = lst[i]
@@ -96,7 +90,18 @@ for i in range(len(lst)):
         rCAVIEWER += f"({temp})"
     else:
         rCAVIEWER += f"({temp})|"
-rCAVIEWER += ")?"
+
+# for the naive rules
+rCAVIEWER += ")(:N"
+lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex3.txt", "r").readlines()
+for i in range(len(lst)):
+    regex = lst[i]
+    temp = regex.strip('\n')
+    if i == len(lst) - 1:
+        rCAVIEWER += f"({temp})"
+    else:
+        rCAVIEWER += f"({temp})|"
+rCAVIEWER += ")?)?"
 
 rCAVIEWER = re.compile(rCAVIEWER)
 

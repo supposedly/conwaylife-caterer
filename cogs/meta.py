@@ -317,6 +317,8 @@ class Utils(commands.Cog):
           + Integer HROT
           + Deficient HROT
           + Multi-state Cyclic HROT (BMS Notation)
+          + Naive Rules
+          + Turmites (Von Neumann, Hexagonal)
           + [R]DeadlyEnemies ((HR)OT)
           + [R]Symbiosis ((HR)OT)
           + [R]History ((HR)OT, INT)
