@@ -308,8 +308,10 @@ class Utils(commands.Cog):
         **Natively Supported Rulespaces**
           + 1D Cellular Automaton (Multi-state, arbitary range)
           + Alternating Rules (As many alternates as you like) 
-          + INT (R1 Moore, R1 Hex, R2 Cross, R2 Knight, R2 Far Corners, R3 Far Edges)
-          + INT Generations (R1 Moore, R1 Hex, R2 Cross, R2 Knight, R2 Far Corners, R3 Far Edges)
+          + INT (R1 Moore, R1 Hex, R2 Von Neumann, R2 Checkerboard, R2 Cross, R2 Knight, R2 Far Corners, 
+R3 Far Edges, R3 Cross) 
+          + INT Generations (R1 Moore, R1 Hex, R2 Von Neumann, R2 Checkerboard, R2 Cross, R2 Knight, R2 Far Corners, 
+R3 Far Edges, R3 Cross) 
           + HROT
           + HROT Generations
           + HROT Extended Generations
