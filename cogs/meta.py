@@ -1,13 +1,15 @@
 import asyncio
-import pkg_resources
+import datetime as dt
+import os
 import platform
 import re
-import datetime as dt
+import subprocess
+import zipfile
 from inspect import cleandoc
 from itertools import islice
 
-import asyncpg
 import discord
+import pkg_resources
 from discord.ext import commands
 
 from cogs.resources import mutils
@@ -15,6 +17,11 @@ from cogs.resources import mutils
 rDOC = re.compile(r'""".*?"""\n\s+', re.S)
 DISCORD_PUBLIC_VERSION = pkg_resources.get_distribution('discord.py').parsed_version.public
 ZWSP = '\u200b'
+
+
+DOWNLOAD_LINK = "https://gist.github.com/jedlimlx/a4ad9e4bddf1bc0fcfe220c4c150ff11/raw/CAViewer-Linux.zip"
+LEMON41625 = 709926614544285716
+
 
 class Utils(commands.Cog):
     def __init__(self, bot):
@@ -312,6 +319,8 @@ class Utils(commands.Cog):
 R3 Far Edges, R3 Cross) 
           + INT Generations (R1 Moore, R1 Hex, R2 Von Neumann, R2 Checkerboard, R2 Cross, R2 Knight, R2 Far Corners, 
 R3 Far Edges, R3 Cross) 
+          + Deficient INT (R1 Moore, R1 Hex, R2 Von Neumann, R2 Checkerboard, R2 Cross, R2 Knight, R2 Far Corners, 
+R3 Far Edges, R3 Cross) 
           + HROT
           + HROT Generations
           + HROT Extended Generations
@@ -339,6 +348,31 @@ R3 Far Edges, R3 Cross)
         {f"'{ctx.prefix}help' for command info": ^57}```
         '''
         await ctx.send(embed=discord.Embed(description=cleandoc(desc)))
+
+    @mutils.command()
+    async def download(self, ctx):
+        """
+        Updates caterer's CAViewer
+        """
+        if ctx.message.author != LEMON41625 or await ctx.bot.is_owner(ctx.author):
+            return await ctx.send("You do not have permission to execute this command.")
+
+        caviewer_path = os.path.dirname(os.path.abspath(__file__)) + "/resources/bin/CAViewer"
+
+        await ctx.send("Downloading CAViewer...")
+        p = subprocess.Popen(f"wget {DOWNLOAD_LINK}",
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        p.communicate()
+
+        await ctx.send("Unzipping...")
+
+        with zipfile.ZipFile("CAViewer-Linux.zip", "r") as z:
+            z.extractall(caviewer_path.replace("/bin/CAViewer", ""))
+
+        await ctx.send("Download complete!")
+
+        os.chmod(caviewer_path, 0o755)
+        os.remove("CAViewer-Linux.zip")
         
     @mutils.command()
     async def ping(self, ctx):
