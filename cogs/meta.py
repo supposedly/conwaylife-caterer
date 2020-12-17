@@ -19,7 +19,7 @@ DISCORD_PUBLIC_VERSION = pkg_resources.get_distribution('discord.py').parsed_ver
 ZWSP = '\u200b'
 
 
-DOWNLOAD_LINK = "https://gist.github.com/jedlimlx/a4ad9e4bddf1bc0fcfe220c4c150ff11/raw/CAViewer-Linux.zip"
+DOWNLOAD_LINK = "https://github.com/jedlimlx/Cellular-Automaton-Viewer/releases/download/v2.0-beta.1/CAViewer-Linux.zip"
 LEMON41625 = 709926614544285716
 
 
@@ -322,6 +322,7 @@ R3 Far Edges, R3 Cross)
           + Deficient INT (R1 Moore, R1 Hex, R2 Von Neumann, R2 Checkerboard, R2 Cross, R2 Knight, R2 Far Corners, 
 R3 Far Edges, R3 Cross) 
           + HROT
+          + HROT BSFKL
           + HROT Generations
           + HROT Extended Generations
           + HROT Regenerating Generations
@@ -330,6 +331,7 @@ R3 Far Edges, R3 Cross)
           + Multi-state Cyclic HROT (BMS Notation)
           + Naive Rules
           + Turmites (Von Neumann, Hexagonal)
+          + Euclidean CA
           + [R]DeadlyEnemies ((HR)OT)
           + [R]Symbiosis ((HR)OT)
           + [R]History ((HR)OT, INT)
@@ -354,7 +356,7 @@ R3 Far Edges, R3 Cross)
         """
         Updates caterer's CAViewer
         """
-        if ctx.message.author != LEMON41625 or await ctx.bot.is_owner(ctx.author):
+        if not (ctx.message.author.id != LEMON41625 or await ctx.bot.is_owner(ctx.author)):
             return await ctx.send("You do not have permission to execute this command.")
 
         caviewer_path = os.path.dirname(os.path.abspath(__file__)) + "/resources/bin/CAViewer"
