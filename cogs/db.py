@@ -1,5 +1,6 @@
 import os
 import re
+import discord
 import subprocess
 import urllib.request
 import urllib.error
@@ -35,6 +36,7 @@ def get_birth_survival(rule):
         birth_lst = set()
         survival_lst = set()
         for i in birth:
+            if len(i) == 0: continue
             if "-" in i:
                 for j in range(int(i.split("-")[0]), int(i.split("-")[1])):
                     birth_lst.add(j)
@@ -42,6 +44,7 @@ def get_birth_survival(rule):
                 birth_lst.add(int(i))
 
         for i in survival:
+            if len(i) == 0: continue
             if "-" in i:
                 for j in range(int(i.split("-")[0]), int(i.split("-")[1])):
                     survival_lst.add(j)
@@ -129,6 +132,7 @@ class DB(commands.Cog):
         -dy: The displacement in the y-direction
         -min: The minimum rule to look for
         -max: The maximum rule to look for
+        -rule: The rule to look for
         -sort: Sorts the output. Choose from [period, slope, population]
         -desc: Sorts the output in descending order
 
@@ -142,8 +146,9 @@ class DB(commands.Cog):
             period = int(flags.get('p', -1))
             dx = int(flags.get('dx', -1))
             dy = int(flags.get('dy', -1))
-            min_rule = flags.get('min', '')
-            max_rule = flags.get('max', '')
+            rule = flags.get('rule', '')
+            min_rule = flags.get('min', rule)
+            max_rule = flags.get('max', rule)
             sort = flags.get('sort', '')
             desc = flags.get('desc', False)
             if not re.match("(period|slope|population|\\s*)", sort):
@@ -206,8 +211,10 @@ class DB(commands.Cog):
 
                 count += 1
                 if count % 1000 == 0:
-                    if message is not None: await message.delete()
-                    message = await ctx.send(f"Read {count} entries")
+                    if message is None:
+                        message = await ctx.send(f"Read {count} entries...")
+                    else:
+                        await message.edit(content=f"Read {count} entries...")
 
         if sort == "period":
             results = sorted(results, key=lambda k: k[4], reverse=desc)
@@ -220,14 +227,22 @@ class DB(commands.Cog):
             if tokens[5] == "0" and tokens[6] == "0": pattern = f"P{tokens[4].replace('/2', '')}"
             else: pattern = f"({tokens[5]}, {tokens[6]})c/{tokens[4].replace('/2', '')}"
 
+            if tokens[0]: name = f"#C Name: {tokens[0]}\n"
+            else: name = ""
+
+            if tokens[1]: discoverer = f"#C Discovered by: {tokens[1]}\n"
+            else: discoverer = ""
+
             pop = sum(map(lambda s: s and int(s) or 1, re.sub(r'\d*[.B-Z$]|!', '', tokens[-1]).split('A'))) - 1
-            await ctx.send(f"```#C {pattern} {tokens[0]}\n"
-                           f"#C Discovered by: {tokens[1]}\n"
-                           f"#C Min Rule: {tokens[2]}\n"
-                           f"#C Max Rule: {tokens[3]}\n"
-                           f"#C Population: {pop}\n"
-                           f"x = {tokens[-3]}, y = {tokens[-2]}, rule = {tokens[2]}\n"
-                           f"{tokens[-1]}```")
+            msg = f"```#C {pattern}\n" + name + discoverer + f"#C Min Rule: {tokens[2]}\n#C Max Rule: {tokens[3]}\n#C Population: {pop}\nx = {tokens[-3]}, y = {tokens[-2]}, rule = {tokens[2]}\n{tokens[-1]}```"
+            if len(msg) > 2000:
+                with open(f"{self.dir}/resources/db/pattern.rle", "w") as f:
+                    f.write(msg.replace("```", ""))
+
+                await ctx.send(f"{pattern}, {tokens[2]} - {tokens[3]}", file=discord.File(f"{self.dir}/resources/db/pattern.rle"))
+                os.remove(f"{self.dir}/resources/db/pattern.rle")
+            else:
+                await ctx.send(msg)
         await ctx.send(f"This query found {len(results)} ships.")
 
     @mutils.command('Generates an entry for the GliderDB database')
