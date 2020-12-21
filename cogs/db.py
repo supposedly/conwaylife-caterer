@@ -217,12 +217,13 @@ class DB(commands.Cog):
                         await message.edit(content=f"Read {count} entries...")
 
         if sort == "period":
-            results = sorted(results, key=lambda k: k[4], reverse=desc)
+            results = sorted(results, key=lambda k: int(k[4].replace("/2", "")), reverse=desc)
         elif sort == "slope":
             results = sorted(results, key=lambda k: (abs(int(k[5])), abs(int(k[6]))), reverse=desc)
         elif sort == "population":
             results = sorted(results, key=lambda k: sum(map(lambda s: s and int(s) or 1, re.sub(r"\d*[.B-Z$]|!", "", k[-1]).split("A"))) - 1, reverse=desc)  # Code-golf by AForAwesome
 
+        count = 0
         for tokens in results:
             if tokens[5] == "0" and tokens[6] == "0": pattern = f"P{tokens[4].replace('/2', '')}"
             else: pattern = f"({tokens[5]}, {tokens[6]})c/{tokens[4].replace('/2', '')}"
@@ -243,6 +244,11 @@ class DB(commands.Cog):
                 os.remove(f"{self.dir}/resources/db/pattern.rle")
             else:
                 await ctx.send(msg)
+
+            count += 1
+            if count == 50:
+                await ctx.send("50 ships have been outputted. No more ships will be outputted to avoid clogging the channel.")
+                break
         await ctx.send(f"This query found {len(results)} ships.")
 
     @mutils.command('Generates an entry for the GliderDB database')
