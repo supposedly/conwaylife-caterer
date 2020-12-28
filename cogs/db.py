@@ -26,7 +26,6 @@ def get_birth_survival(rule):
     elif re.fullmatch("[0-9]*/[0-9]*/[0-9]+[VH]?", rule):  # Generations
         survival, birth, num_states = rule.split("/")
         birth = birth[1:]
-        survival = survival[1:]
 
         return set([int(i) for i in birth]), set([int(i) for i in survival])
     else:  # Higher-range outer totalistic
