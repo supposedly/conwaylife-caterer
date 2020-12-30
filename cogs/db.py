@@ -25,7 +25,6 @@ def get_birth_survival(rule):
         return set([int(i) for i in birth]), set([int(i) for i in survival])
     elif re.fullmatch("[0-9]*/[0-9]*/[0-9]+[VH]?", rule):  # Generations
         survival, birth, num_states = rule.split("/")
-        birth = birth[1:]
 
         return set([int(i) for i in birth]), set([int(i) for i in survival])
     else:  # Higher-range outer totalistic
@@ -185,6 +184,7 @@ class DB(commands.Cog):
         if dy != -1 and dx == -1: dx = 0
         if min_rule != "": min_birth, min_survival = get_birth_survival(min_rule)
         if max_rule != "": max_birth, max_survival = get_birth_survival(max_rule)
+
         with open(f"{self.dir}/resources/db/database.txt", "r") as f:
             count = 0
             lines = f.readlines()
@@ -204,7 +204,11 @@ class DB(commands.Cog):
                     if (between_min_max(min_birth, max_birth, min_birth_2) and
                             between_min_max(min_survival, max_survival, min_survival_2)) or (
                             between_min_max(min_birth, max_birth, max_birth_2) and
-                            between_min_max(min_survival, max_survival, max_survival_2)):
+                            between_min_max(min_survival, max_survival, max_survival_2)) or (
+                            between_min_max(min_birth_2, max_birth_2, min_birth) and
+                            between_min_max(min_survival_2, max_survival_2, min_survival)) or (
+                            between_min_max(min_birth_2, max_birth_2, max_birth) and
+                            between_min_max(min_survival_2, max_survival_2, max_survival)):
                         tokens[-1] = tokens[-1].replace("o", "A").replace("b", ".").replace("\n", "")
                         results.append(tokens)
 
