@@ -1,33 +1,27 @@
 import asyncio
 import concurrent
-import copy
 import io
 import json
-import math
 import marshal
+import math
 import operator
 import os
 import random
 import re
-import sys
+import subprocess
 import time
 import types
-import subprocess
-from ast import literal_eval
 from collections import deque
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from enum import Enum
 from itertools import count, islice, starmap
 
-import aiofiles
 import aiohttp
 import discord
 import imageio
-import png
 import numpy as np
-from discord.ext import commands
 from PIL import ImageFile
-from inspect import cleandoc
+from discord.ext import commands
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -87,7 +81,7 @@ for i in range(len(lst)):
         rCAVIEWER += f"({temp})|"
 
 # for the bounded grids
-rCAVIEWER += ")(:"
+rCAVIEWER += ")((:"
 lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex2.txt", "r").readlines()
 for i in range(len(lst)):
     regex = lst[i]
@@ -96,12 +90,23 @@ for i in range(len(lst)):
         rCAVIEWER += f"({temp})"
     else:
         rCAVIEWER += f"({temp})|"
-rCAVIEWER += ")?"
+
+# for the naive rules
+rCAVIEWER += ")(:N"
+lst = open(os.path.dirname(os.path.abspath(__file__)) + "/resources/regex3.txt", "r").readlines()
+for i in range(len(lst)):
+    regex = lst[i]
+    temp = regex.strip('\n')
+    if i == len(lst) - 1:
+        rCAVIEWER += f"({temp})"
+    else:
+        rCAVIEWER += f"({temp})|"
+rCAVIEWER += ")?)?"
 
 rCAVIEWER = re.compile(rCAVIEWER)
 
 rXRLE = re.compile(
-    r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
+    r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^\n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
     re.I
 )
 
@@ -1124,6 +1129,62 @@ class CA(commands.Cog):
         desc = desc.replace(text, f"```{text}```")
 
         return await ctx.send(embed=discord.Embed(description=desc))
+
+    @mutils.command('Identifies a pattern', args=True)
+    async def identify(self, ctx, *, flags):
+        """
+        # Identifies a pattern #
+        <[FLAGS]>
+        -m: Maximum period to try to detect
+        """
+        pat = ""
+        async for msg in ctx.channel.history(limit=50):
+            rmatch = rXRLE.search(msg.content)
+            if rmatch:
+                pat = rmatch.group()
+                break
+        if not pat:
+            return await ctx.send(f"`Error: No PAT found in last 50 messages.`")
+
+        current = f'{self.dir}/{ctx.message.id}'
+        with open(f'{current}_in.rle', 'w') as infile:
+            infile.write(pat)
+
+        try:
+            resp = await mutils.await_event_or_coro(
+                self.bot,
+                event='reaction_add',
+                coro=self.identify_func(f'{current}_in.rle', int(flags.get('m', 200)))
+            )
+        except MemoryError:
+            return await ctx.send(f"Error: Ran out of memory :frowning:")
+        except Exception as e:
+            return await ctx.send(f"Error: `{str(e)}`")
+
+        out = resp["event"]
+        if "null" in out[0].decode("utf-8"): return await ctx.send("Identification Failed! :vsad:")
+        if out[1].decode("utf-8"):
+            return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
+
+        desc = out[0].decode("utf-8")
+
+        lines = desc.split("\n")
+        title = lines[0]
+        desc = "\n".join(lines[1:])
+
+        # Bold the key text
+        for text in re.findall("[\S ]+:", desc):
+            desc = desc.replace(text, f"**{text}**")
+
+        return await ctx.send(embed=discord.Embed(title=title, description=desc))
+
+    async def identify_func(self, file, max_period):
+        preface = f'{self.dir}/resources/bin/CAViewer'
+        p = subprocess.Popen(
+            f"{preface} identify -i {file} -g {max_period}".split(),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out = await self.bot.loop.run_in_executor(None, p.communicate)
+        return out
 
     @mutils.command()
     async def delgen(self, ctx, name):

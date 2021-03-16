@@ -6,6 +6,10 @@ __pycache__/
 .vscode/
 
 cogs/resources/db/database.txt
+cogs/resources/bin
+cogs/resources/lib
+cogs/CAViewer-Linux.zip
+CAViewer-Linux.zip
 
 *.gif
 *.rle

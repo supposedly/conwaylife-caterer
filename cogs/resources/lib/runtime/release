@@ -1,2 +1,0 @@
-JAVA_VERSION="14.0.2"
-MODULES="java.base info.picocli java.logging java.transaction.xa java.xml java.sql CAViewer.merged.module jackson.annotations jackson.databind java.datatransfer java.prefs java.desktop javafx.base jdk.unsupported javafx.graphics javafx.controls java.scripting javafx.fxml jdk.unsupported.desktop javafx.swing java.net.http javafx.media jdk.jsobject jdk.xml.dom javafx.web javatuples org.controlsfx.controls org.json CAViewer"

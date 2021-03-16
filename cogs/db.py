@@ -1,5 +1,6 @@
 import os
 import re
+import discord
 import subprocess
 import urllib.request
 import urllib.error
@@ -13,6 +14,46 @@ WRIGHT = 180809886374952960
 rXRLE = re.compile(
     r'x ?= ?\d+, ?y ?= ?\d+(?:, ?rule ?= ?([^ \n]+))?\n([\d.A-Z]*[.A-Z$][\d.A-Z$\n]*!?|[\dob$]*[ob$][\dob$\n]*!?)',
     re.I)
+
+
+def get_birth_survival(rule):
+    if re.fullmatch("[Bb][0-9]*/?[Ss][0-9]*[VH]?", rule):  # Outer Totalistic
+        birth, survival = rule.split("/")
+        birth = birth[1:]
+        survival = survival[1:].replace("V", "").replace("H", "")
+
+        return set([int(i) for i in birth]), set([int(i) for i in survival])
+    elif re.fullmatch("[0-9]*/[0-9]*/[0-9]+[VH]?", rule):  # Generations
+        survival, birth, num_states = rule.split("/")
+
+        return set([int(i) for i in birth]), set([int(i) for i in survival])
+    else:  # Higher-range outer totalistic
+        birth = re.findall("B(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?", rule)[0][0].split(",")
+        survival = re.findall("S(((\\d,(?=\\d))|(\\d-(?=\\d))|\\d)+)?", rule)[0][0].split(",")
+
+        birth_lst = set()
+        survival_lst = set()
+        for i in birth:
+            if len(i) == 0: continue
+            if "-" in i:
+                for j in range(int(i.split("-")[0]), int(i.split("-")[1])):
+                    birth_lst.add(j)
+            else:
+                birth_lst.add(int(i))
+
+        for i in survival:
+            if len(i) == 0: continue
+            if "-" in i:
+                for j in range(int(i.split("-")[0]), int(i.split("-")[1])):
+                    survival_lst.add(j)
+            else:
+                survival_lst.add(int(i))
+
+        return birth_lst, survival_lst
+
+
+def between_min_max(minimum, maximum, transition):
+    return transition.issubset(maximum) and minimum.issubset(transition)
 
 
 class DB(commands.Cog):
@@ -89,7 +130,9 @@ class DB(commands.Cog):
         -dy: The displacement in the y-direction
         -min: The minimum rule to look for
         -max: The maximum rule to look for
+        -rule: The rule to look for
         -sort: Sorts the output. Choose from [period, slope, population]
+        -desc: Sorts the output in descending order
 
         -r: Range of the database to query
         -n: The neighbourhood of the database to query
@@ -101,9 +144,11 @@ class DB(commands.Cog):
             period = int(flags.get('p', -1))
             dx = int(flags.get('dx', -1))
             dy = int(flags.get('dy', -1))
-            min_rule = flags.get('min', 'none')
-            max_rule = flags.get('max', 'none')
+            rule = flags.get('rule', '')
+            min_rule = flags.get('min', rule)
+            max_rule = flags.get('max', rule)
             sort = flags.get('sort', '')
+            desc = flags.get('desc', False)
             if not re.match("(period|slope|population|\\s*)", sort):
                 return await ctx.send("Error: sort must be one of [period, slope, population]")
 
@@ -113,11 +158,7 @@ class DB(commands.Cog):
         except Exception as e:
             return await ctx.send(f"Error: `{str(e)}`")
 
-        await ctx.send("Searching GliderDB... Do not invoke command again until output is received.")
-
-        word = 'ships'
         if 'osc' in flags:
-            word = 'oscillators'
             database = f'https://raw.githubusercontent.com/jedlimlx/HROT-Glider-DB/master/R{rule_range}-' \
                        f'C{states}-' \
                        f'N{neighbourhood}-oscillators.db.txt'
@@ -136,38 +177,82 @@ class DB(commands.Cog):
         except urllib.error.HTTPError:
             return await ctx.send(f"Error: DB file could not be found!")
 
-        try:
-            resp = await mutils.await_event_or_coro(
-                self.bot,
-                event='reaction_add',
-                coro=self.invoke_db(period, dx, dy, min_rule, max_rule, sort,
-                                    f"{self.dir}/resources/db/database.txt")
-            )
-        except MemoryError:
-            return await ctx.send(f"Error: Ran out of memory :frowning:")
-        except Exception as e:
-            return await ctx.send(f"Error: `{str(e)}`")
+        await ctx.send("Searching GliderDB... Do not invoke command again until output is received.")
 
-        out = resp["event"]
+        results = []
+        if dx != -1 and dy == -1: dy = 0
+        if dy != -1 and dx == -1: dx = 0
+        if min_rule != "": min_birth, min_survival = get_birth_survival(min_rule)
+        if max_rule != "": max_birth, max_survival = get_birth_survival(max_rule)
 
-        if out[1].decode("utf-8"):
-            return await ctx.send(f"Error: ```{out[1].decode('utf-8')}```")
+        with open(f"{self.dir}/resources/db/database.txt", "r") as f:
+            count = 0
+            lines = f.readlines()
+            message = None
+            for line in lines:
+                tokens = line.split(":")
+                if (period == -1 or int(tokens[4].replace("/2", "")) == period) and (
+                        dx == -1 or dy == -1 or (abs(int(tokens[5])) == abs(dx) and abs(int(tokens[6])) == abs(dy)) or
+                        (abs(int(tokens[5])) == abs(dy) and abs(int(tokens[6])) == abs(dx))):
+                    if min_rule == "" or max_rule == "":
+                        tokens[-1] = tokens[-1].replace("o", "A").replace("b", ".").replace("\n", "")
+                        results.append(tokens)
+                        continue
 
-        rle = ""
-        output = out[0].decode("utf-8")
+                    min_birth_2, min_survival_2 = get_birth_survival(tokens[2])
+                    max_birth_2, max_survival_2 = get_birth_survival(tokens[3])
+                    if (between_min_max(min_birth, max_birth, min_birth_2) and
+                            between_min_max(min_survival, max_survival, min_survival_2)) or (
+                            between_min_max(min_birth, max_birth, max_birth_2) and
+                            between_min_max(min_survival, max_survival, max_survival_2)) or (
+                            between_min_max(min_birth_2, max_birth_2, min_birth) and
+                            between_min_max(min_survival_2, max_survival_2, min_survival)) or (
+                            between_min_max(min_birth_2, max_birth_2, max_birth) and
+                            between_min_max(min_survival_2, max_survival_2, max_survival)):
+                        tokens[-1] = tokens[-1].replace("o", "A").replace("b", ".").replace("\n", "")
+                        results.append(tokens)
+
+                count += 1
+                if count % 1000 == 0:
+                    if message is None:
+                        message = await ctx.send(f"Read {count} entries...")
+                    else:
+                        await message.edit(content=f"Read {count} entries...")
+
+        if sort == "period":
+            results = sorted(results, key=lambda k: int(k[4].replace("/2", "")), reverse=desc)
+        elif sort == "slope":
+            results = sorted(results, key=lambda k: (abs(int(k[5])), abs(int(k[6]))), reverse=desc)
+        elif sort == "population":
+            results = sorted(results, key=lambda k: sum(map(lambda s: s and int(s) or 1, re.sub(r"\d*[.B-Z$]|!", "", k[-1]).split("A"))) - 1, reverse=desc)  # Code-golf by AForAwesome
 
         count = 0
-        for line in output.split("\n"):
-            if re.match("^\\s*$", line):
-                count += 1
-                if count < 16 and rle != "": await ctx.send(f"```{rle}```")
-                if count == 16: await ctx.send(f"15 {word} have been outputted. "
-                                               f"No more {word} will be outputted to avoid cluttering the channel.")
-                rle = ""
-            else:
-                rle += line + "\n"
+        for tokens in results:
+            if tokens[5] == "0" and tokens[6] == "0": pattern = f"P{tokens[4].replace('/2', '')}"
+            else: pattern = f"({tokens[5]}, {tokens[6]})c/{tokens[4].replace('/2', '')}"
 
-        await ctx.send(f"This query found {count - 1} {word} in total.")
+            if tokens[0]: name = f"#C Name: {tokens[0]}\n"
+            else: name = ""
+
+            if tokens[1]: discoverer = f"#C Discovered by: {tokens[1]}\n"
+            else: discoverer = ""
+
+            pop = sum(map(lambda s: s and int(s) or 1, re.sub(r'\d*[.B-Z$]|!', '', tokens[-1]).split('A'))) - 1
+            msg = f"```#C {pattern}\n" + name + discoverer + f"#C Min Rule: {tokens[2]}\n#C Max Rule: {tokens[3]}\n#C Population: {pop}\nx = {tokens[-3]}, y = {tokens[-2]}, rule = {tokens[2]}\n{tokens[-1]}```"
+            if len(msg) > 2000:
+                with open(f"{self.dir}/resources/db/pattern.rle", "w") as f:
+                    f.write(msg.replace("```", ""))
+
+                await ctx.send(f"{pattern}, {tokens[2]} - {tokens[3]}", file=discord.File(f"{self.dir}/resources/db/pattern.rle"))
+                os.remove(f"{self.dir}/resources/db/pattern.rle")
+            else:
+                await ctx.send(msg)
+
+            count += 1
+            if count == 50:
+                await ctx.send("50 ships have been outputted. No more ships will be outputted to avoid clogging the channel.")
+                break
+        await ctx.send(f"This query found {len(results)} ships.")
 
     @mutils.command('Generates an entry for the GliderDB database')
     async def entry(self, ctx):
@@ -210,25 +295,6 @@ class DB(commands.Cog):
         p = subprocess.Popen(
             f"{preface} entry -i {file}".split(),
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out = await self.bot.loop.run_in_executor(None, p.communicate)
-
-        return out
-
-    async def invoke_db(self, period, dx, dy, min_rule, max_rule, sort, database):
-        preface = f'{self.dir}/resources/bin/CAViewer'
-
-        max_mem = int(os.popen('free --kilo').read().split()[7]) - 100000  # Leave 100 MB just in case
-
-        if sort != "":
-            p = subprocess.Popen(
-                f"ulimit -Sv {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
-                f"--max_rule {max_rule} --min_rule {min_rule} --sort {sort}",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-        else:
-            p = subprocess.Popen(
-                f"ulimit -Sv {max_mem}\n{preface} db -db {database} -p {period} -dx {dx} -dy {dy} "
-                f"--max_rule {max_rule} --min_rule {min_rule}",
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         out = await self.bot.loop.run_in_executor(None, p.communicate)
 
         return out

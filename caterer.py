@@ -1,17 +1,13 @@
-import asyncio
-import collections
-import copy
 import os
-import select
 import subprocess
+import zipfile
 from datetime import datetime
 
-import aiofiles
 import asyncpg
 import discord
 from discord.ext import commands
 
-from cogs.resources import mutils
+from cogs.meta import DOWNLOAD_LINK
 
 
 def get_prefix(bot, message):
@@ -113,6 +109,23 @@ async def ignore_dms(ctx):
 
 @bot.event
 async def on_ready():
+    caviewer_path = os.path.dirname(os.path.abspath(__file__)) + "/cogs/resources/bin/CAViewer"
+
+    if not os.path.exists(caviewer_path):  # Checking if CAViewer exists
+        print("Downloading CAViewer...")
+        p = subprocess.Popen(f"wget {DOWNLOAD_LINK}",
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        p.communicate()
+
+        print("Unzipping...")
+        with zipfile.ZipFile("CAViewer-Linux.zip", "r") as z:
+            z.extractall(caviewer_path.replace("/bin/CAViewer", ""))
+
+        print("Download complete!")
+
+        os.chmod(caviewer_path, 0o755)
+        os.remove("CAViewer-Linux.zip")
+
     if bot.first_time:
         #### DEV STUFF
         import ssl
