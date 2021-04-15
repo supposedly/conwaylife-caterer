@@ -702,7 +702,10 @@ class CA(commands.Cog):
                         file=discord.File(f'{current}.gif')
                     )
                     if 'tag' not in flags:
-                        await gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
+                        if person_to_tag != "":
+                            await gif.edit(content=f'By {person_to_tag.mention}{newline}{gif.content}')
+                        else:
+                            await gif.edit(content=f'By {ctx.message.author.mention}{newline}{gif.content}')
                 except discord.errors.HTTPException as e:
                     return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         except asyncio.TimeoutError:
