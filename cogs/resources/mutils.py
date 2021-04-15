@@ -477,3 +477,15 @@ def parse_nutshell_range(s):
 
 def flatten_range_list(li):
     return {t for s in li for t in ([int(s)] if s.isnumeric() else parse_nutshell_range(s))}
+
+
+def get_rule_from_wiki(rulename, session):
+    async with session.get(
+            f'https://conwaylife.com/w/api.php?action=parse&format=json&prop=wikitext&page=RULE:{rulename}'
+    ) as resp:
+        b = await resp.json()
+    try:
+        rulefile = b["parse"]["wikitext"]["*"]
+    except KeyError:  # rule not found
+        raise FileNotFoundError("The specified rulefile was not found")
+    return rulefile
