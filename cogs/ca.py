@@ -505,7 +505,7 @@ class CA(commands.Cog):
             except TypeError:  # rule not found
                 # first, attempt to load rule from wiki
                 try:
-                    rulefile = bytes(mutils.get_rule_from_wiki(rule, self.session), 'utf-8')
+                    rulefile = bytes(await mutils.get_rule_from_wiki(rule, self.session), 'utf-8')
                 except FileNotFoundError:  # rule not found
                     return await ctx.send('`Error: Rule not found`')
 
@@ -850,7 +850,7 @@ class CA(commands.Cog):
             except StopIteration: # find rule failed
                 em = discord.Embed(title=f'Rule:{rule}', description='LifeWiki rule', type='rich',
                                    url=f'https://conwaylife.com/wiki/Rule:{rule}')
-                file = io.BytesIO(bytes(mutils.get_rule_from_wiki(rule, self.session), encoding="utf-8")) # oh no another nested try/except?
+                file = io.BytesIO(bytes(await mutils.get_rule_from_wiki(rule, self.session), encoding="utf-8")) # oh no another nested try/except?
                 return await ctx.send(embed=em, file=discord.File(file, filename=f"{rule}.rule"))
         else:
             return await ctx.send(embed=discord.Embed(
