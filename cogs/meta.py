@@ -332,6 +332,7 @@ R3 Far Edges, R3 Cross)
           + Naive Rules
           + Turmites (Von Neumann, Hexagonal)
           + Euclidean CA
+          + Margolus
           + [R]DeadlyEnemies ((HR)OT)
           + [R]Symbiosis ((HR)OT)
           + [R]History ((HR)OT, INT)
