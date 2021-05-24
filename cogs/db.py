@@ -252,7 +252,7 @@ class DB(commands.Cog):
             if count == 50:
                 await ctx.send("50 ships have been outputted. No more ships will be outputted to avoid clogging the channel.")
                 break
-        await ctx.send(f"This query found {len(results)} ships.")
+        await ctx.send(f"This query found {len(results)} ship{'' if len(results) == 1 else 's'}.")
 
     @mutils.command('Generates an entry for the GliderDB database')
     async def entry(self, ctx):

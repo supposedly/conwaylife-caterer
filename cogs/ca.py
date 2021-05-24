@@ -504,13 +504,9 @@ class CA(commands.Cog):
                 ''', rule)
             except TypeError:  # rule not found
                 # first, attempt to load rule from wiki
-                async with self.session.get(
-                        f'https://conwaylife.com/w/api.php?action=parse&format=json&prop=wikitext&page=RULE:{rule}'
-                ) as resp:
-                    b = await resp.json()
                 try:
-                    rulefile = bytes(b["parse"]["wikitext"]["*"], 'utf-8')
-                except KeyError:  # rule not found
+                    rulefile = bytes(await mutils.get_rule_from_wiki(rule, self.session), 'utf-8')
+                except FileNotFoundError:  # rule not found
                     return await ctx.send('`Error: Rule not found`')
 
                 rulename, n_states, colors = await self.loop.run_in_executor(
@@ -702,7 +698,10 @@ class CA(commands.Cog):
                         file=discord.File(f'{current}.gif')
                     )
                     if 'tag' not in flags:
-                        await gif.edit(content=f'By {ctx.author.mention}{newline}{gif.content}')
+                        if person_to_tag != "":
+                            await gif.edit(content=f'By {person_to_tag.mention}{newline}{gif.content}')
+                        else:
+                            await gif.edit(content=f'By {ctx.message.author.mention}{newline}{gif.content}')
                 except discord.errors.HTTPException as e:
                     return await ctx.send(f'`HTTP 413: GIF too large. Try a higher STEP or lower GEN!`')
         except asyncio.TimeoutError:
@@ -838,15 +837,21 @@ class CA(commands.Cog):
         try:
             member = await commands.MemberConverter().convert(ctx, rule)
         except commands.BadArgument:
-            rule = next(d for d in self.rulecache if d['name'] == rule)
-            with io.BytesIO(rule['file']) as b:
-                b.seek(0)
-                return await ctx.send(embed=discord.Embed(
-                    title=rule['name'],
-                    description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
-                ),
-                    file=discord.File(b, rule['name'] + '.rule')
-                )
+            try:
+                rule = next(d for d in self.rulecache if d['name'] == rule)
+                with io.BytesIO(rule['file']) as b:
+                    b.seek(0)
+                    return await ctx.send(embed=discord.Embed(
+                        title=rule['name'],
+                        description=f"Uploader: {self.bot.get_user(rule['uploader'])}\nBlurb: {rule['blurb']}"
+                    ),
+                        file=discord.File(b, rule['name'] + '.rule')
+                    )
+            except StopIteration: # find rule failed
+                em = discord.Embed(title=f'Rule:{rule}', description='LifeWiki rule', type='rich',
+                                   url=f'https://conwaylife.com/wiki/Rule:{rule}')
+                file = io.BytesIO(bytes(await mutils.get_rule_from_wiki(rule, self.session), encoding="utf-8")) # oh no another nested try/except?
+                return await ctx.send(embed=em, file=discord.File(file, filename=f"{rule}.rule"))
         else:
             return await ctx.send(embed=discord.Embed(
                 title=f'Rules by {member}',
