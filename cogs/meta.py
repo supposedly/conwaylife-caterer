@@ -357,7 +357,7 @@ R3 Far Edges, R3 Cross)
         """
         Updates caterer's CAViewer
         """
-        if not (ctx.message.author.id != LEMON41625 or await ctx.bot.is_owner(ctx.author)):
+        if ctx.message.author.id != LEMON41625 or not await ctx.bot.is_owner(ctx.author):
             return await ctx.send("You do not have permission to execute this command.")
 
         caviewer_path = os.path.dirname(os.path.abspath(__file__)) + "/resources/bin/CAViewer"
