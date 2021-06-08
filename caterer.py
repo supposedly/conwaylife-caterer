@@ -2,6 +2,7 @@ import os
 import subprocess
 import zipfile
 from datetime import datetime
+import re
 
 import asyncpg
 import discord
