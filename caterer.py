@@ -2,6 +2,7 @@ import os
 import subprocess
 import zipfile
 from datetime import datetime
+import re
 
 import asyncpg
 import discord
@@ -106,6 +107,11 @@ def ignore_bots(ctx):
 @bot.check
 async def ignore_dms(ctx):
     return ctx.guild is not None
+
+@bot.event
+async def on_member_join(member):
+    if re.match(".+ twitter\\.com/h0nde.*(?i)", member.name):
+        await member.ban()
 
 @bot.event
 async def on_ready():
