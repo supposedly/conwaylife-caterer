@@ -26,6 +26,7 @@ from discord.ext import commands
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 from cogs.resources import mutils
+from cogs.nakano import *
 
 
 class Log:
@@ -1142,6 +1143,7 @@ class CA(commands.Cog):
         <[FLAGS]>
         -m: Maximum period to try to detect
         """
+
         pat = ""
         async for msg in ctx.channel.history(limit=50):
             rmatch = rXRLE.search(msg.content)
@@ -1182,6 +1184,28 @@ class CA(commands.Cog):
             desc = desc.replace(text, f"**{text}**")
 
         return await ctx.send(embed=discord.Embed(title=title, description=desc))
+
+    @mutils.command('Identifies a pattern with Nakano', args=True)
+    async def nakano(self, ctx, *, flags):
+        """
+        # Identifies a pattern with Nakano#
+        """
+
+        pat = ""
+        async for msg in ctx.channel.history(limit=50):
+            rmatch = rXRLE.search(msg.content)
+            if rmatch:
+                pat = rmatch.group()
+                break
+        if not pat:
+            return await ctx.send(f"`Error: No PAT found in last 50 messages.`")
+
+        result = analyse(pat)
+        await ctx.send(f"```{resultprint(result)}```")
+
+        if "cellperiods" in result:
+            periodmap(result["cellperiods"])
+            await ctx.send(file=discord.File('osc.png'))
 
     async def identify_func(self, file, max_period):
         preface = f'{self.dir}/resources/bin/CAViewer'
