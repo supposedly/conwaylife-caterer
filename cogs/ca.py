@@ -494,7 +494,11 @@ class CA(commands.Cog):
             algo = 'Larger than Life'
             n_states = 2 + int(rLtL.match(rule)[1])
         elif not rRULESTRING.fullmatch(rule) and rCAVIEWER.fullmatch(rule):
-            algo = 'CAViewer'
+            if rule[0] == 'W' and int(rule[1:]) < 256: # run 1D rules in Golly if supported
+                # for consistency - some 1D rules would use CAViewer and others QuickLife
+                algo = 'QuickLife'
+            else:
+                algo = 'CAViewer'
         elif not rRULESTRING.fullmatch(rule) and algo != "CAViewer":
             algo = 'RuleLoader'
 
