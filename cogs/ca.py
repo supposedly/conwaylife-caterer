@@ -803,7 +803,7 @@ class CA(commands.Cog):
             entries.append(
                 f'• {log.invoker}'
                 f' in `{log.rule}`'
-                f' at <t:{log.time.timestamp()}>:'
+                f' at <t:{round(log.time.timestamp())}>:'
                 f' {comp[log.status.value]} {log.status.name.title()}'
             )
         await ctx.send(embed=discord.Embed(title='Last 5 sims', description='\n'.join(entries)))
