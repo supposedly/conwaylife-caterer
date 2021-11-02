@@ -1,5 +1,6 @@
 import asyncio
 import concurrent
+import datetime as dt
 import io
 import json
 import marshal
@@ -569,7 +570,7 @@ class CA(commands.Cog):
                 + (f' using `{algo}`.' if algo != 'QuickLife' else '.')
         )
         announcement = await ctx.send(details)
-        curlog = Log(ctx.author.mention, rule, ctx.message.created_at, Status.WAITING)
+        curlog = Log(ctx.author.mention, rule, ctx.message.created_at.replace(tzinfo=dt.timezone.utc), Status.WAITING)
         self.simlog.append(curlog)
         writrule = f'{rule}_{ctx.message.id}' if algo == 'RuleLoader' else rule
         with open(f'{current}_in.rle', 'w') as infile:
@@ -802,7 +803,7 @@ class CA(commands.Cog):
             entries.append(
                 f'• {log.invoker}'
                 f' in `{log.rule}`'
-                f" at `{log.time.strftime('%H:%M')}`:"
+                f' at <t:{log.time.timestamp()}>:'
                 f' {comp[log.status.value]} {log.status.name.title()}'
             )
         await ctx.send(embed=discord.Embed(title='Last 5 sims', description='\n'.join(entries)))
