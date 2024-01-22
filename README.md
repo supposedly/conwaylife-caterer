@@ -1,5 +1,7 @@
 # Caterer
 
+This is a cursory summary, not documentation :) Join the ConwayLife Discord to be able to use `!help` and see the spec for every available command.
+
 ## Core functionality
 
 ### GIFs
@@ -22,5 +24,3 @@ Sample GIF:
 ### Pattern analysis (thanks jed)
 - Oscillator and spaceship period
 - Volatility and other stats
-
-**More info available in ConwayLife Discord**
